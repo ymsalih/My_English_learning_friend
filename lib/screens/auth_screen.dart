@@ -48,8 +48,8 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 1. Arka planı ferah, çok açık bir turkuaz/mavi tonu yaptık
-      backgroundColor: Colors.teal.shade50,
+      backgroundColor:
+          Colors.deepPurple.shade50, // Arka plana çok hafif şık bir mor ekledik
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(25.0),
@@ -64,55 +64,26 @@ class _AuthScreenState extends State<AuthScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.teal.withOpacity(
-                        0.3,
-                      ), // Gölgeler de turkuaz oldu
+                      color: Colors.deepPurple.withOpacity(0.2),
                       blurRadius: 15,
                       spreadRadius: 5,
                     ),
                   ],
                 ),
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Ana İkon: Canlı Turkuaz Kitap
-                      Icon(
-                        Icons.menu_book_rounded,
-                        size: 75,
-                        color: Colors.teal.shade600,
-                      ),
-
-                      // Küçük İkon: Parlak Turuncu Oynat Butonu (Enerji katar!)
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_circle_fill,
-                            size: 32,
-                            color: Colors.orangeAccent,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                child: const Icon(
+                  Icons.language,
+                  size: 80,
+                  color: Colors.deepPurple,
+                ), // Şimdilik ikon-logo
               ),
               const SizedBox(height: 20),
 
-              Text(
-                'İngilizce Eğitim Arkadaşım',
+              const Text(
+                'İngilizce Havuzum',
                 style: TextStyle(
-                  fontSize: 25,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Colors.teal.shade800, // Başlık daha tok bir turkuaz
+                  color: Colors.deepPurple,
                 ),
               ),
               const SizedBox(height: 10),
@@ -131,9 +102,6 @@ class _AuthScreenState extends State<AuthScreen> {
               // --- 2. GİRİŞ FORMU (CARD İÇİNDE) ---
               Card(
                 elevation: 8,
-                shadowColor: Colors.teal.withOpacity(
-                  0.4,
-                ), // Kartın gölgesi de canlandı
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -142,11 +110,10 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: Column(
                     children: [
                       Text(
-                        _isLogin ? 'Hoş Geldin! 👋' : 'Aramıza Katıl ',
-                        style: TextStyle(
+                        _isLogin ? 'Hoş Geldin! 👋' : 'Aramıza Katıl 🚀',
+                        style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: Colors.teal.shade900,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -156,18 +123,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         keyboardType: TextInputType.emailAddress,
                         decoration: InputDecoration(
                           labelText: 'E-posta',
-                          labelStyle: TextStyle(color: Colors.teal.shade700),
-                          prefixIcon: Icon(
-                            Icons.email_outlined,
-                            color: Colors.teal.shade600,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide(
-                              color: Colors.teal.shade600,
-                              width: 2,
-                            ),
-                          ),
+                          prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
@@ -180,18 +136,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         obscureText: true,
                         decoration: InputDecoration(
                           labelText: 'Şifre',
-                          labelStyle: TextStyle(color: Colors.teal.shade700),
-                          prefixIcon: Icon(
-                            Icons.lock_outline,
-                            color: Colors.teal.shade600,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            borderSide: BorderSide(
-                              color: Colors.teal.shade600,
-                              width: 2,
-                            ),
-                          ),
+                          prefixIcon: const Icon(Icons.lock_outline),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
@@ -201,25 +146,20 @@ class _AuthScreenState extends State<AuthScreen> {
 
                       // --- 3. GİRİŞ/KAYIT BUTONU ---
                       _isLoading
-                          ? const CircularProgressIndicator(color: Colors.teal)
+                          ? const CircularProgressIndicator()
                           : ElevatedButton(
                               onPressed: _submit,
                               style: ElevatedButton.styleFrom(
                                 minimumSize: const Size(double.infinity, 50),
-                                backgroundColor:
-                                    Colors.teal.shade600, // Ana buton rengi
+                                backgroundColor: Colors.deepPurple,
                                 foregroundColor: Colors.white,
-                                elevation: 4,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                               ),
                               child: Text(
                                 _isLogin ? 'Giriş Yap' : 'Kayıt Ol',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(fontSize: 18),
                               ),
                             ),
                       const SizedBox(height: 10),
@@ -235,10 +175,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           _isLogin
                               ? 'Hesabın yok mu? Yeni kayıt oluştur.'
                               : 'Zaten hesabın var mı? Giriş yap.',
-                          style: TextStyle(
-                            color: Colors.teal.shade700,
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(color: Colors.deepPurple.shade700),
                         ),
                       ),
                     ],
