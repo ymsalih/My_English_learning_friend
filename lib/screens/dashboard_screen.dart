@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'test_screen.dart';
+import 'translation_screen.dart'; // YENİ EKLENDİ: Çeviri sayfasını içeri alıyoruz
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -49,6 +50,7 @@ class DashboardScreen extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 20),
+
               // KENDİMİ TEST ET BUTONU
               ElevatedButton.icon(
                 icon: const Icon(Icons.style, size: 30),
@@ -69,6 +71,33 @@ class DashboardScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const TestScreen()),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // AKILLI ÇEVİRİ BUTONU (YENİ)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.g_translate, size: 30),
+                label: const Text(
+                  'Akıllı Çeviri',
+                  style: TextStyle(fontSize: 20),
+                ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 80),
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                onPressed: () {
+                  // Yönlendirme (Push) İşlemi: Çeviri Ekranına git
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TranslationScreen(),
+                    ),
                   );
                 },
               ),
