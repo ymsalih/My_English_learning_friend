@@ -24,8 +24,9 @@ class _TestScreenState extends State<TestScreen> {
     _fetchAndShuffleWords();
   }
 
+  // DEĞİŞEN KISIM BURASI: Aksan İngiliz (en-GB) olarak güncellendi
   Future<void> _speak(String text) async {
-    await flutterTts.setLanguage("en-US");
+    await flutterTts.setLanguage("en-GB");
     await flutterTts.setSpeechRate(0.5);
     await flutterTts.speak(text);
   }
@@ -110,7 +111,7 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
-  // Kart tasarımı ve ikon hizalaması düzeltildi
+  // Kart tasarımı ve ikon hizalaması
   Widget _buildCard(String text, Color color, {bool showSpeak = false}) {
     return Container(
       width: 320,
@@ -157,7 +158,7 @@ class _TestScreenState extends State<TestScreen> {
                     Icons.volume_up,
                     color: Colors.white,
                     size: 28,
-                  ), // İkon beyaz yapıldı
+                  ),
                   onPressed: () => _speak(text),
                   tooltip: 'Dinle',
                 ),
