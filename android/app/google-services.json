@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "689751965790",
+    "project_id": "ingilizce-destek-app",
+    "storage_bucket": "ingilizce-destek-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:689751965790:android:cd9a1b910483862845f4cf",
+        "android_client_info": {
+          "package_name": "com.example.ingilizce_destek_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-gfod3FHdQy3_fVQAWbeskxkya39WVxM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
