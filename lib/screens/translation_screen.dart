@@ -21,7 +21,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
   bool _isEnToTr =
       true; // true = İngilizce -> Türkçe, false = Türkçe -> İngilizce
 
-  // Artık sadece içine gönderilen metni İngiliz aksanıyla okuyan genel fonksiyon
   Future<void> _speak(String text) async {
     if (text.isEmpty) return;
     await flutterTts.setLanguage("en-GB");
@@ -32,10 +31,12 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _translate() async {
     if (_textController.text.trim().isEmpty) return;
 
-    setState(() {
-      _isLoading = true;
-      _translatedText = "";
-    });
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _translatedText = "";
+      });
+    }
 
     try {
       final translation = await _translator.translate(
@@ -44,17 +45,23 @@ class _TranslationScreenState extends State<TranslationScreen> {
         to: _isEnToTr ? 'tr' : 'en',
       );
 
-      setState(() {
-        _translatedText = translation.text;
-      });
+      if (mounted) {
+        setState(() {
+          _translatedText = translation.text;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _translatedText = "Çeviri yapılırken bir hata oluştu.";
-      });
+      if (mounted) {
+        setState(() {
+          _translatedText = "Çeviri yapılırken bir hata oluştu.";
+        });
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -114,11 +121,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
                     color: Colors.deepPurple,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _isEnToTr = !_isEnToTr;
-                      _translatedText = "";
-                      _textController.clear();
-                    });
+                    if (mounted) {
+                      setState(() {
+                        _isEnToTr = !_isEnToTr;
+                        _translatedText = "";
+                        _textController.clear();
+                      });
+                    }
                   },
                 ),
                 Text(
@@ -131,17 +140,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
               ],
             ),
             const SizedBox(height: 20),
-
             TextField(
               controller: _textController,
               maxLines: 3,
               decoration: InputDecoration(
                 hintText: 'Çevrilecek metni buraya yazın...',
                 border: const OutlineInputBorder(),
-                // YENİ: Eğer İngilizceden Türkçeye çeviriyorsak, ses butonu BURADA (üstte) çıkacak
                 suffixIcon: Row(
-                  mainAxisSize:
-                      MainAxisSize.min, // İkonların yan yana sığması için
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_isEnToTr)
                       IconButton(
@@ -156,7 +162,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         _textController.clear();
-                        setState(() => _translatedText = "");
+                        if (mounted) setState(() => _translatedText = "");
                       },
                     ),
                   ],
@@ -164,7 +170,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
               ),
             ),
             const SizedBox(height: 15),
-
             ElevatedButton.icon(
               onPressed: _isLoading ? null : _translate,
               icon: _isLoading
@@ -185,7 +190,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
               ),
             ),
             const SizedBox(height: 30),
-
             if (_translatedText.isNotEmpty) ...[
               Container(
                 width: double.infinity,
@@ -205,7 +209,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           'Çeviri Sonucu:',
                           style: TextStyle(fontSize: 14, color: Colors.grey),
                         ),
-                        // YENİ: Eğer Türkçeden İngilizceye çeviriyorsak, ses butonu BURADA (altta) çıkacak
                         if (!_isEnToTr)
                           IconButton(
                             icon: const Icon(
@@ -230,7 +233,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               OutlinedButton.icon(
                 onPressed: _saveToPool,
                 icon: const Icon(Icons.add_task),

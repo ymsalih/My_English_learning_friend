@@ -2,7 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'test_screen.dart';
-import 'translation_screen.dart'; // YENİ EKLENDİ: Çeviri sayfasını içeri alıyoruz
+import 'translation_screen.dart';
+import 'video_practice_screen.dart'; // YENİ EKLENDİ
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -14,7 +15,6 @@ class DashboardScreen extends StatelessWidget {
         title: const Text('İngilizce Öğreniyorum'),
         centerTitle: true,
         actions: [
-          // Çıkış yapma butonunu artık Ana Menüye koyduk
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
@@ -23,12 +23,12 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // KELİME HAVUZU BUTONU
+              // 1. KELİME HAVUZU BUTONU
               ElevatedButton.icon(
                 icon: const Icon(Icons.library_books, size: 30),
                 label: const Text(
@@ -36,13 +36,12 @@ class DashboardScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 20),
                 ),
                 style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 80), // Buton boyutu
+                  minimumSize: const Size(double.infinity, 80),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
                 ),
                 onPressed: () {
-                  // Yönlendirme (Push) İşlemi: Kelime Havuzuna git
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -51,7 +50,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // KENDİMİ TEST ET BUTONU
+              // 2. KENDİMİ TEST ET BUTONU
               ElevatedButton.icon(
                 icon: const Icon(Icons.style, size: 30),
                 label: const Text(
@@ -67,7 +66,6 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
-                  // Yönlendirme (Push) İşlemi: Test Ekranına git
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const TestScreen()),
@@ -76,7 +74,7 @@ class DashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
 
-              // AKILLI ÇEVİRİ BUTONU (YENİ)
+              // 3. AKILLI ÇEVİRİ BUTONU
               ElevatedButton.icon(
                 icon: const Icon(Icons.g_translate, size: 30),
                 label: const Text(
@@ -92,11 +90,36 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
-                  // Yönlendirme (Push) İşlemi: Çeviri Ekranına git
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const TranslationScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // 4. VİDEO PRATİK BUTONU (YENİ)
+              ElevatedButton.icon(
+                icon: const Icon(Icons.ondemand_video, size: 30),
+                label: const Text(
+                  'Video Pratik',
+                  style: TextStyle(fontSize: 20),
+                ),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 80),
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const VideoPracticeScreen(),
                     ),
                   );
                 },
