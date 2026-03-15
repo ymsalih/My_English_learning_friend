@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dashboard_screen.dart'; // Giriş sonrası yönlendirme için ekledik
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -14,6 +15,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
+  bool _isPasswordVisible = false; // YENİ: Şifre gizle/göster durumu
 
   Future<void> _submit() async {
     setState(() => _isLoading = true);
@@ -29,19 +31,38 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _passwordController.text.trim(),
         );
       }
+      // Başarılı olursa Dashboard'a yönlendir
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String message = 'Bir hata oluştu.';
-      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+      if (e.code == 'user-not-found' ||
+          e.code == 'wrong-password' ||
+          e.code == 'invalid-credential') {
         message = 'E-posta veya şifre hatalı.';
       } else if (e.code == 'email-already-in-use') {
         message = 'Bu e-posta zaten kullanımda.';
+      } else if (e.code == 'invalid-email') {
+        message = 'Geçerli bir e-posta adresi giriniz.';
+      } else if (e.code == 'weak-password') {
+        message = 'Şifreniz çok zayıf. En az 6 karakter olmalı.';
       }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text(
+              message,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
           ),
         );
       }
@@ -75,12 +96,12 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding: const EdgeInsets.all(30.0),
                 child: Column(
                   children: [
-                    // LOGO ALANI
+                    // LOGO ALANI (YENİ EĞİTİM TEMASI)
                     _buildHeroLogo(),
                     const SizedBox(height: 30),
 
                     const Text(
-                      'İngilizce Havuzum',
+                      'İngilizce Arkadaşım',
                       style: TextStyle(
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
@@ -120,7 +141,9 @@ class _AuthScreenState extends State<AuthScreen> {
                           child: Column(
                             children: [
                               Text(
-                                _isLogin ? 'Hoş Geldin! 👋' : 'Yeni Hesap 🚀',
+                                _isLogin
+                                    ? 'Hoş Geldin! 👋'
+                                    : 'Aramıza Katıl 💕',
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
@@ -128,18 +151,18 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                               ),
                               const SizedBox(height: 25),
+
+                              // E-POSTA ALANI
                               _buildTextField(
                                 controller: _emailController,
                                 label: 'E-posta',
                                 icon: Icons.alternate_email_rounded,
                               ),
                               const SizedBox(height: 15),
-                              _buildTextField(
-                                controller: _passwordController,
-                                label: 'Şifre',
-                                icon: Icons.lock_open_rounded,
-                                isPassword: true,
-                              ),
+
+                              // ŞİFRE ALANI (Göz ikonu eklendi)
+                              _buildPasswordField(),
+
                               const SizedBox(height: 30),
 
                               // ANA BUTON
@@ -153,12 +176,16 @@ class _AuthScreenState extends State<AuthScreen> {
 
                               // MOD DEĞİŞTİRİCİ
                               TextButton(
-                                onPressed: () =>
-                                    setState(() => _isLogin = !_isLogin),
+                                onPressed: () {
+                                  // Mod değiştirirken kutuları temizle
+                                  _emailController.clear();
+                                  _passwordController.clear();
+                                  setState(() => _isLogin = !_isLogin);
+                                },
                                 child: Text(
                                   _isLogin
                                       ? 'Yeni kayıt oluştur'
-                                      : 'Zaten hesabım var',
+                                      : 'Zaten hesabım var, Giriş yap',
                                   style: const TextStyle(
                                     color: Colors.deepPurple,
                                     fontWeight: FontWeight.w600,
@@ -194,9 +221,10 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  // YENİ EĞİTİM LOGOSU (Mezuniyet Kepi)
   Widget _buildHeroLogo() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(25),
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -208,7 +236,11 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ],
       ),
-      child: const Icon(Icons.bolt_rounded, size: 70, color: Colors.deepPurple),
+      child: const Icon(
+        Icons.school_rounded,
+        size: 75,
+        color: Color(0xFF1A1A2E), // Splash ile aynı şık renk
+      ),
     );
   }
 
@@ -216,14 +248,51 @@ class _AuthScreenState extends State<AuthScreen> {
     required TextEditingController controller,
     required String label,
     required IconData icon,
-    bool isPassword = false,
   }) {
     return TextField(
       controller: controller,
-      obscureText: isPassword,
+      keyboardType: TextInputType.emailAddress,
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.deepPurple.shade300),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: Colors.deepPurple.withOpacity(0.1)),
+        ),
+      ),
+    );
+  }
+
+  // YENİ: ŞİFRE ALANI İÇİN ÖZEL WIDGET (Göz ikonlu)
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passwordController,
+      obscureText: !_isPasswordVisible,
+      decoration: InputDecoration(
+        labelText: 'Şifre',
+        prefixIcon: Icon(
+          Icons.lock_outline_rounded,
+          color: Colors.deepPurple.shade300,
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _isPasswordVisible
+                ? Icons.visibility_rounded
+                : Icons.visibility_off_rounded,
+            color: Colors.grey.shade600,
+          ),
+          onPressed: () {
+            setState(() {
+              _isPasswordVisible = !_isPasswordVisible;
+            });
+          },
+        ),
         filled: true,
         fillColor: Colors.white.withOpacity(0.8),
         border: OutlineInputBorder(
