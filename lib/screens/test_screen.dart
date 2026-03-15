@@ -31,8 +31,8 @@ class _TestScreenState extends State<TestScreen> {
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.setLanguage("en-GB");
-    await flutterTts.setSpeechRate(0.5);
+    await flutterTts.setLanguage("en-US");
+    await flutterTts.setSpeechRate(0.55);
     await flutterTts.speak(text);
   }
 

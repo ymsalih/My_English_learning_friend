@@ -345,7 +345,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                                       // Sonucu dinlerken hedeflenen dilin aksanını kullanıyoruz
                                       onPressed: () => _speak(
                                         _translatedText,
-                                        _isEnToTr ? 'tr-TR' : 'en-GB',
+                                        _isEnToTr ? 'tr-TR' : 'en-US',
                                       ),
                                       tooltip: 'Sonucu Dinle',
                                     ),
