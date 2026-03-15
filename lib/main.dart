@@ -1,13 +1,13 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
-import 'screens/auth_screen.dart';
-import 'screens/dashboard_screen.dart'; // YENİ: Ana Menü sayfamızı buraya bağladık
+import 'screens/splash_screen.dart'; // YENİ: Açılış ekranımızı içeri aktardık
 
 void main() async {
+  // Flutter motorunun ve Firebase'in doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(const IngilizceDestekApp());
 }
 
@@ -17,23 +17,16 @@ class IngilizceDestekApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'İngilizce Havuzum',
-      debugShowCheckedModeBanner: false, // Sağ üstteki debug yazısını kaldırır
+      title: 'İngilizce Destek',
+      debugShowCheckedModeBanner: false, // Sağ üstteki "DEBUG" bandını gizler
       theme: ThemeData(
+        // Uygulamanın genel renk paletini ana temamız olan derin mora ayarlıyoruz
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            // KULLANICI GİRİŞ YAPTIYSA ARTIK DİREKT ANA MENÜYE GİDİYOR
-            return const DashboardScreen();
-          }
-          // GİRİŞ YAPMAMIŞSA KAYIT/GİRİŞ EKRANINA GİDİYOR
-          return const AuthScreen();
-        },
-      ),
+      // UYGULAMA ARTIK DİREKT AÇILIŞ EKRANIYLA BAŞLIYOR!
+      // (Giriş kontrolü ve sayfa yönlendirmesi SplashScreen'in içinde yapılıyor)
+      home: const SplashScreen(),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'test_screen.dart';
 import 'translation_screen.dart';
 import 'video_practice_screen.dart';
 import 'word_learning_screen.dart';
+import 'auth_screen.dart'; // Çıkış yapıldığında yönlendirme için gerekli
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -14,10 +15,21 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Firebase'den güncel kullanıcıyı alıyoruz
     final user = FirebaseAuth.instance.currentUser;
-    // İsim varsa ismi, yoksa e-postanın baş kısmını alıyoruz
-    final String rawName =
-        user?.displayName ?? user?.email?.split('@')[0] ?? "Öğrenci";
-    // İsmin baş harfini büyük yapıyoruz
+
+    // --- GÜVENLİ İSİM ALMA MANTIĞI ---
+    String rawName = user?.displayName ?? "";
+
+    // Eğer isim tamamen boşsa e-postanın @ işaretinden önceki kısmını al
+    if (rawName.trim().isEmpty) {
+      rawName = user?.email?.split('@')[0] ?? "Öğrenci";
+    }
+
+    // Eğer e-posta kısmı da boş geldiyse (çok nadir bir hata durumu)
+    if (rawName.trim().isEmpty) {
+      rawName = "Öğrenci";
+    }
+
+    // İsmin sadece baş harfini güvenle büyük yapıyoruz
     final String userName = rawName[0].toUpperCase() + rawName.substring(1);
 
     return Scaffold(
@@ -33,7 +45,16 @@ class DashboardScreen extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              // Çıkış yapınca AuthScreen'e yönlendir ve geri dönüşü engelle
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthScreen()),
+                  (route) => false,
+                );
+              }
+            },
             tooltip: 'Çıkış Yap',
           ),
         ],
@@ -61,9 +82,9 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                  Text(
+                  const Text(
                     "Merhaba 👋",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.black54,
