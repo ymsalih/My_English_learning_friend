@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'dashboard_screen.dart'; // Giriş sonrası yönlendirme için ekledik
+import 'dashboard_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -10,12 +10,46 @@ class AuthScreen extends StatefulWidget {
   State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _AuthScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLogin = true;
   bool _isLoading = false;
-  bool _isPasswordVisible = false; // YENİ: Şifre gizle/göster durumu
+  bool _isPasswordVisible = false;
+
+  late AnimationController _animationController;
+  late Animation<Offset> _floatAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // --- SÜREKLİ SÜZÜLME (FLOATING) ANİMASYONU ---
+    _animationController = AnimationController(
+      duration: const Duration(seconds: 2), // İnip çıkma hızı
+      vsync: this,
+    )..repeat(reverse: true); // Sonsuza kadar aşağı-yukarı tekrar et
+
+    _floatAnimation =
+        Tween<Offset>(
+          begin: const Offset(0, -0.05), // Hafif yukarıdan başla
+          end: const Offset(0, 0.05), // Hafif aşağı in
+        ).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeInOut, // Yumuşak bir geçiş sağla
+          ),
+        );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
 
   Future<void> _submit() async {
     setState(() => _isLoading = true);
@@ -31,7 +65,6 @@ class _AuthScreenState extends State<AuthScreen> {
           password: _passwordController.text.trim(),
         );
       }
-      // Başarılı olursa Dashboard'a yönlendir
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
@@ -96,8 +129,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding: const EdgeInsets.all(30.0),
                 child: Column(
                   children: [
-                    // LOGO ALANI (YENİ EĞİTİM TEMASI)
-                    _buildHeroLogo(),
+                    // --- ANİMASYONLU LOGO ALANI (BAYKUŞ) ---
+                    SlideTransition(
+                      position: _floatAnimation,
+                      child: _buildHeroLogo(),
+                    ),
                     const SizedBox(height: 30),
 
                     const Text(
@@ -160,7 +196,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               ),
                               const SizedBox(height: 15),
 
-                              // ŞİFRE ALANI (Göz ikonu eklendi)
+                              // ŞİFRE ALANI
                               _buildPasswordField(),
 
                               const SizedBox(height: 30),
@@ -177,7 +213,6 @@ class _AuthScreenState extends State<AuthScreen> {
                               // MOD DEĞİŞTİRİCİ
                               TextButton(
                                 onPressed: () {
-                                  // Mod değiştirirken kutuları temizle
                                   _emailController.clear();
                                   _passwordController.clear();
                                   setState(() => _isLogin = !_isLogin);
@@ -221,10 +256,11 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // YENİ EĞİTİM LOGOSU (Mezuniyet Kepi)
+  // EĞİTİM LOGOSU (Baykuş İkonu)
   Widget _buildHeroLogo() {
     return Container(
-      padding: const EdgeInsets.all(25),
+      width: 140,
+      height: 140,
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -236,10 +272,11 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         ],
       ),
-      child: const Icon(
-        Icons.school_rounded,
-        size: 75,
-        color: Color(0xFF1A1A2E), // Splash ile aynı şık renk
+      child: ClipOval(
+        child: Transform.scale(
+          scale: 1.0,
+          child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+        ),
       ),
     );
   }
@@ -269,7 +306,6 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  // YENİ: ŞİFRE ALANI İÇİN ÖZEL WIDGET (Göz ikonlu)
   Widget _buildPasswordField() {
     return TextField(
       controller: _passwordController,

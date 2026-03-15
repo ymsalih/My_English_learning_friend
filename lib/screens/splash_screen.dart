@@ -12,30 +12,41 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+// SingleTickerProviderStateMixin animasyonları yönetmemizi sağlar
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _animation;
+  late Animation<Offset> _floatAnimation;
 
   @override
   void initState() {
     super.initState();
 
-    // --- LOGO ANİMASYONU ---
-    _controller = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    );
+    // --- SÜREKLİ SÜZÜLME (FLOATING) ANİMASYONU ---
+    _controller =
+        AnimationController(
+          duration: const Duration(seconds: 2), // Yukarıdan aşağı inme süresi
+          vsync: this,
+        )..repeat(
+          reverse: true,
+        ); // repeat(reverse: true) ile sürekli aşağı yukarı hareket eder!
 
-    // Yaylanma efekti (ElasticOut) ile ikonun ekrana tatlı bir şekilde gelmesini sağlıyoruz
-    _animation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
-    _controller.forward();
+    // Baykuşun Y ekseninde (yukarı-aşağı) ne kadar hareket edeceğini belirliyoruz
+    _floatAnimation =
+        Tween<Offset>(
+          begin: const Offset(0, -0.05), // Biraz yukarıda başla
+          end: const Offset(0, 0.05), // Biraz aşağı in
+        ).animate(
+          CurvedAnimation(
+            parent: _controller,
+            curve: Curves.easeInOut, // Yumuşak bir ivmelenme sağlar
+          ),
+        );
 
-    // --- YÖNLENDİRME (3 Saniye Sonra) ---
-    Timer(const Duration(seconds: 3), () {
+    // --- YÖNLENDİRME (4 Saniye Sonra) ---
+    Timer(const Duration(seconds: 4), () {
       final user = FirebaseAuth.instance.currentUser;
 
-      // Kullanıcı zaten giriş yapmışsa direkt Dashboard'a, yapmamışsa Giriş ekranına atıyoruz
       if (user != null) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
@@ -50,7 +61,7 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose();
+    _controller.dispose(); // Animasyonu hafızadan temizle
     super.dispose();
   }
 
@@ -59,7 +70,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // --- ARKA PLAN (Aura Efekti) ---
+          // --- 1. DİNAMİK ARKA PLAN (Aura Efekti) ---
           Container(color: const Color(0xFFF8FAFF)),
           Positioned(
             top: -100,
@@ -72,64 +83,81 @@ class _SplashScreenState extends State<SplashScreen>
             child: _buildAuraCircle(Colors.blue.withOpacity(0.15), 400),
           ),
 
-          // --- ANA İÇERİK ---
+          // --- 2. ANA İÇERİK (Tam Ekran Hissiyatı) ---
           Center(
-            child: ScaleTransition(
-              scale: _animation,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Eğitim Temalı İkon (Mezuniyet Kepi)
-                  Container(
-                    padding: const EdgeInsets.all(30),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // --- CANLI BAYKUŞ ANİMASYONU ---
+                SlideTransition(
+                  position:
+                      _floatAnimation, // Hazırladığımız süzülme animasyonunu buraya bağladık
+                  child: Container(
+                    width: 180, // Baykuşu biraz daha büyüttük
+                    height: 180,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.deepPurple.withOpacity(0.2),
+                          color: Colors.deepPurple.withOpacity(0.3),
                           blurRadius: 30,
                           spreadRadius: 10,
+                          offset: const Offset(
+                            0,
+                            10,
+                          ), // Gölgeyi biraz aşağı kaydırdık
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.school_rounded, // Eğitim ikonu
-                      color: Color(0xFF1A1A2E), // Şık koyu lacivert
-                      size: 90,
+                    child: ClipOval(
+                      child: Transform.scale(
+                        scale:
+                            1.1, // Dairenin içini tam doldurması için hafif zoom
+                        child: Image.asset(
+                          'assets/logo.png',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 30),
+                ),
+                const SizedBox(height: 40),
 
-                  // Uygulama Adı
-                  const Text(
-                    "İngilizce Destek",
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF1A1A2E),
-                      letterSpacing: 1.2,
-                    ),
+                // --- UYGULAMA ADI ---
+                const Text(
+                  "İngilizce Arkadaşım",
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF1A1A2E),
+                    letterSpacing: -0.5,
                   ),
-                  const SizedBox(height: 10),
+                ),
+                const SizedBox(height: 10),
 
-                  // Alt Başlık
-                  const Text(
-                    "Öğrenmeye Hazır Mısın?",
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
-                      fontWeight: FontWeight.w500,
-                    ),
+                // --- ALT BAŞLIK ---
+                const Text(
+                  "Kelimelerin dünyasına yolculuk başlasın.",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w500,
                   ),
-                  const SizedBox(height: 40),
+                ),
+              ],
+            ),
+          ),
 
-                  // Yükleniyor Animasyonu
-                  const CircularProgressIndicator(
-                    color: Colors.deepPurple,
-                    strokeWidth: 3,
-                  ),
-                ],
+          // --- 3. YÜKLENİYOR İNDİKATÖRÜ ---
+          const Positioned(
+            bottom: 60,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Colors.deepPurple,
+                strokeWidth: 3,
               ),
             ),
           ),
