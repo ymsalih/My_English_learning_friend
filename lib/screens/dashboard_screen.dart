@@ -75,7 +75,7 @@ class DashboardScreen extends StatelessWidget {
               // 4. VİDEO PRATİK (YouTube)
               _buildMenuButton(
                 context,
-                title: 'Video Pratik',
+                title: 'İngilizce Dinleme & Pratik',
                 icon: Icons.ondemand_video,
                 color: Colors.redAccent,
                 destination: const VideoPracticeScreen(),
