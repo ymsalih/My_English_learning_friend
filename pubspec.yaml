@@ -21,6 +21,9 @@ dependencies:
   youtube_player_flutter: ^9.1.3
   http: ^1.6.0
   lottie: ^2.6.0
+  url_launcher: ^6.3.1
+  webview_flutter: ^4.10.0 # Bunu ekle
+  
 
 dev_dependencies:
   flutter_test:

@@ -6,37 +6,32 @@ import 'test_screen.dart';
 import 'translation_screen.dart';
 import 'video_practice_screen.dart';
 import 'word_learning_screen.dart';
-import 'auth_screen.dart'; // Çıkış yapıldığında yönlendirme için gerekli
+import 'auth_screen.dart';
+import 'news_screen.dart'; // YENİ: Haberler sayfasını ekledik
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Firebase'den güncel kullanıcıyı alıyoruz
     final user = FirebaseAuth.instance.currentUser;
 
     // --- GÜVENLİ İSİM ALMA MANTIĞI ---
     String rawName = user?.displayName ?? "";
-
-    // Eğer isim tamamen boşsa e-postanın @ işaretinden önceki kısmını al
     if (rawName.trim().isEmpty) {
       rawName = user?.email?.split('@')[0] ?? "Öğrenci";
     }
 
-    // Eğer e-posta kısmı da boş geldiyse (çok nadir bir hata durumu)
-    if (rawName.trim().isEmpty) {
-      rawName = "Öğrenci";
-    }
-
-    // İsmin sadece baş harfini güvenle büyük yapıyoruz
-    final String userName = rawName[0].toUpperCase() + rawName.substring(1);
+    // İsmin baş harfini büyük yap
+    final String userName = rawName.isNotEmpty
+        ? rawName[0].toUpperCase() + rawName.substring(1)
+        : "Öğrenci";
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'İngilizce Destek',
+          'İngilizce Arkadaşım', // Uygulama ismini güncelledik
           style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
         ),
         centerTitle: true,
@@ -47,7 +42,6 @@ class DashboardScreen extends StatelessWidget {
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
             onPressed: () async {
               await FirebaseAuth.instance.signOut();
-              // Çıkış yapınca AuthScreen'e yönlendir ve geri dönüşü engelle
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (context) => const AuthScreen()),
@@ -61,7 +55,7 @@ class DashboardScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // --- 1. YARATICI ARKA PLAN (SOFT GRADIENT) ---
+          // --- 1. ARKA PLAN (SOFT AURA) ---
           Container(color: const Color(0xFFF0F4F8)),
           Positioned(
             top: -50,
@@ -100,7 +94,7 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 25),
 
-                  // --- 3. ŞİMŞEK İKONLU KULLANICI PANELİ ---
+                  // --- 3. KULLANICI PANELİ ---
                   _buildUserPanel(userName),
 
                   const SizedBox(height: 30),
@@ -115,6 +109,8 @@ class DashboardScreen extends StatelessWidget {
                   const SizedBox(height: 15),
 
                   // --- 4. MODERN GRADIENT BUTONLAR ---
+
+                  // KELİME HAVUZUM
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Havuzum',
@@ -123,6 +119,8 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.blue.shade700, Colors.blue.shade400],
                     destination: const HomeScreen(),
                   ),
+
+                  // KENDİNİ TEST ET
                   _buildCreativeButton(
                     context,
                     title: 'Kendini Test Et',
@@ -134,6 +132,8 @@ class DashboardScreen extends StatelessWidget {
                     ],
                     destination: const TestScreen(),
                   ),
+
+                  // AKILLI ÇEVİRİ
                   _buildCreativeButton(
                     context,
                     title: 'Akıllı Çeviri',
@@ -142,6 +142,8 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
                     destination: const TranslationScreen(),
                   ),
+
+                  // KELİME PAKETLERİ
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Paketleri',
@@ -150,6 +152,8 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.orange.shade800, Colors.orange.shade400],
                     destination: const WordLearningScreen(),
                   ),
+
+                  // İNGİLİZCE PRATİK (VİDEO)
                   _buildCreativeButton(
                     context,
                     title: 'İngilizce Pratik',
@@ -157,6 +161,19 @@ class DashboardScreen extends StatelessWidget {
                     icon: Icons.play_circle_fill_rounded,
                     colors: [Colors.red.shade700, Colors.redAccent.shade400],
                     destination: const VideoPracticeScreen(),
+                  ),
+
+                  // YENİ: OKUMA PRATİĞİ (HABERLER)
+                  _buildCreativeButton(
+                    context,
+                    title: 'Okuma Pratiği',
+                    subtitle: 'Güncel haberlerle İngilizce',
+                    icon: Icons.menu_book_rounded,
+                    colors: [
+                      Colors.blueAccent.shade700,
+                      Colors.lightBlue.shade400,
+                    ],
+                    destination: const NewsScreen(),
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -168,7 +185,8 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Şimşek İkonlu Yeni Kullanıcı Paneli
+  // --- YARDIMCI METODLAR (SENİN TASARIMIN) ---
+
   Widget _buildUserPanel(String name) {
     return Container(
       width: double.infinity,
@@ -190,7 +208,6 @@ class DashboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Şık Şimşek İkonu
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
