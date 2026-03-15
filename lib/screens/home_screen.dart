@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'dart:ui'; // Modern efektler için gerekli
+import 'dart:ui';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -56,7 +56,6 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) {
         return BackdropFilter(
-          // Arka planı bulanıklaştıran premium efekt
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
           child: Padding(
             padding: EdgeInsets.only(
@@ -184,7 +183,6 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         flexibleSpace: ClipRRect(
-          // AppBar altına hafif blur
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
@@ -201,10 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          // --- KATMAN 1: ANA ARKA PLAN ---
           Container(color: const Color(0xFFF8FAFF)),
-
-          // --- KATMAN 2: AURA IŞIKLARI ---
           Positioned(
             top: -100,
             right: -50,
@@ -229,8 +224,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
-
-          // --- KATMAN 3: SOYUT HATLAR (MODERN DOKUNUŞ) ---
           CustomPaint(
             size: Size(
               MediaQuery.of(context).size.width,
@@ -238,8 +231,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             painter: BackgroundPainter(),
           ),
-
-          // --- KATMAN 4: İÇERİK ---
           SafeArea(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -282,53 +273,75 @@ class _HomeScreenState extends State<HomeScreen> {
                     final doc = words[index];
                     final data = doc.data() as Map<String, dynamic>;
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 15),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: Colors.white.withOpacity(0.85), // Cam efekti
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.shade900.withOpacity(0.05),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
+                    // GÜNCELLEME: Dismissible artık en dışta!
+                    return Dismissible(
+                      key: Key(doc.id),
+                      direction: DismissDirection.endToStart,
+                      onDismissed: (direction) => _deleteWord(doc.id),
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 25),
+                        margin: const EdgeInsets.only(bottom: 15),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Colors.redAccent, Colors.red],
                           ),
-                        ],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Icon(
+                          Icons.delete_sweep,
+                          color: Colors.white,
+                          size: 35,
+                        ),
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(15),
-                            leading: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                gradient: primaryGradient,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.bolt,
-                                color: Colors.white,
-                              ),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.white.withOpacity(0.85),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.shade900.withOpacity(0.05),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
                             ),
-                            title: Text(
-                              data['eng'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 19,
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.all(15),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  gradient: primaryGradient,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.bolt,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            subtitle: Text(
-                              data['tr'],
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.volume_up_rounded,
-                                color: Colors.blue,
+                              title: Text(
+                                data['eng'],
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 19,
+                                ),
                               ),
-                              onPressed: () => _speak(data['eng']),
+                              subtitle: Text(
+                                data['tr'],
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(
+                                  Icons.volume_up_rounded,
+                                  color: Colors.blue,
+                                ),
+                                onPressed: () => _speak(data['eng']),
+                              ),
                             ),
                           ),
                         ),
@@ -354,7 +367,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ARKA PLANA SOYUT ÇİZGİLER ÇİZEN ÖZEL SINIF
 class BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
