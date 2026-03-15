@@ -21,9 +21,17 @@ class _TranslationScreenState extends State<TranslationScreen> {
   bool _isEnToTr =
       true; // true = İngilizce -> Türkçe, false = Türkçe -> İngilizce
 
-  Future<void> _speak(String text) async {
+  // 🧪 AKILLI ÇEVİRİ ÖZEL TEMASI (Turkuaz Geçiş)
+  final LinearGradient primaryGradient = LinearGradient(
+    colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  // Düzeltildi: Artık dil yönüne göre doğru aksanla okuyacak!
+  Future<void> _speak(String text, String languageCode) async {
     if (text.isEmpty) return;
-    await flutterTts.setLanguage("en-GB");
+    await flutterTts.setLanguage(languageCode);
     await flutterTts.setSpeechRate(0.5);
     await flutterTts.speak(text);
   }
@@ -87,9 +95,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Kelime başarıyla havuzuna eklendi! 🎉'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text(
+              'Kelime başarıyla havuzuna eklendi! 🎉',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.teal.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
+            ),
           ),
         );
       }
@@ -99,152 +114,286 @@ class _TranslationScreenState extends State<TranslationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Akıllı Çeviri')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _isEnToTr ? 'İngilizce' : 'Türkçe',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+      appBar: AppBar(
+        title: const Text(
+          'Akıllı Çeviri',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        centerTitle: true,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        // 🧪 APPBAR İÇİN TURKUAZ GEÇİŞ
+        flexibleSpace: Container(
+          decoration: BoxDecoration(gradient: primaryGradient),
+        ),
+      ),
+      body: Container(
+        height: double.infinity,
+        decoration: BoxDecoration(
+          // 🧪 ARKA PLAN İÇİN ÇOK YUMUŞAK SU YEŞİLİ
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade50, Colors.white],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            children: [
+              // --- DİL DEĞİŞTİRME PANELİ ---
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 20,
                 ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.swap_horiz,
-                    size: 30,
-                    color: Colors.deepPurple,
-                  ),
-                  onPressed: () {
-                    if (mounted) {
-                      setState(() {
-                        _isEnToTr = !_isEnToTr;
-                        _translatedText = "";
-                        _textController.clear();
-                      });
-                    }
-                  },
-                ),
-                Text(
-                  _isEnToTr ? 'Türkçe' : 'İngilizce',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _textController,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Çevrilecek metni buraya yazın...',
-                border: const OutlineInputBorder(),
-                suffixIcon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isEnToTr)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.volume_up,
-                          color: Colors.deepPurple,
-                        ),
-                        onPressed: () => _speak(_textController.text.trim()),
-                        tooltip: 'İngilizce Dinle',
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _textController.clear();
-                        if (mounted) setState(() => _translatedText = "");
-                      },
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.teal.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
                     ),
                   ],
                 ),
-              ),
-            ),
-            const SizedBox(height: 15),
-            ElevatedButton.icon(
-              onPressed: _isLoading ? null : _translate,
-              icon: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.translate),
-              label: const Text('Çevir', style: TextStyle(fontSize: 18)),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 50),
-                backgroundColor: Colors.deepPurple,
-                foregroundColor: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 30),
-            if (_translatedText.isNotEmpty) ...[
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.deepPurple.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Çeviri Sonucu:',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
-                        if (!_isEnToTr)
-                          IconButton(
-                            icon: const Icon(
-                              Icons.volume_up,
-                              color: Colors.deepPurple,
-                              size: 28,
-                            ),
-                            onPressed: () => _speak(_translatedText),
-                            tooltip: 'İngilizce Dinle',
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 5),
                     Text(
-                      _translatedText,
-                      style: const TextStyle(
-                        fontSize: 22,
+                      _isEnToTr ? '🇬🇧 İngilizce' : '🇹🇷 Türkçe',
+                      style: TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade800,
+                      ),
+                    ),
+                    IconButton(
+                      icon: ShaderMask(
+                        shaderCallback: (bounds) =>
+                            primaryGradient.createShader(bounds),
+                        child: const Icon(
+                          Icons.swap_horizontal_circle,
+                          size: 40,
+                          color: Colors.white,
+                        ),
+                      ),
+                      onPressed: () {
+                        if (mounted) {
+                          setState(() {
+                            _isEnToTr = !_isEnToTr;
+                            _translatedText = "";
+                            _textController.clear();
+                          });
+                        }
+                      },
+                    ),
+                    Text(
+                      _isEnToTr ? '🇹🇷 Türkçe' : '🇬🇧 İngilizce',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade800,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: _saveToPool,
-                icon: const Icon(Icons.add_task),
-                label: const Text('Bu Kelimeyi Havuzuma Ekle'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  foregroundColor: Colors.green,
-                  side: const BorderSide(color: Colors.green),
+
+              // --- METİN GİRİŞ ALANI ---
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.teal.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  controller: _textController,
+                  maxLines: 4,
+                  style: const TextStyle(fontSize: 18),
+                  decoration: InputDecoration(
+                    hintText: 'Çevrilecek metni buraya yazın...',
+                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.all(20),
+                    suffixIcon: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.clear, color: Colors.grey.shade400),
+                          onPressed: () {
+                            _textController.clear();
+                            if (mounted) setState(() => _translatedText = "");
+                          },
+                        ),
+                        // Dinleme butonu sadece girilen dil için (İngilizce ise en-GB, Türkçe ise tr-TR)
+                        IconButton(
+                          icon: Icon(
+                            Icons.volume_up_rounded,
+                            color: Colors.teal.shade600,
+                          ),
+                          onPressed: () => _speak(
+                            _textController.text.trim(),
+                            _isEnToTr ? 'en-GB' : 'tr-TR',
+                          ),
+                          tooltip: 'Dinle',
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // --- ÇEVİR BUTONU ---
+              Container(
+                decoration: BoxDecoration(
+                  gradient: primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.teal.withOpacity(0.4),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _translate,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                  label: const Text(
+                    'Çevir',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 60),
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 30),
+
+              // --- ÇEVİRİ SONUCU KUTUSU (Animasyonlu) ---
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: _translatedText.isEmpty
+                    ? const SizedBox.shrink()
+                    : Column(
+                        key: ValueKey(_translatedText),
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.teal.shade200,
+                                width: 2,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '✨ Çeviri Sonucu',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.teal.shade800,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.volume_up_rounded,
+                                        color: Colors.teal.shade700,
+                                        size: 28,
+                                      ),
+                                      // Sonucu dinlerken hedeflenen dilin aksanını kullanıyoruz
+                                      onPressed: () => _speak(
+                                        _translatedText,
+                                        _isEnToTr ? 'tr-TR' : 'en-GB',
+                                      ),
+                                      tooltip: 'Sonucu Dinle',
+                                    ),
+                                  ],
+                                ),
+                                const Divider(),
+                                const SizedBox(height: 5),
+                                Text(
+                                  _translatedText,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // --- HAVUZA EKLE BUTONU ---
+                          OutlinedButton.icon(
+                            onPressed: _saveToPool,
+                            icon: const Icon(Icons.add_task),
+                            label: const Text(
+                              'Bu Kelimeyi Havuzuma Ekle',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 55),
+                              foregroundColor: Colors.teal.shade700,
+                              side: BorderSide(
+                                color: Colors.teal.shade400,
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
