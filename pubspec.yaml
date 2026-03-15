@@ -38,11 +38,13 @@ flutter:
 flutter_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/app_icon.png" # Dışarıda görünecek devasa ve sade ikon
+  image_path: "assets/logo.png" # Dışarıda görünecek devasa ve sade ikon
+  adaptive_icon_background: "#4527A0" # YENİ: Çemberi tamamen dolduracak Koyu Mor renk!
+  adaptive_icon_foreground: "assets/logo_seffaf.png" # YENİ: Morun üzerine binecek şeffaf baykuş
 
 flutter_native_splash:
-  color: "#F8FAFF" # Bizim uygulamanın Aura arka plan rengi!
-  image: "assets/logo.png"
+  color: "#F8FAFF" # Uygulamanın arka plan rengi
+  image: "assets/logo.png" # İçerideki detaylı logomuz!
   android_12:
     color: "#F8FAFF"
     image: "assets/logo.png"
