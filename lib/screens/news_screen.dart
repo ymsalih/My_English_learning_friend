@@ -42,13 +42,26 @@ class NewsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             itemCount: snapshot.data!.docs.length,
             itemBuilder: (context, index) {
-              var data = snapshot.data!.docs[index];
+              var doc = snapshot.data!.docs[index];
+
+              // 🛡️ ADIM 1: StateError çökmesini önlemek için veriyi güvenli Haritaya (Map) çevir
+              Map<String, dynamic> data =
+                  doc.data() as Map<String, dynamic>? ?? {};
+
+              // 🛡️ ADIM 2: 'color' alanı hiç yoksa kodun patlamaması için containsKey kontrolü yap
+              String safeColorHex =
+                  data.containsKey('color') && data['color'] != null
+                  ? data['color'].toString()
+                  : '';
+
               return _buildModernNewsCard(
-                context, // Context ekledik yönlendirme için
-                title: data['title'] ?? 'Başlıksız',
-                subtitle: data['subtitle'] ?? 'Açıklama yok.',
-                colorHex: data['color'] ?? '#6200EE',
-                url: data['url'] ?? '',
+                context,
+                title: data['title']?.toString() ?? 'Başlıksız',
+                subtitle: data['subtitle']?.toString() ?? 'Açıklama yok.',
+                colorHex: safeColorHex, // Güvenli renk metnini yolla
+                url: data['url']?.toString() ?? '',
+                index:
+                    index, // 🎨 Yedek renk sırasını belirlemek için index'i yolluyoruz
               );
             },
           );
@@ -63,16 +76,48 @@ class NewsScreen extends StatelessWidget {
     required String subtitle,
     required String colorHex,
     required String url,
+    required int index, // Yeni eklenen parametre
   }) {
-    Color cardColor = Color(int.parse(colorHex.replaceFirst('#', '0xff')));
+    // 🛡️ ADIM 3: ZIRHLI RENK ÇEVİRİCİ
+    Color cardColor;
+    try {
+      // Renk Firebase'den boş veya null geldiyse direkt yedek renklere atla
+      if (colorHex.trim().isEmpty) throw Exception("Renk verisi yok");
+
+      // # işaretini temizle ve Flutter'ın anlayacağı HEX formatına çevir
+      String cleanHex = colorHex.trim().replaceAll('#', '');
+      if (cleanHex.length == 6)
+        cleanHex = 'FF$cleanHex'; // Opaklık (Görünürlük) ekle
+
+      cardColor = Color(int.parse(cleanHex, radix: 16));
+    } catch (e) {
+      // 🔥 HATA DURUMUNDA ÇÖKMEK YERİNE YEDEK RENKLERİ KULLAN
+      List<Color> fallbackColors = const [
+        Color(0xFF6200EE), // Mor
+        Color(0xFF009688), // Turkuaz
+        Color(0xFFFF9800), // Turuncu
+        Color(0xFFE91E63), // Pembe
+        Color(0xFF3F51B5), // İndigo
+      ];
+      // Haber sırasına (index) göre yedek bir renk seç (hep aynı renk olmasın diye)
+      cardColor = fallbackColors[index % fallbackColors.length];
+    }
 
     return GestureDetector(
       onTap: () {
-        // ARTIK BURADA DETAY SAYFASINA GİDİYORUZ
+        // Tıklamada URL boşsa boşuna hata vermesin
+        if (url.trim().isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Bu haberin bağlantısı bulunmuyor.")),
+          );
+          return;
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => NewsDetailsScreen(url: url, title: title),
+            builder: (context) =>
+                NewsDetailsScreen(url: url.trim(), title: title),
           ),
         );
       },
@@ -95,7 +140,8 @@ class NewsScreen extends StatelessWidget {
               Container(
                 width: 8,
                 decoration: BoxDecoration(
-                  color: cardColor,
+                  color:
+                      cardColor, // 🔥 Hesaplanan güvenli (Firebase veya Yedek) rengi atadık
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     bottomLeft: Radius.circular(20),
