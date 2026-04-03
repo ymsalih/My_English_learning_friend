@@ -12,7 +12,20 @@
           "package_name": "com.example.ingilizce_destek_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "689751965790-8iejchh5elqhhvlpk8bsq9mds8uckp9v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ingilizce_destek_app",
+            "certificate_hash": "7aef2ba0fb9c2c5c90099705c76fc5a1e32de5a7"
+          }
+        },
+        {
+          "client_id": "689751965790-f7kaqk18ef2s5616pl8dd6l9p530r8b8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA-gfod3FHdQy3_fVQAWbeskxkya39WVxM"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "689751965790-f7kaqk18ef2s5616pl8dd6l9p530r8b8.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "689751965790-fa59lr0qsoko2de3iqgko0en6l0fnq3f.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.ingilizceDestekApp"
+              }
+            }
+          ]
         }
       }
     }
