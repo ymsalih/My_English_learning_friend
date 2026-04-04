@@ -1,74 +1,216 @@
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart'; // YENİ: Firestore'dan isim çekmek için eklendi
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'home_screen.dart';
 import 'test_screen.dart';
 import 'translation_screen.dart';
 import 'video_practice_screen.dart';
 import 'word_learning_screen.dart';
 import 'auth_screen.dart';
-import 'news_screen.dart'; // YENİ: Haberler sayfasını ekledik
+import 'news_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+// Sayfamızı dinamik (Stateful) hale getirdik
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  // Başlangıç değerleri (Veritabanından isim gelene kadar görünecekler)
+  String _userName = "Öğrenci";
+  String _userInitial = "Ö";
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName(); // Sayfa açıldığında ismi çek
+  }
+
+  // --- YENİ: FIRESTORE'DAN GERÇEK KULLANICI ADINI ÇEKME ---
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // 'users' koleksiyonundan bu kullanıcının belgesini al
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists && userDoc.data() != null) {
+          final data = userDoc.data() as Map<String, dynamic>;
+          if (data.containsKey('username')) {
+            String dbName = data['username'];
+            if (dbName.isNotEmpty) {
+              setState(() {
+                // İsmin ilk harfini büyük yap
+                _userName = dbName[0].toUpperCase() + dbName.substring(1);
+                _userInitial = dbName[0].toUpperCase();
+              });
+              return; // İsim başarıyla alındıysa fonksiyondan çık
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("İsim çekilirken hata oluştu: $e");
+      }
+
+      // Eğer veritabanında isim yoksa veya hata çıkarsa yedeğe (maile) dön
+      String fallbackName =
+          user.displayName ?? user.email?.split('@')[0] ?? "Öğrenci";
+      setState(() {
+        _userName = fallbackName.isNotEmpty
+            ? fallbackName[0].toUpperCase() + fallbackName.substring(1)
+            : "Öğrenci";
+        _userInitial = fallbackName.isNotEmpty
+            ? fallbackName[0].toUpperCase()
+            : "Ö";
+      });
+    }
+  }
+
+  Future<void> _sendEmail(BuildContext context) async {
+    // ⚠️ DİKKAT: Kendi mailini buraya yaz
+    const String myEmail = 'seninmailin@gmail.com';
+    const String subject = 'Uygulama Hakkında Öneri ve Şikayet';
+
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: myEmail,
+      query: 'subject=${Uri.encodeComponent(subject)}',
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        throw 'Mail uygulaması açılamadı.';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Telefonunuzda bir mail uygulaması bulunamadı."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const AuthScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
-    // --- GÜVENLİ İSİM ALMA MANTIĞI ---
-    String rawName = user?.displayName ?? "";
-    if (rawName.trim().isEmpty) {
-      rawName = user?.email?.split('@')[0] ?? "Öğrenci";
-    }
-
-    // İsmin baş harfini büyük yap
-    final String userName = rawName.isNotEmpty
-        ? rawName[0].toUpperCase() + rawName.substring(1)
-        : "Öğrenci";
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFF),
       extendBodyBehindAppBar: true,
+
       appBar: AppBar(
         title: const Text(
-          'İngilizce Arkadaşım', // Uygulama ismini güncelledik
+          'İngilizce Arkadaşım',
           style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                  (route) => false,
-                );
-              }
-            },
+            onPressed: () => _signOut(context),
             tooltip: 'Çıkış Yap',
           ),
         ],
       ),
+
+      drawer: Drawer(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white, const Color(0xFFF8FAFF).withOpacity(0.9)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Column(
+            children: [
+              // Artık state içindeki _userName ve _userInitial değerlerini kullanıyoruz
+              _buildModernDrawerHeader(_userName, _userInitial, user?.email),
+
+              const SizedBox(height: 25),
+
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  children: [
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.home_rounded,
+                      title: 'Ana Sayfa',
+                      color: Colors.blue.shade900,
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.mail_outline_rounded,
+                      title: 'Bize Ulaşın (Destek)',
+                      subtitle: 'Öneri ve şikayetlerinizi iletin',
+                      color: Colors.blueAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _sendEmail(context);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.logout_rounded,
+                      title: 'Çıkış Yap',
+                      color: Colors.redAccent,
+                      isSignOut: true,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _signOut(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(15.0),
+                child: Text(
+                  "Sürüm 1.0.1",
+                  style: TextStyle(color: Colors.black38, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
       body: Stack(
         children: [
-          // --- 1. ARKA PLAN (SOFT AURA) ---
-          Container(color: const Color(0xFFF0F4F8)),
-          Positioned(
-            top: -50,
-            right: -50,
-            child: _buildBlurCircle(Colors.blue.withOpacity(0.2), 300),
-          ),
+          _buildBlurCircle(Colors.blue.withOpacity(0.2), 300),
           Positioned(
             bottom: 100,
             left: -100,
             child: _buildBlurCircle(Colors.purple.withOpacity(0.1), 400),
           ),
 
-          // --- 2. ANA İÇERİK ---
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -94,8 +236,8 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 25),
 
-                  // --- 3. KULLANICI PANELİ ---
-                  _buildUserPanel(userName),
+                  // Panelin içine de veritabanından gelen _userName'i gönderiyoruz
+                  _buildUserPanel(_userName),
 
                   const SizedBox(height: 30),
                   const Text(
@@ -108,9 +250,6 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 15),
 
-                  // --- 4. MODERN GRADIENT BUTONLAR ---
-
-                  // KELİME HAVUZUM
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Havuzum',
@@ -120,7 +259,6 @@ class DashboardScreen extends StatelessWidget {
                     destination: const HomeScreen(),
                   ),
 
-                  // KENDİNİ TEST ET
                   _buildCreativeButton(
                     context,
                     title: 'Kendini Test Et',
@@ -133,7 +271,6 @@ class DashboardScreen extends StatelessWidget {
                     destination: const TestScreen(),
                   ),
 
-                  // AKILLI ÇEVİRİ
                   _buildCreativeButton(
                     context,
                     title: 'Akıllı Çeviri',
@@ -143,7 +280,6 @@ class DashboardScreen extends StatelessWidget {
                     destination: const TranslationScreen(),
                   ),
 
-                  // KELİME PAKETLERİ
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Paketleri',
@@ -153,7 +289,6 @@ class DashboardScreen extends StatelessWidget {
                     destination: const WordLearningScreen(),
                   ),
 
-                  // İNGİLİZCE PRATİK (VİDEO)
                   _buildCreativeButton(
                     context,
                     title: 'İngilizce Pratik',
@@ -163,7 +298,6 @@ class DashboardScreen extends StatelessWidget {
                     destination: const VideoPracticeScreen(),
                   ),
 
-                  // YENİ: OKUMA PRATİĞİ (HABERLER)
                   _buildCreativeButton(
                     context,
                     title: 'Okuma Pratiği',
@@ -185,7 +319,139 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // --- YARDIMCI METODLAR (SENİN TASARIMIN) ---
+  // --- YARDIMCI METODLAR ---
+
+  Widget _buildModernDrawerHeader(
+    String userName,
+    String initial,
+    String? email,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 25, right: 20, bottom: 35, top: 65),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade900, Colors.blue.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(40)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade900.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email ?? "Kullanıcı",
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color color,
+    bool isSignOut = false,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isSignOut ? Colors.redAccent.withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: isSignOut
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isSignOut ? Colors.redAccent.shade700 : Colors.black87,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              )
+            : null,
+        trailing: isSignOut
+            ? null
+            : Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.4)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
 
   Widget _buildUserPanel(String name) {
     return Container(
