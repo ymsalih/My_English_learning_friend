@@ -1,5 +1,5 @@
 import 'dart:ui';
-import 'package:cloud_firestore/cloud_firestore.dart'; // YENİ: Firestore'dan isim çekmek için eklendi
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,8 +10,8 @@ import 'video_practice_screen.dart';
 import 'word_learning_screen.dart';
 import 'auth_screen.dart';
 import 'news_screen.dart';
+import 'learned_words_screen.dart';
 
-// Sayfamızı dinamik (Stateful) hale getirdik
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -20,22 +20,19 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Başlangıç değerleri (Veritabanından isim gelene kadar görünecekler)
   String _userName = "Öğrenci";
   String _userInitial = "Ö";
 
   @override
   void initState() {
     super.initState();
-    _fetchUserName(); // Sayfa açıldığında ismi çek
+    _fetchUserName();
   }
 
-  // --- YENİ: FIRESTORE'DAN GERÇEK KULLANICI ADINI ÇEKME ---
   Future<void> _fetchUserName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        // 'users' koleksiyonundan bu kullanıcının belgesini al
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
@@ -47,11 +44,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             String dbName = data['username'];
             if (dbName.isNotEmpty) {
               setState(() {
-                // İsmin ilk harfini büyük yap
                 _userName = dbName[0].toUpperCase() + dbName.substring(1);
                 _userInitial = dbName[0].toUpperCase();
               });
-              return; // İsim başarıyla alındıysa fonksiyondan çık
+              return;
             }
           }
         }
@@ -59,7 +55,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         debugPrint("İsim çekilirken hata oluştu: $e");
       }
 
-      // Eğer veritabanında isim yoksa veya hata çıkarsa yedeğe (maile) dön
       String fallbackName =
           user.displayName ?? user.email?.split('@')[0] ?? "Öğrenci";
       setState(() {
@@ -74,7 +69,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _sendEmail(BuildContext context) async {
-    // ⚠️ DİKKAT: Kendi mailini buraya yaz
     const String myEmail = 'seninmailin@gmail.com';
     const String subject = 'Uygulama Hakkında Öneri ve Şikayet';
 
@@ -148,7 +142,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: Column(
             children: [
-              // Artık state içindeki _userName ve _userInitial değerlerini kullanıyoruz
               _buildModernDrawerHeader(_userName, _userInitial, user?.email),
 
               const SizedBox(height: 25),
@@ -236,16 +229,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   const SizedBox(height: 25),
 
-                  // Panelin içine de veritabanından gelen _userName'i gönderiyoruz
                   _buildUserPanel(_userName),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 35),
+
+                  // --- 1. KATEGORİ: TEMEL ÖĞRENİM ---
                   const Text(
-                    "Eğitim Menüsü",
+                    "Temel Öğrenim",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black45,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 15),
@@ -270,6 +265,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                     destination: const TestScreen(),
                   ),
+
+                  _buildCreativeButton(
+                    context,
+                    title: 'Öğrendiklerim (Arşiv)',
+                    subtitle: 'Ustalaştığın kelimeleri yönet',
+                    icon: Icons.workspace_premium_rounded,
+                    colors: [Colors.pink.shade600, Colors.pinkAccent.shade400],
+                    destination: const LearnedWordsScreen(),
+                  ),
+
+                  const SizedBox(height: 25), // KATEGORİLER ARASI NEFES PAYI
+                  // --- 2. KATEGORİ: ARAÇLAR & PRATİK ---
+                  const Text(
+                    "Araçlar & Ekstra Pratik",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black45,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
 
                   _buildCreativeButton(
                     context,
@@ -298,15 +315,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     destination: const VideoPracticeScreen(),
                   ),
 
+                  // İNDİGO RENGİNE ÇEVRİLEN OKUMA PRATİĞİ BUTONU
                   _buildCreativeButton(
                     context,
                     title: 'Okuma Pratiği',
                     subtitle: 'Güncel haberlerle İngilizce',
                     icon: Icons.menu_book_rounded,
-                    colors: [
-                      Colors.blueAccent.shade700,
-                      Colors.lightBlue.shade400,
-                    ],
+                    colors: [Colors.indigo.shade700, Colors.indigo.shade400],
                     destination: const NewsScreen(),
                   ),
                   const SizedBox(height: 40),
@@ -568,7 +583,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: Colors.white.withOpacity(
+                  0.15,
+                ), // İç ikon arka planını biraz yumuşattık
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, color: Colors.white, size: 28),
