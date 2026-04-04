@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 import 'dart:ui';
 
 class HomeScreen extends StatefulWidget {
@@ -15,8 +16,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final User? user = FirebaseAuth.instance.currentUser;
   final FlutterTts _flutterTts = FlutterTts();
 
+  // 🔮 ANA TEMA GRADYANI (Ana sayfadaki Mavi butona tam uyumlu)
   final LinearGradient primaryGradient = LinearGradient(
-    colors: [Colors.blue.shade900, Colors.blue.shade400],
+    colors: [Colors.blue.shade700, Colors.blue.shade400],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -44,6 +46,25 @@ class _HomeScreenState extends State<HomeScreen> {
         .collection('words')
         .doc(docId)
         .delete();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.delete_sweep_rounded, color: Colors.white),
+              SizedBox(width: 10),
+              Text("Kelime havuzdan silindi."),
+            ],
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+        ),
+      );
+    }
   }
 
   void _showAddWordBottomSheet() {
@@ -125,6 +146,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     decoration: BoxDecoration(
                       gradient: primaryGradient,
                       borderRadius: BorderRadius.circular(15),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
                     ),
                     child: ElevatedButton(
                       onPressed: () async {
@@ -182,12 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.white),
         flexibleSpace: ClipRRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
             child: Container(
               decoration: BoxDecoration(
-                gradient: primaryGradient.withOpacity(0.8),
+                gradient: primaryGradient.withOpacity(0.85),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
@@ -233,6 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SafeArea(
             child: StreamBuilder<QuerySnapshot>(
+              // GÜNCELLEME: Tüm kelimeleri tarihe göre eskisi gibi çekiyoruz.
               stream: FirebaseFirestore.instance
                   .collection('users')
                   .doc(user?.uid)
@@ -241,10 +271,21 @@ class _HomeScreenState extends State<HomeScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: Colors.blue.shade700,
+                    ),
+                  );
                 }
 
-                final words = snapshot.data?.docs ?? [];
+                final allDocs = snapshot.data?.docs ?? [];
+
+                // GÜNCELLEME: Öğrenilmiş olanları (isLearned == true) Dart tarafında gizliyoruz.
+                // Bu sayede eski kelimeler (etiketi olmayanlar) kaybolmuyor!
+                final words = allDocs.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['isLearned'] != true;
+                }).toList();
 
                 if (words.isEmpty) {
                   return Center(
@@ -252,14 +293,24 @@ class _HomeScreenState extends State<HomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.auto_awesome,
+                          Icons.auto_awesome_motion_rounded,
                           size: 80,
                           color: Colors.blue.shade200,
                         ),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Havuzun Boş!',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         const Text(
-                          'Henüz kelime yok...',
-                          style: TextStyle(fontSize: 18, color: Colors.grey),
+                          'Hemen yeni kelimeler ekleyerek\nöğrenmeye başla.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -267,82 +318,113 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
+                  padding: const EdgeInsets.fromLTRB(20, 15, 20, 100),
                   itemCount: words.length,
                   itemBuilder: (context, index) {
                     final doc = words[index];
                     final data = doc.data() as Map<String, dynamic>;
 
-                    // GÜNCELLEME: Dismissible artık en dışta!
-                    return Dismissible(
-                      key: Key(doc.id),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (direction) => _deleteWord(doc.id),
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 25),
-                        margin: const EdgeInsets.only(bottom: 15),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Colors.redAccent, Colors.red],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.delete_sweep,
-                          color: Colors.white,
-                          size: 35,
-                        ),
-                      ),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          color: Colors.white.withOpacity(0.85),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.blue.shade900.withOpacity(0.05),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Slidable(
+                        key: ValueKey(doc.id),
+                        endActionPane: ActionPane(
+                          motion: const DrawerMotion(),
+                          extentRatio: 0.3,
+                          children: [
+                            SlidableAction(
+                              onPressed: (context) => _deleteWord(doc.id),
+                              backgroundColor: const Color(0xFFFF1744),
+                              foregroundColor: Colors.white,
+                              icon: Icons.delete_outline_rounded,
+                              label: 'Sil',
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(20),
+                                bottomRight: Radius.circular(20),
+                              ),
                             ),
                           ],
                         ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(20),
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(15),
-                              leading: Container(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 15,
+                            vertical: 15,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.blue.withOpacity(0.08),
+                                blurRadius: 15,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
                                 padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  gradient: primaryGradient,
+                                  color: Colors.blue.withOpacity(0.15),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(
-                                  Icons.bolt,
-                                  color: Colors.white,
+                                child: Icon(
+                                  Icons.auto_awesome_motion_rounded,
+                                  color: Colors.blue.shade600,
+                                  size: 22,
                                 ),
                               ),
-                              title: Text(
-                                data['eng'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 19,
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        data['eng'],
+                                        style: const TextStyle(
+                                          fontSize: 17,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2C3E50),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      height: 25,
+                                      width: 2,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(5),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        data['tr'],
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.blue.shade600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              subtitle: Text(
-                                data['tr'],
-                                style: const TextStyle(fontSize: 16),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(
+                              IconButton(
+                                icon: Icon(
                                   Icons.volume_up_rounded,
-                                  color: Colors.blue,
+                                  color: Colors.blue.shade400,
+                                  size: 26,
                                 ),
                                 onPressed: () => _speak(data['eng']),
+                                tooltip: "Dinle",
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
                               ),
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -358,10 +440,11 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: _showAddWordBottomSheet,
         label: const Text(
           'Yeni Kelime',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
         ),
-        icon: const Icon(Icons.add_rounded),
-        backgroundColor: Colors.blue.shade800,
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        backgroundColor: Colors.blue.shade700,
+        elevation: 8,
       ),
     );
   }
@@ -371,7 +454,7 @@ class BackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.05)
+      ..color = Colors.blue.shade500.withOpacity(0.05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
 
