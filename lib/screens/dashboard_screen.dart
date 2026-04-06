@@ -11,6 +11,7 @@ import 'word_learning_screen.dart';
 import 'auth_screen.dart';
 import 'news_screen.dart';
 import 'learned_words_screen.dart';
+import 'progress_report_screen.dart'; // 🚀 YENİ İSTATİSTİK SAYFAMIZ EKLENDİ
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,13 +24,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _userName = "Öğrenci";
   String _userInitial = "Ö";
 
+  // --- 📊 FİREBASE'DEN GELECEK İSTATİSTİK DEĞİŞKENLERİ ---
+  int _totalTests = 0;
+  int _totalCorrect = 0;
+  int _totalWrong = 0;
+
   @override
   void initState() {
     super.initState();
-    _fetchUserName();
+    _fetchUserData(); // Hem ismi hem istatistikleri çekeceğiz
   }
 
-  Future<void> _fetchUserName() async {
+  // --- 🔄 İSİM VE İSTATİSTİKLERİ FİREBASE'DEN ÇEKME (%100 GÜVENLİ) ---
+  Future<void> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
@@ -40,21 +47,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         if (userDoc.exists && userDoc.data() != null) {
           final data = userDoc.data() as Map<String, dynamic>;
-          if (data.containsKey('username')) {
-            String dbName = data['username'];
-            if (dbName.isNotEmpty) {
-              setState(() {
+
+          setState(() {
+            // 1. İsim Çekme
+            if (data['username'] != null) {
+              String dbName = data['username'].toString();
+              if (dbName.isNotEmpty) {
                 _userName = dbName[0].toUpperCase() + dbName.substring(1);
                 _userInitial = dbName[0].toUpperCase();
-              });
-              return;
+              }
             }
-          }
+
+            // 2. İstatistik Çekme (Ana sayfadaki ateşli % yazısı için)
+            if (data['stats'] != null) {
+              // Firebase'in gönderdiği map'i güvenli bir şekilde dönüştürüyoruz
+              Map<String, dynamic> stats = Map<String, dynamic>.from(
+                data['stats'],
+              );
+
+              _totalTests = (stats['totalTests'] ?? 0).toInt();
+              _totalCorrect = (stats['totalCorrect'] ?? 0).toInt();
+              _totalWrong = (stats['totalWrong'] ?? 0).toInt();
+            }
+          });
+          return; // Hata yoksa fonksiyondan çık
         }
       } catch (e) {
-        debugPrint("İsim çekilirken hata oluştu: $e");
+        debugPrint("Veri çekilirken hata oluştu: $e");
       }
 
+      // Hata olursa veya veri yoksa yedek (fallback) isim göster
       String fallbackName =
           user.displayName ?? user.email?.split('@')[0] ?? "Öğrenci";
       setState(() {
@@ -157,6 +179,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: Colors.blue.shade900,
                       onTap: () => Navigator.pop(context),
                     ),
+
+                    // --- 🚀 GÜNCELLENEN: GELİŞİM RAPORU BUTONU ---
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.trending_up_rounded,
+                      title: 'Gelişim Raporum',
+                      subtitle: 'Detaylı analiz ve geçmiş',
+                      color: Colors.purple.shade600,
+                      onTap: () {
+                        Navigator.pop(context); // Menüyü kapat
+                        // Yeni Sayfaya Yönlendir
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ProgressReportScreen(),
+                          ),
+                        ).then((_) {
+                          // Sayfadan döndüğünde ana sayfadaki verileri tazele
+                          _fetchUserData();
+                        });
+                      },
+                    ),
+
                     _buildDrawerItem(
                       context,
                       icon: Icons.mail_outline_rounded,
@@ -275,7 +320,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     destination: const LearnedWordsScreen(),
                   ),
 
-                  const SizedBox(height: 25), // KATEGORİLER ARASI NEFES PAYI
+                  const SizedBox(height: 25),
                   // --- 2. KATEGORİ: ARAÇLAR & PRATİK ---
                   const Text(
                     "Araçlar & Ekstra Pratik",
@@ -315,7 +360,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     destination: const VideoPracticeScreen(),
                   ),
 
-                  // İNDİGO RENGİNE ÇEVRİLEN OKUMA PRATİĞİ BUTONU
                   _buildCreativeButton(
                     context,
                     title: 'Okuma Pratiği',
@@ -469,6 +513,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildUserPanel(String name) {
+    // Toplam başarıyı hesapla
+    int totalAnswered = _totalCorrect + _totalWrong;
+    double successRate = totalAnswered > 0
+        ? (_totalCorrect / totalAnswered) * 100
+        : 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -516,10 +566,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(height: 5),
-                const Text(
-                  "Hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!",
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
+
+                // --- İSTATİSTİK BİLGİSİ ---
+                totalAnswered > 0
+                    ? Row(
+                        children: [
+                          const Icon(
+                            Icons.local_fire_department_rounded,
+                            color: Colors.orangeAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            "Genel Başarı: %${successRate.toStringAsFixed(0)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        "Hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
               ],
             ),
           ),
@@ -566,10 +637,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => destination),
-        ),
+        onPressed: () =>
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => destination),
+            ).then((_) {
+              // Sayfadan geri dönüldüğünde istatistikleri güncellemek için verileri tekrar çek
+              _fetchUserData();
+            }),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
