@@ -80,6 +80,55 @@ class _TestScreenState extends State<TestScreen> {
     }
   }
 
+  // --- 🚀 GÜNCELLENDİ: ÇİFTE KAYIT SERVİSİ (ÖĞRENİLENLER DAHİL) ---
+  Future<void> _saveTestResultsToFirebase(
+    int correctCount,
+    int wrongCount,
+    int masteredCount, // Yeni parametre
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final userRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid);
+
+    try {
+      // 1. ADIM: Dashboard için Genel İstatistikleri Güncelle
+      await userRef.set({
+        'stats': {
+          'totalTests': FieldValue.increment(1),
+          'totalCorrect': FieldValue.increment(correctCount),
+          'totalWrong': FieldValue.increment(wrongCount),
+          'totalMastered': FieldValue.increment(
+            masteredCount,
+          ), // Genel toplama eklendi
+        },
+      }, SetOptions(merge: true));
+
+      // 2. ADIM: Test Geçmişi Listesi İçin Ayrı Kaydet
+      int totalQuestions = correctCount + wrongCount;
+      double successRate = totalQuestions > 0
+          ? (correctCount / totalQuestions) * 100
+          : 0;
+
+      await userRef.collection('test_history').add({
+        'timestamp': FieldValue.serverTimestamp(),
+        'correct': correctCount,
+        'wrong': wrongCount,
+        'mastered': masteredCount, // Bu testte öğrenilen sayısı
+        'total': totalQuestions,
+        'successRate': successRate,
+      });
+
+      debugPrint(
+        "Öğrenilen kelimelerle birlikte tüm veriler Firebase'e yazıldı!",
+      );
+    } catch (e) {
+      debugPrint("İstatistikler kaydedilirken hata oluştu: $e");
+    }
+  }
+
   Future<void> _handleWordResult(String action) async {
     if (_words.isEmpty || _isProcessing) return;
 
@@ -124,6 +173,14 @@ class _TestScreenState extends State<TestScreen> {
       // Eğer kelime kalmadıysa testi bitir
       if (_words.isEmpty) {
         _testCompleted = true;
+
+        // --- 🚀 GÜNCELLENDİ: MASTERED COUNT GÖNDERİLİYOR ---
+        int correctAnswers = _masteredCount + _rememberedCount;
+        _saveTestResultsToFirebase(
+          correctAnswers,
+          _forgotCount,
+          _masteredCount,
+        );
       }
     });
   }
@@ -292,7 +349,6 @@ class _TestScreenState extends State<TestScreen> {
 
   // --- 🏆 SINAV SONUÇ VE ANALİZ EKRANI ---
   Widget _buildResultsScreen() {
-    // Senin formülün: Doğru bilinenler (Ustalaşılan + Hatırlanan) / Toplam * 100
     int correctAnswers = _masteredCount + _rememberedCount;
     double successRate = _totalWordsInSession > 0
         ? (correctAnswers / _totalWordsInSession) * 100
