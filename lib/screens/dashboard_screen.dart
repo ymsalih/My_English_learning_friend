@@ -1,59 +1,254 @@
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'home_screen.dart';
 import 'test_screen.dart';
 import 'translation_screen.dart';
 import 'video_practice_screen.dart';
 import 'word_learning_screen.dart';
+import 'auth_screen.dart';
+import 'news_screen.dart';
+import 'learned_words_screen.dart';
+import 'progress_report_screen.dart'; // 🚀 YENİ İSTATİSTİK SAYFAMIZ EKLENDİ
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Firebase'den güncel kullanıcıyı alıyoruz
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  String _userName = "Öğrenci";
+  String _userInitial = "Ö";
+
+  // --- 📊 FİREBASE'DEN GELECEK İSTATİSTİK DEĞİŞKENLERİ ---
+  int _totalTests = 0;
+  int _totalCorrect = 0;
+  int _totalWrong = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData(); // Hem ismi hem istatistikleri çekeceğiz
+  }
+
+  // --- 🔄 İSİM VE İSTATİSTİKLERİ FİREBASE'DEN ÇEKME (%100 GÜVENLİ) ---
+  Future<void> _fetchUserData() async {
     final user = FirebaseAuth.instance.currentUser;
-    // İsim varsa ismi, yoksa e-postanın baş kısmını alıyoruz
-    final String rawName =
-        user?.displayName ?? user?.email?.split('@')[0] ?? "Öğrenci";
-    // İsmin baş harfini büyük yapıyoruz
-    final String userName = rawName[0].toUpperCase() + rawName.substring(1);
+    if (user != null) {
+      try {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists && userDoc.data() != null) {
+          final data = userDoc.data() as Map<String, dynamic>;
+
+          setState(() {
+            // 1. İsim Çekme
+            if (data['username'] != null) {
+              String dbName = data['username'].toString();
+              if (dbName.isNotEmpty) {
+                _userName = dbName[0].toUpperCase() + dbName.substring(1);
+                _userInitial = dbName[0].toUpperCase();
+              }
+            }
+
+            // 2. İstatistik Çekme (Ana sayfadaki ateşli % yazısı için)
+            if (data['stats'] != null) {
+              // Firebase'in gönderdiği map'i güvenli bir şekilde dönüştürüyoruz
+              Map<String, dynamic> stats = Map<String, dynamic>.from(
+                data['stats'],
+              );
+
+              _totalTests = (stats['totalTests'] ?? 0).toInt();
+              _totalCorrect = (stats['totalCorrect'] ?? 0).toInt();
+              _totalWrong = (stats['totalWrong'] ?? 0).toInt();
+            }
+          });
+          return; // Hata yoksa fonksiyondan çık
+        }
+      } catch (e) {
+        debugPrint("Veri çekilirken hata oluştu: $e");
+      }
+
+      // Hata olursa veya veri yoksa yedek (fallback) isim göster
+      String fallbackName =
+          user.displayName ?? user.email?.split('@')[0] ?? "Öğrenci";
+      setState(() {
+        _userName = fallbackName.isNotEmpty
+            ? fallbackName[0].toUpperCase() + fallbackName.substring(1)
+            : "Öğrenci";
+        _userInitial = fallbackName.isNotEmpty
+            ? fallbackName[0].toUpperCase()
+            : "Ö";
+      });
+    }
+  }
+
+  Future<void> _sendEmail(BuildContext context) async {
+    const String myEmail = 'seninmailin@gmail.com';
+    const String subject = 'Uygulama Hakkında Öneri ve Şikayet';
+
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: myEmail,
+      query: 'subject=${Uri.encodeComponent(subject)}',
+    );
+
+    try {
+      if (await canLaunchUrl(emailLaunchUri)) {
+        await launchUrl(emailLaunchUri);
+      } else {
+        throw 'Mail uygulaması açılamadı.';
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Telefonunuzda bir mail uygulaması bulunamadı."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const AuthScreen()),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFF),
       extendBodyBehindAppBar: true,
+
       appBar: AppBar(
         title: const Text(
-          'İngilizce Destek',
+          'İngilizce Arkadaşım',
           style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black87),
         ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: () => _signOut(context),
             tooltip: 'Çıkış Yap',
           ),
         ],
       ),
+
+      drawer: Drawer(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Colors.white, const Color(0xFFF8FAFF).withOpacity(0.9)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Column(
+            children: [
+              _buildModernDrawerHeader(_userName, _userInitial, user?.email),
+
+              const SizedBox(height: 25),
+
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 15),
+                  children: [
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.home_rounded,
+                      title: 'Ana Sayfa',
+                      color: Colors.blue.shade900,
+                      onTap: () => Navigator.pop(context),
+                    ),
+
+                    // --- 🚀 GÜNCELLENEN: GELİŞİM RAPORU BUTONU ---
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.trending_up_rounded,
+                      title: 'Gelişim Raporum',
+                      subtitle: 'Detaylı analiz ve geçmiş',
+                      color: Colors.purple.shade600,
+                      onTap: () {
+                        Navigator.pop(context); // Menüyü kapat
+                        // Yeni Sayfaya Yönlendir
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ProgressReportScreen(),
+                          ),
+                        ).then((_) {
+                          // Sayfadan döndüğünde ana sayfadaki verileri tazele
+                          _fetchUserData();
+                        });
+                      },
+                    ),
+
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.mail_outline_rounded,
+                      title: 'Bize Ulaşın (Destek)',
+                      subtitle: 'Öneri ve şikayetlerinizi iletin',
+                      color: Colors.blueAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _sendEmail(context);
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDrawerItem(
+                      context,
+                      icon: Icons.logout_rounded,
+                      title: 'Çıkış Yap',
+                      color: Colors.redAccent,
+                      isSignOut: true,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _signOut(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.all(15.0),
+                child: Text(
+                  "Sürüm 1.0.1",
+                  style: TextStyle(color: Colors.black38, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+
       body: Stack(
         children: [
-          // --- 1. YARATICI ARKA PLAN (SOFT GRADIENT) ---
-          Container(color: const Color(0xFFF0F4F8)),
-          Positioned(
-            top: -50,
-            right: -50,
-            child: _buildBlurCircle(Colors.blue.withOpacity(0.2), 300),
-          ),
+          _buildBlurCircle(Colors.blue.withOpacity(0.2), 300),
           Positioned(
             bottom: 100,
             left: -100,
             child: _buildBlurCircle(Colors.purple.withOpacity(0.1), 400),
           ),
 
-          // --- 2. ANA İÇERİK ---
           SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -61,9 +256,9 @@ class DashboardScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 10),
-                  Text(
+                  const Text(
                     "Merhaba 👋",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: Colors.black54,
@@ -79,21 +274,22 @@ class DashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 25),
 
-                  // --- 3. ŞİMŞEK İKONLU KULLANICI PANELİ ---
-                  _buildUserPanel(userName),
+                  _buildUserPanel(_userName),
 
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 35),
+
+                  // --- 1. KATEGORİ: TEMEL ÖĞRENİM ---
                   const Text(
-                    "Eğitim Menüsü",
+                    "Temel Öğrenim",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: Colors.black45,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   const SizedBox(height: 15),
 
-                  // --- 4. MODERN GRADIENT BUTONLAR ---
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Havuzum',
@@ -102,6 +298,7 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.blue.shade700, Colors.blue.shade400],
                     destination: const HomeScreen(),
                   ),
+
                   _buildCreativeButton(
                     context,
                     title: 'Kendini Test Et',
@@ -113,6 +310,29 @@ class DashboardScreen extends StatelessWidget {
                     ],
                     destination: const TestScreen(),
                   ),
+
+                  _buildCreativeButton(
+                    context,
+                    title: 'Öğrendiklerim (Arşiv)',
+                    subtitle: 'Ustalaştığın kelimeleri yönet',
+                    icon: Icons.workspace_premium_rounded,
+                    colors: [Colors.pink.shade600, Colors.pinkAccent.shade400],
+                    destination: const LearnedWordsScreen(),
+                  ),
+
+                  const SizedBox(height: 25),
+                  // --- 2. KATEGORİ: ARAÇLAR & PRATİK ---
+                  const Text(
+                    "Araçlar & Ekstra Pratik",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black45,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+
                   _buildCreativeButton(
                     context,
                     title: 'Akıllı Çeviri',
@@ -121,6 +341,7 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
                     destination: const TranslationScreen(),
                   ),
+
                   _buildCreativeButton(
                     context,
                     title: 'Kelime Paketleri',
@@ -129,6 +350,7 @@ class DashboardScreen extends StatelessWidget {
                     colors: [Colors.orange.shade800, Colors.orange.shade400],
                     destination: const WordLearningScreen(),
                   ),
+
                   _buildCreativeButton(
                     context,
                     title: 'İngilizce Pratik',
@@ -136,6 +358,15 @@ class DashboardScreen extends StatelessWidget {
                     icon: Icons.play_circle_fill_rounded,
                     colors: [Colors.red.shade700, Colors.redAccent.shade400],
                     destination: const VideoPracticeScreen(),
+                  ),
+
+                  _buildCreativeButton(
+                    context,
+                    title: 'Okuma Pratiği',
+                    subtitle: 'Güncel haberlerle İngilizce',
+                    icon: Icons.menu_book_rounded,
+                    colors: [Colors.indigo.shade700, Colors.indigo.shade400],
+                    destination: const NewsScreen(),
                   ),
                   const SizedBox(height: 40),
                 ],
@@ -147,8 +378,147 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // Şimşek İkonlu Yeni Kullanıcı Paneli
+  // --- YARDIMCI METODLAR ---
+
+  Widget _buildModernDrawerHeader(
+    String userName,
+    String initial,
+    String? email,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(left: 25, right: 20, bottom: 35, top: 65),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade900, Colors.blue.shade600],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(40)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.shade900.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                initial,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade900,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  userName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email ?? "Kullanıcı",
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    required Color color,
+    bool isSignOut = false,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: isSignOut ? Colors.redAccent.withOpacity(0.08) : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: isSignOut
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+      ),
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isSignOut ? Colors.redAccent.shade700 : Colors.black87,
+          ),
+        ),
+        subtitle: subtitle != null
+            ? Text(
+                subtitle,
+                style: const TextStyle(color: Colors.black54, fontSize: 12),
+              )
+            : null,
+        trailing: isSignOut
+            ? null
+            : Icon(Icons.chevron_right_rounded, color: color.withOpacity(0.4)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    );
+  }
+
   Widget _buildUserPanel(String name) {
+    // Toplam başarıyı hesapla
+    int totalAnswered = _totalCorrect + _totalWrong;
+    double successRate = totalAnswered > 0
+        ? (_totalCorrect / totalAnswered) * 100
+        : 0;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(25),
@@ -169,7 +539,6 @@ class DashboardScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Şık Şimşek İkonu
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -197,10 +566,31 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 5),
-                const Text(
-                  "Hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!",
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
+
+                // --- İSTATİSTİK BİLGİSİ ---
+                totalAnswered > 0
+                    ? Row(
+                        children: [
+                          const Icon(
+                            Icons.local_fire_department_rounded,
+                            color: Colors.orangeAccent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            "Genel Başarı: %${successRate.toStringAsFixed(0)}",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Text(
+                        "Hedeflerine ulaşmak için harika bir gün. Hadi başlayalım!",
+                        style: TextStyle(color: Colors.white70, fontSize: 13),
+                      ),
               ],
             ),
           ),
@@ -247,10 +637,14 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
       child: ElevatedButton(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => destination),
-        ),
+        onPressed: () =>
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => destination),
+            ).then((_) {
+              // Sayfadan geri dönüldüğünde istatistikleri güncellemek için verileri tekrar çek
+              _fetchUserData();
+            }),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
@@ -264,7 +658,9 @@ class DashboardScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: Colors.white.withOpacity(
+                  0.15,
+                ), // İç ikon arka planını biraz yumuşattık
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(icon, color: Colors.white, size: 28),

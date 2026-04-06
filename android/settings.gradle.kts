@@ -24,6 +24,7 @@ plugins {
     id("com.google.gms.google-services") version("4.3.15") apply false
     // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("com.google.firebase.crashlytics") version "2.9.9" apply false
 }
 
 include(":app")

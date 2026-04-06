@@ -63,6 +63,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '689751965790',
     projectId: 'ingilizce-destek-app',
     storageBucket: 'ingilizce-destek-app.firebasestorage.app',
+    androidClientId: '689751965790-8iejchh5elqhhvlpk8bsq9mds8uckp9v.apps.googleusercontent.com',
+    iosClientId: '689751965790-fa59lr0qsoko2de3iqgko0en6l0fnq3f.apps.googleusercontent.com',
     iosBundleId: 'com.example.ingilizceDestekApp',
   );
 
@@ -72,6 +74,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '689751965790',
     projectId: 'ingilizce-destek-app',
     storageBucket: 'ingilizce-destek-app.firebasestorage.app',
+    androidClientId: '689751965790-8iejchh5elqhhvlpk8bsq9mds8uckp9v.apps.googleusercontent.com',
+    iosClientId: '689751965790-fa59lr0qsoko2de3iqgko0en6l0fnq3f.apps.googleusercontent.com',
     iosBundleId: 'com.example.ingilizceDestekApp',
   );
 
@@ -83,4 +87,5 @@ class DefaultFirebaseOptions {
     authDomain: 'ingilizce-destek-app.firebaseapp.com',
     storageBucket: 'ingilizce-destek-app.firebasestorage.app',
   );
+
 }
