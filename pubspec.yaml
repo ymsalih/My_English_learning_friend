@@ -17,7 +17,6 @@ dependencies:
   google_fonts: ^8.0.2
   flip_card: ^0.7.0
   flutter_tts: ^4.2.5
-  translator: ^1.0.4+1
   youtube_player_flutter: ^9.1.3
   http: ^1.6.0
   lottie: ^2.6.0
@@ -25,6 +24,7 @@ dependencies:
   webview_flutter: ^4.10.0 # Bunu ekle
   firebase_crashlytics: ^5.1.0
   flutter_slidable: ^4.0.3
+  flutter_dotenv: ^6.0.0
   
 
 dev_dependencies:
@@ -38,6 +38,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png # Uygulama içi (Splash/Auth) logomuz
+    - .env
 
 # --- TELEFON ANA EKRAN İKONU AYARLARI ---
 flutter_icons:
