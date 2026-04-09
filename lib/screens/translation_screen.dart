@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // 🚀 YENİ: Gizli kasayı okumak için eklendi!
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 class TranslationScreen extends StatefulWidget {
   const TranslationScreen({super.key});
@@ -17,17 +18,19 @@ class TranslationScreen extends StatefulWidget {
 class _TranslationScreenState extends State<TranslationScreen> {
   final _textController = TextEditingController();
   final FlutterTts flutterTts = FlutterTts();
-
-  // Kutuya otomatik odaklanmamızı sağlayacak yönetici
   final FocusNode _focusNode = FocusNode();
+
+  // 🎤 Ses Tanıma Değişkenleri
+  late stt.SpeechToText _speechToText;
+  bool _isListening = false;
 
   // Çeviri Sonuç Değişkenleri
   String _mainTranslation = "";
   String _wordType = "";
-  List<String> _differentMeanings = [];
-  String _exampleOriginal = "";
-  String _exampleTranslated = "";
   String _imageUrl = "";
+
+  // 🚀 Cümle içi kullanımları ve anlamları tutacağımız akıllı liste
+  List<Map<String, String>> _contextualMeanings = [];
 
   bool _isLoading = false;
   bool _isEnToTr = true; // true = İngilizce -> Türkçe
@@ -39,15 +42,47 @@ class _TranslationScreenState extends State<TranslationScreen> {
   );
 
   // --- 🛡️ GÜVENLİ API ANAHTARLARI ---
-  // Şifreler artık kodun içinde değil, .env gizli kasasından çekiliyor!
-  final String _pixabayApiKey = dotenv.env['PIXABAY_API_KEY'] ?? "";
   final String _deepLApiKey = dotenv.env['DEEPL_API_KEY'] ?? "";
 
   @override
+  void initState() {
+    super.initState();
+    _speechToText = stt.SpeechToText();
+  }
+
+  @override
   void dispose() {
+    if (_isListening) {
+      _speechToText.stop();
+    }
     _focusNode.dispose();
     _textController.dispose();
     super.dispose();
+  }
+
+  // --- 🎤 MİKROFON DİNLEME MOTORU ---
+  void _listen() async {
+    if (!_isListening) {
+      bool available = await _speechToText.initialize(
+        onStatus: (val) => debugPrint('Mikrofon Durumu: $val'),
+        onError: (val) => debugPrint('Mikrofon Hatası: $val'),
+      );
+
+      if (available) {
+        setState(() => _isListening = true);
+        _speechToText.listen(
+          localeId: _isEnToTr ? 'en_US' : 'tr_TR',
+          onResult: (val) {
+            setState(() {
+              _textController.text = val.recognizedWords;
+            });
+          },
+        );
+      }
+    } else {
+      setState(() => _isListening = false);
+      _speechToText.stop();
+    }
   }
 
   Future<void> _speak(String text, String languageCode) async {
@@ -122,18 +157,44 @@ class _TranslationScreenState extends State<TranslationScreen> {
     final textToTranslate = _textController.text.trim().toLowerCase();
     if (textToTranslate.isEmpty) return;
 
+    if (_isListening) {
+      setState(() => _isListening = false);
+      _speechToText.stop();
+    }
+
     setState(() {
       _isLoading = true;
       _mainTranslation = "";
       _wordType = "";
-      _differentMeanings = [];
-      _exampleOriginal = "";
-      _exampleTranslated = "";
+      _contextualMeanings = []; // Listeyi sıfırla
       _imageUrl = "";
     });
 
     try {
-      final deepLResult = await _translateWithDeepL(textToTranslate);
+      // DeepL'den ilk çeviriyi al
+      String deepLResult = await _translateWithDeepL(textToTranslate);
+
+      // 🚀 SENIOR HACK: Türkçe "at", "on", "in" gibi kelimeleri İngilizce zannetmesini önleme!
+      if (!_isEnToTr &&
+          deepLResult.toLowerCase() == textToTranslate &&
+          !textToTranslate.contains(' ')) {
+        // Kelimenin başına "bir" ekleyerek bağlam veriyoruz
+        String contextResult = await _translateWithDeepL(
+          "bir $textToTranslate",
+        );
+        contextResult = contextResult.toLowerCase();
+
+        // İngilizce'deki "a", "an", "the" takılarını kırpıyoruz
+        if (contextResult.startsWith("a ")) {
+          deepLResult = contextResult.substring(2).trim();
+        } else if (contextResult.startsWith("an ")) {
+          deepLResult = contextResult.substring(3).trim();
+        } else if (contextResult.startsWith("the ")) {
+          deepLResult = contextResult.substring(4).trim();
+        } else {
+          deepLResult = contextResult;
+        }
+      }
 
       if (deepLResult.isNotEmpty && !deepLResult.contains("Hata")) {
         _mainTranslation =
@@ -142,6 +203,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         _mainTranslation = deepLResult;
       }
 
+      // Artık elimizde kusursuz bir İngilizce kelime var
       String englishWordToSearch = _isEnToTr
           ? textToTranslate
           : deepLResult.toLowerCase();
@@ -182,35 +244,36 @@ class _TranslationScreenState extends State<TranslationScreen> {
             _wordType = _translateWordType(meanings[0]['partOfSpeech'] ?? "");
 
             for (var meaning in meanings) {
+              final partOfSpeech = _translateWordType(
+                meaning['partOfSpeech'] ?? "",
+              );
               final definitions = meaning['definitions'] as List<dynamic>;
+
               for (var def in definitions) {
-                if (def['definition'] != null &&
-                    _differentMeanings.length < 2) {
+                // Sadece İngilizce "Örnek cümlesi" olan anlamları alıyoruz
+                if (def['example'] != null && _contextualMeanings.length < 3) {
                   final engDef = def['definition'].toString();
-                  final translatedDef = await _translateWithDeepL(
+                  final engEx = def['example'].toString();
+
+                  final trDef = await _translateWithDeepL(
                     engDef,
                     sourceLang: 'EN',
                     targetLang: 'TR',
                   );
-
-                  if (mounted && !translatedDef.contains("Hata")) {
-                    setState(() {
-                      _differentMeanings.add(translatedDef);
-                    });
-                  }
-                }
-
-                if (def['example'] != null && _exampleOriginal.isEmpty) {
-                  _exampleOriginal = def['example'];
-                  final exTrans = await _translateWithDeepL(
-                    _exampleOriginal,
+                  final trEx = await _translateWithDeepL(
+                    engEx,
                     sourceLang: 'EN',
                     targetLang: 'TR',
                   );
 
-                  if (mounted && !exTrans.contains("Hata")) {
+                  if (mounted && !trDef.contains("Hata")) {
                     setState(() {
-                      _exampleTranslated = exTrans;
+                      _contextualMeanings.add({
+                        'type': partOfSpeech,
+                        'trDef': trDef,
+                        'engEx': engEx,
+                        'trEx': trEx,
+                      });
                     });
                   }
                 }
@@ -225,26 +288,30 @@ class _TranslationScreenState extends State<TranslationScreen> {
   }
 
   Future<void> _fetchImage(String word) async {
-    if (_pixabayApiKey.isEmpty) return;
+    final String pexelsApiKey = dotenv.env['PEXELS_API_KEY'] ?? "";
+    if (pexelsApiKey.isEmpty) return;
 
     try {
       final url = Uri.parse(
-        'https://pixabay.com/api/?key=$_pixabayApiKey&q=${Uri.encodeComponent(word)}&image_type=photo&safesearch=true&order=popular&per_page=3',
+        'https://api.pexels.com/v1/search?query=${Uri.encodeComponent(word)}&per_page=1&orientation=landscape',
       );
-      final response = await http.get(url);
+      final response = await http.get(
+        url,
+        headers: {'Authorization': pexelsApiKey},
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['hits'] != null && data['hits'].isNotEmpty) {
+        if (data['photos'] != null && data['photos'].isNotEmpty) {
           if (mounted) {
             setState(() {
-              _imageUrl = data['hits'][0]['webformatURL'];
+              _imageUrl = data['photos'][0]['src']['medium'];
             });
           }
         }
       }
     } catch (e) {
-      debugPrint("Görsel Çekme Hatası: $e");
+      debugPrint("Pexels Görsel Çekme Hatası: $e");
     }
   }
 
@@ -348,8 +415,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 _mainTranslation = "";
                 _textController.clear();
                 _imageUrl = "";
+                _contextualMeanings = [];
+                if (_isListening) _listen();
               });
-              // Butona basıldığında imleci tekrar kutuya koyar
               _focusNode.requestFocus();
             },
           ),
@@ -367,7 +435,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(
+            color: _isListening
+                ? Colors.red.shade500.withAlpha(50)
+                : Colors.black12,
+            blurRadius: _isListening ? 15 : 10,
+            spreadRadius: _isListening ? 2 : 0,
+          ),
+        ],
+        border: _isListening
+            ? Border.all(color: Colors.red.shade300, width: 2)
+            : null,
       ),
       child: TextField(
         focusNode: _focusNode,
@@ -378,25 +457,45 @@ class _TranslationScreenState extends State<TranslationScreen> {
         textInputAction: TextInputAction.newline,
         textCapitalization: TextCapitalization.sentences,
         style: const TextStyle(fontSize: 18),
-
-        // DİLE GÖRE KLAVYE HARF FİLTRESİ
         inputFormatters: _isEnToTr
             ? [FilteringTextInputFormatter.deny(RegExp(r'[çÇğĞıİöÖşŞüÜ]'))]
             : [],
-
         decoration: InputDecoration(
-          hintText: _isEnToTr
-              ? 'Type an English word or text...'
-              : 'Türkçe metin veya kelime yazın...',
+          hintText: _isListening
+              ? (_isEnToTr ? 'Listening...' : 'Dinleniyor...')
+              : (_isEnToTr
+                    ? 'Type or speak an English word...'
+                    : 'Türkçe metin yazın veya konuşun...'),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.all(20),
-          suffixIcon: IconButton(
-            icon: const Icon(Icons.clear),
-            onPressed: () => setState(() {
-              _textController.clear();
-              _mainTranslation = "";
-              _imageUrl = "";
-            }),
+          suffixIcon: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 📢 SADECE GİRDİ İNGİLİZCE İSE SES İKONU ÇIKAR (EN -> TR Modu)
+              if (_isEnToTr)
+                IconButton(
+                  icon: const Icon(Icons.volume_up, color: Colors.teal),
+                  onPressed: () => _speak(_textController.text, 'en-US'),
+                ),
+              IconButton(
+                icon: Icon(
+                  _isListening ? Icons.mic : Icons.mic_none,
+                  color: _isListening ? Colors.red : Colors.teal.shade400,
+                  size: _isListening ? 30 : 26,
+                ),
+                onPressed: _listen,
+              ),
+              IconButton(
+                icon: const Icon(Icons.clear, color: Colors.grey),
+                onPressed: () => setState(() {
+                  _textController.clear();
+                  _mainTranslation = "";
+                  _imageUrl = "";
+                  _contextualMeanings = [];
+                  if (_isListening) _listen();
+                }),
+              ),
+            ],
           ),
         ),
       ),
@@ -428,37 +527,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     if (_mainTranslation.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [
-        if (_imageUrl.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(20),
-              child: Image.network(
-                _imageUrl,
-                height: 200,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    height: 200,
-                    width: double.infinity,
-                    color: Colors.teal.shade50,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.teal,
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                  (loadingProgress.expectedTotalBytes ?? 1)
-                            : null,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-
+        // 🌟 TEK VE BİRLEŞİK ANA KART (Görsel + Çeviri Sonucu)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -477,6 +546,42 @@ class _TranslationScreenState extends State<TranslationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // 🖼️ GÖRSEL KISMI
+              if (_imageUrl.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(15),
+                    child: Image.network(
+                      _imageUrl,
+                      height: 200,
+                      width: double.infinity,
+                      // 🚀 KULLANICI İSTEĞİ: BoxFit.fill kullanıldı
+                      fit: BoxFit.fill,
+                      alignment: Alignment.topCenter,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 200,
+                          width: double.infinity,
+                          color: Colors.teal.shade50,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.teal,
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                        (loadingProgress.expectedTotalBytes ??
+                                            1)
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
+              // ✨ ÇEVİRİ VE OKUNUŞ KISMI
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -487,11 +592,12 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       color: Colors.teal,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.volume_up, color: Colors.teal),
-                    onPressed: () =>
-                        _speak(_mainTranslation, _isEnToTr ? 'tr-TR' : 'en-US'),
-                  ),
+                  // 📢 SADECE SONUÇ İNGİLİZCE İSE SES İKONU ÇIKAR (TR -> EN Modu)
+                  if (!_isEnToTr)
+                    IconButton(
+                      icon: const Icon(Icons.volume_up, color: Colors.teal),
+                      onPressed: () => _speak(_mainTranslation, 'en-US'),
+                    ),
                 ],
               ),
               const Divider(),
@@ -542,7 +648,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         ),
 
-        if (_differentMeanings.isNotEmpty)
+        // 🚀 BAĞLAMA GÖRE KULLANIMLAR VE ÖRNEKLER KUTUSU
+        if (_contextualMeanings.isNotEmpty)
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(top: 15),
@@ -558,101 +665,100 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 Row(
                   children: [
                     Icon(
-                      Icons.menu_book_rounded,
+                      Icons.explore_rounded,
                       color: Colors.blue.shade700,
-                      size: 20,
+                      size: 22,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "Kelimenin Farklı Anlamları",
+                      "Bağlama Göre Kullanımlar",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.blue.shade900,
+                        fontSize: 16,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                ..._differentMeanings.map(
-                  (anlam) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6.0),
-                    child: Row(
+                const SizedBox(height: 15),
+
+                // Anlamları ve Cümleleri alt alta harika bir tasarımla diziyoruz
+                ..._contextualMeanings.map((contextItem) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 15.0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "• ",
-                          style: TextStyle(
-                            color: Colors.blue.shade800,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            anlam,
-                            style: TextStyle(
-                              color: Colors.blue.shade900,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
+                        // 1. Satır: İsim/Fiil Etiketi ve Türkçe Anlamı
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade200,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                contextItem['type'] ?? '',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.blue.shade900,
+                                ),
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                contextItem['trDef'] ?? '',
+                                style: TextStyle(
+                                  color: Colors.blue.shade900,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // 2. Satır: İngilizce Örnek Cümle
+                        Text(
+                          "\"${contextItem['engEx']}\"",
+                          style: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontSize: 15,
+                            color: Colors.black87,
                           ),
                         ),
+                        const SizedBox(height: 4),
+
+                        // 3. Satır: Örnek Cümlenin Türkçe Çevirisi
+                        Text(
+                          contextItem['trEx'] ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+
+                        // Araya ince bir çizgi çek
+                        if (contextItem != _contextualMeanings.last)
+                          const Divider(height: 25, thickness: 0.5),
                       ],
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        if (_exampleOriginal.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 15),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.orange.shade200, width: 1.5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.format_quote_rounded,
-                      color: Colors.orange.shade400,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Örnek Cümle",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _exampleOriginal,
-                  style: const TextStyle(
-                    fontStyle: FontStyle.italic,
-                    fontSize: 15,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _exampleTranslated,
-                  style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
-                ),
+                  );
+                }),
               ],
             ),
           ),
         const SizedBox(height: 25),
 
+        // ➕ HAVUZA EKLE BUTONU
         OutlinedButton.icon(
           onPressed: _saveToPool,
           icon: const Icon(Icons.add_task),
