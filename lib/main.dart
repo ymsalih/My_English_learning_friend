@@ -1,11 +1,17 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // YENİ: .env kasamızı açmak için gerekli kütüphane
 import 'firebase_options.dart';
-import 'screens/splash_screen.dart'; // YENİ: Açılış ekranımızı içeri aktardık
+import 'screens/splash_screen.dart'; // Açılış ekranımızı içeri aktardık
 
 void main() async {
-  // Flutter motorunun ve Firebase'in doğru başlatıldığından emin oluyoruz
+  // Flutter motorunun doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 🚀 YENİ: Uygulama ve Firebase ayağa kalkmadan hemen önce gizli kasamızı (.env) yüklüyoruz
+  await dotenv.load(fileName: ".env");
+
+  // Firebase'i başlatıyoruz
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const IngilizceDestekApp());
