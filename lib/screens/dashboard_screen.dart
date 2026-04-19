@@ -91,7 +91,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _sendEmail(BuildContext context) async {
-    const String myEmail = 'seninmailin@gmail.com';
+    const String myEmail = 'myenglishfriendss@gmail.com';
     const String subject = 'Uygulama Hakkında Öneri ve Şikayet';
 
     final Uri emailLaunchUri = Uri(
