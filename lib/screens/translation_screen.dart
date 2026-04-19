@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'camera_scanner_screen.dart';
 
 class TranslationScreen extends StatefulWidget {
   const TranslationScreen({super.key});
@@ -58,6 +59,31 @@ class _TranslationScreenState extends State<TranslationScreen> {
     _focusNode.dispose();
     _textController.dispose();
     super.dispose();
+  }
+
+  // --- 📸 YENİ: KAMERA OKUYUCUYU AÇMA FONKSİYONU ---
+  // --- 📸 KAMERA OKUYUCUYU AÇMA VE DİNLEME FONKSİYONU ---
+  Future<void> _openCameraScanner() async {
+    // 1. Kamera sayfasına git ve kullanıcının bir kelime bulup dönmesini bekle
+    final scannedWord = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
+    );
+
+    // 2. Eğer kullanıcı bir kelime bulup onayladıysa (geri döndüyse)
+    if (scannedWord != null &&
+        scannedWord is String &&
+        scannedWord.isNotEmpty) {
+      setState(() {
+        // Okunan kelimeyi metin kutusuna yaz
+        _textController.text = scannedWord;
+        // Kameradan hep İngilizce okuyacağımız için çeviri yönünü garantiye alalım (EN -> TR)
+        _isEnToTr = true;
+      });
+
+      // 3. Hiçbir butona basmasına gerek kalmadan otomatik çeviriyi başlat!
+      _translateAndFetchDictionary();
+    }
   }
 
   // --- 🎤 MİKROFON DİNLEME MOTORU ---
@@ -471,12 +497,21 @@ class _TranslationScreenState extends State<TranslationScreen> {
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 📢 SADECE GİRDİ İNGİLİZCE İSE SES İKONU ÇIKAR (EN -> TR Modu)
+              // 📢 SES İKONU
               if (_isEnToTr)
                 IconButton(
                   icon: const Icon(Icons.volume_up, color: Colors.teal),
                   onPressed: () => _speak(_textController.text, 'en-US'),
                 ),
+
+              // 📸 YENİ: KAMERA İLE OKUMA İKONU (SADECE EN->TR MODUNDA ÇIKABİLİR VEYA İKİSİNDE DE)
+              // Ben ikisinde de kalmasını öneriyorum çünkü Türkçe yazıları da okutup İngilizceye çevirmek isteyebilir.
+              IconButton(
+                icon: Icon(Icons.camera_alt, color: Colors.teal.shade700),
+                onPressed: _openCameraScanner,
+              ),
+
+              // 🎤 MİKROFON İKONU
               IconButton(
                 icon: Icon(
                   _isListening ? Icons.mic : Icons.mic_none,
@@ -485,6 +520,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 ),
                 onPressed: _listen,
               ),
+
+              // ❌ TEMİZLEME İKONU
               IconButton(
                 icon: const Icon(Icons.clear, color: Colors.grey),
                 onPressed: () => setState(() {
@@ -527,7 +564,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     if (_mainTranslation.isEmpty) return const SizedBox.shrink();
     return Column(
       children: [
-        // 🌟 TEK VE BİRLEŞİK ANA KART (Görsel + Çeviri Sonucu)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -546,7 +582,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🖼️ GÖRSEL KISMI
               if (_imageUrl.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
@@ -556,7 +591,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       _imageUrl,
                       height: 200,
                       width: double.infinity,
-                      // 🚀 KULLANICI İSTEĞİ: BoxFit.fill kullanıldı
                       fit: BoxFit.fill,
                       alignment: Alignment.topCenter,
                       loadingBuilder: (context, child, loadingProgress) {
@@ -580,8 +614,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                     ),
                   ),
                 ),
-
-              // ✨ ÇEVİRİ VE OKUNUŞ KISMI
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -592,7 +624,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       color: Colors.teal,
                     ),
                   ),
-                  // 📢 SADECE SONUÇ İNGİLİZCE İSE SES İKONU ÇIKAR (TR -> EN Modu)
                   if (!_isEnToTr)
                     IconButton(
                       icon: const Icon(Icons.volume_up, color: Colors.teal),
@@ -610,7 +641,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   color: Colors.black87,
                 ),
               ),
-
               if (_wordType.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 15),
@@ -648,7 +678,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         ),
 
-        // 🚀 BAĞLAMA GÖRE KULLANIMLAR VE ÖRNEKLER KUTUSU
         if (_contextualMeanings.isNotEmpty)
           Container(
             width: double.infinity,
@@ -681,15 +710,12 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   ],
                 ),
                 const SizedBox(height: 15),
-
-                // Anlamları ve Cümleleri alt alta harika bir tasarımla diziyoruz
                 ..._contextualMeanings.map((contextItem) {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 15.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 1. Satır: İsim/Fiil Etiketi ve Türkçe Anlamı
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -725,8 +751,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-
-                        // 2. Satır: İngilizce Örnek Cümle
                         Text(
                           "\"${contextItem['engEx']}\"",
                           style: const TextStyle(
@@ -736,8 +760,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-
-                        // 3. Satır: Örnek Cümlenin Türkçe Çevirisi
                         Text(
                           contextItem['trEx'] ?? '',
                           style: TextStyle(
@@ -745,8 +767,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             color: Colors.grey.shade700,
                           ),
                         ),
-
-                        // Araya ince bir çizgi çek
                         if (contextItem != _contextualMeanings.last)
                           const Divider(height: 25, thickness: 0.5),
                       ],
@@ -758,7 +778,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         const SizedBox(height: 25),
 
-        // ➕ HAVUZA EKLE BUTONU
         OutlinedButton.icon(
           onPressed: _saveToPool,
           icon: const Icon(Icons.add_task),
