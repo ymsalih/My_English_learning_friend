@@ -9,6 +9,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'camera_scanner_screen.dart';
 
+// --- VERİ MODELLERİ ---
 class WordMeaningGroup {
   final String partOfSpeech;
   final List<String> shortMeanings;
@@ -20,6 +21,25 @@ class WordMeaningGroup {
     required this.shortMeanings,
     required this.contextualExamples,
     this.reverseMeanings = const <Map<String, List<String>>>[],
+  });
+}
+
+// 🚀 ADIM 8: AKILLI ÖNBELLEK (CACHE) MODELİ
+class TranslationCacheItem {
+  final String originalText;
+  final bool isEnToTr;
+  final String mainTranslation;
+  final String imageUrl;
+  final String searchedEnglishWord;
+  final List<WordMeaningGroup> groupedMeanings;
+
+  TranslationCacheItem({
+    required this.originalText,
+    required this.isEnToTr,
+    required this.mainTranslation,
+    required this.imageUrl,
+    required this.searchedEnglishWord,
+    required this.groupedMeanings,
   });
 }
 
@@ -47,6 +67,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   bool _isLoading = false;
   bool _isEnToTr = true;
+
+  // 🚀 ADIM 8: CACHE HAVUZU VE LİMİTİ
+  final List<TranslationCacheItem> _cachePool = [];
+  final int _maxCacheSize =
+      50; // Telefonu şişirmemek için maksimum 50 kelime hafızada tutulacak
 
   final LinearGradient primaryGradient = LinearGradient(
     colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
@@ -222,6 +247,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
             dictionaryResults[_translateWordType(type)] = meanings;
           }
         }
+      } else {
+        // Çökme Kalkanı: Google bizi engellerse (429 vb.) uygulama çökmez, sadece boş döner.
+        debugPrint("Google API Yanıt Vermedi: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Google Dictionary Hatası: $e");
@@ -238,6 +266,27 @@ class _TranslationScreenState extends State<TranslationScreen> {
       _speechToText.stop();
     }
 
+    // 🚀 ADIM 8: CACHE KONTROLÜ (İnternete çıkmadan önce hafızaya bak)
+    final cachedIndex = _cachePool.indexWhere(
+      (item) =>
+          item.originalText == textToTranslate && item.isEnToTr == _isEnToTr,
+    );
+
+    if (cachedIndex != -1) {
+      // Hafızada bulundu! API'leri hiç yormadan doğrudan ekrana bas ve işlemi bitir.
+      final cachedData = _cachePool[cachedIndex];
+      setState(() {
+        _mainTranslation = cachedData.mainTranslation;
+        _imageUrl = cachedData.imageUrl;
+        _searchedEnglishWord = cachedData.searchedEnglishWord;
+        // Listeyi referans kopması yaşamamak için kopyalayarak atıyoruz
+        _groupedMeanings = List.from(cachedData.groupedMeanings);
+      });
+      debugPrint("[$textToTranslate] önbellekten (cache) anında yüklendi. 🚀");
+      return;
+    }
+
+    // Hafızada yoksa API sürecini başlat
     setState(() {
       _isLoading = true;
       _mainTranslation = "";
@@ -289,6 +338,28 @@ class _TranslationScreenState extends State<TranslationScreen> {
             _wordType.isEmpty) {
           await _fetchImage(englishWordToSearch);
         }
+      }
+
+      // 🚀 ADIM 8: İŞLEM BAŞARILIYSA HAFIZAYA (CACHE) KAYDET
+      if (_mainTranslation.isNotEmpty && !_mainTranslation.contains("Hata")) {
+        if (_cachePool.length >= _maxCacheSize) {
+          _cachePool.removeAt(0); // FIFO: Liste doluysa en eski kelimeyi sil
+        }
+        _cachePool.add(
+          TranslationCacheItem(
+            originalText: textToTranslate,
+            isEnToTr: _isEnToTr,
+            mainTranslation: _mainTranslation,
+            imageUrl: _imageUrl,
+            searchedEnglishWord: _searchedEnglishWord,
+            groupedMeanings: List.from(
+              _groupedMeanings,
+            ), // Derin kopya (Deep Copy)
+          ),
+        );
+        debugPrint(
+          "[$textToTranslate] önbelleğe kaydedildi. Mevcut boyut: ${_cachePool.length}/$_maxCacheSize",
+        );
       }
     } catch (e) {
       setState(() => _mainTranslation = "Sistemsel bir hata oluştu.");
@@ -863,7 +934,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         ),
 
-        // 🚀 ADIM 7: TR -> EN İÇİN KULLANIM YERİNE GÖRE BAŞLIK GÜNCELLEMESİ
+        // --- TR -> EN İÇİN KULLANIM YERİNE GÖRE BAŞLIK GÜNCELLEMESİ ---
         if (!_isEnToTr && _groupedMeanings.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 25.0, bottom: 5.0),
