@@ -7,6 +7,21 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'camera_scanner_screen.dart';
+
+class WordMeaningGroup {
+  final String partOfSpeech;
+  final List<String> shortMeanings;
+  final List<Map<String, String>> contextualExamples;
+  final List<Map<String, List<String>>> reverseMeanings;
+
+  WordMeaningGroup({
+    required this.partOfSpeech,
+    required this.shortMeanings,
+    required this.contextualExamples,
+    this.reverseMeanings = const <Map<String, List<String>>>[],
+  });
+}
 
 class TranslationScreen extends StatefulWidget {
   const TranslationScreen({super.key});
@@ -20,20 +35,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
   final FlutterTts flutterTts = FlutterTts();
   final FocusNode _focusNode = FocusNode();
 
-  // 🎤 Ses Tanıma Değişkenleri
   late stt.SpeechToText _speechToText;
   bool _isListening = false;
 
-  // Çeviri Sonuç Değişkenleri
   String _mainTranslation = "";
   String _wordType = "";
   String _imageUrl = "";
+  String _searchedEnglishWord = "";
 
-  // 🚀 Cümle içi kullanımları ve anlamları tutacağımız akıllı liste
-  List<Map<String, String>> _contextualMeanings = [];
+  List<WordMeaningGroup> _groupedMeanings = [];
 
   bool _isLoading = false;
-  bool _isEnToTr = true; // true = İngilizce -> Türkçe
+  bool _isEnToTr = true;
 
   final LinearGradient primaryGradient = LinearGradient(
     colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
@@ -41,7 +54,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     end: Alignment.bottomRight,
   );
 
-  // --- 🛡️ GÜVENLİ API ANAHTARLARI ---
   final String _deepLApiKey = dotenv.env['DEEPL_API_KEY'] ?? "";
 
   @override
@@ -60,7 +72,23 @@ class _TranslationScreenState extends State<TranslationScreen> {
     super.dispose();
   }
 
-  // --- 🎤 MİKROFON DİNLEME MOTORU ---
+  Future<void> _openCameraScanner() async {
+    final scannedWord = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
+    );
+
+    if (scannedWord != null &&
+        scannedWord is String &&
+        scannedWord.isNotEmpty) {
+      setState(() {
+        _textController.text = scannedWord;
+        _isEnToTr = true;
+      });
+      _translateAndFetchDictionary();
+    }
+  }
+
   void _listen() async {
     if (!_isListening) {
       bool available = await _speechToText.initialize(
@@ -115,6 +143,28 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
   }
 
+  String _getShortPartSpeech(String trType) {
+    switch (trType.toLowerCase()) {
+      case 'i̇sim':
+      case 'isim':
+        return 'noun';
+      case 'sıfat':
+        return 'adj.';
+      case 'zarf':
+        return 'adv.';
+      case 'fiil':
+        return 'verb';
+      case 'zamir':
+        return 'pron.';
+      case 'edat':
+        return 'prep.';
+      case 'bağlaç':
+        return 'conj.';
+      default:
+        return trType.toLowerCase();
+    }
+  }
+
   Future<String> _translateWithDeepL(
     String text, {
     String? sourceLang,
@@ -144,13 +194,39 @@ class _TranslationScreenState extends State<TranslationScreen> {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         return data['translations'][0]['text'];
       } else {
-        debugPrint("DeepL Hatası (${response.statusCode}): ${response.body}");
         return "Çeviri Hatası";
       }
     } catch (e) {
-      debugPrint("DeepL Bağlantı Hatası: $e");
       return "Bağlantı Hatası";
     }
+  }
+
+  Future<Map<String, List<String>>> _fetchGoogleDictionaryMeanings(
+    String word,
+  ) async {
+    Map<String, List<String>> dictionaryResults = {};
+    try {
+      final url = Uri.parse(
+        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=bd&q=${Uri.encodeComponent(word)}',
+      );
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data != null && data.length > 1 && data[1] != null) {
+          for (var item in data[1]) {
+            String type = item[0].toString();
+            List<String> meanings = (item[1] as List)
+                .map((e) => e.toString())
+                .toList();
+            dictionaryResults[_translateWordType(type)] = meanings;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Google Dictionary Hatası: $e");
+    }
+    return dictionaryResults;
   }
 
   Future<void> _translateAndFetchDictionary() async {
@@ -166,34 +242,30 @@ class _TranslationScreenState extends State<TranslationScreen> {
       _isLoading = true;
       _mainTranslation = "";
       _wordType = "";
-      _contextualMeanings = []; // Listeyi sıfırla
+      _groupedMeanings = [];
       _imageUrl = "";
+      _searchedEnglishWord = "";
     });
 
     try {
-      // DeepL'den ilk çeviriyi al
       String deepLResult = await _translateWithDeepL(textToTranslate);
 
-      // 🚀 SENIOR HACK: Türkçe "at", "on", "in" gibi kelimeleri İngilizce zannetmesini önleme!
       if (!_isEnToTr &&
           deepLResult.toLowerCase() == textToTranslate &&
           !textToTranslate.contains(' ')) {
-        // Kelimenin başına "bir" ekleyerek bağlam veriyoruz
         String contextResult = await _translateWithDeepL(
           "bir $textToTranslate",
         );
         contextResult = contextResult.toLowerCase();
 
-        // İngilizce'deki "a", "an", "the" takılarını kırpıyoruz
-        if (contextResult.startsWith("a ")) {
+        if (contextResult.startsWith("a "))
           deepLResult = contextResult.substring(2).trim();
-        } else if (contextResult.startsWith("an ")) {
+        else if (contextResult.startsWith("an "))
           deepLResult = contextResult.substring(3).trim();
-        } else if (contextResult.startsWith("the ")) {
+        else if (contextResult.startsWith("the "))
           deepLResult = contextResult.substring(4).trim();
-        } else {
+        else
           deepLResult = contextResult;
-        }
       }
 
       if (deepLResult.isNotEmpty && !deepLResult.contains("Hata")) {
@@ -203,13 +275,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
         _mainTranslation = deepLResult;
       }
 
-      // Artık elimizde kusursuz bir İngilizce kelime var
       String englishWordToSearch = _isEnToTr
           ? textToTranslate
           : deepLResult.toLowerCase();
+      _searchedEnglishWord = englishWordToSearch;
 
       if (!englishWordToSearch.contains(' ')) {
-        await _fetchDictionaryData(englishWordToSearch);
+        await _fetchDictionaryData(englishWordToSearch, textToTranslate);
 
         if (_wordType == 'İsim' ||
             _wordType == 'Sıfat' ||
@@ -219,64 +291,135 @@ class _TranslationScreenState extends State<TranslationScreen> {
         }
       }
     } catch (e) {
-      debugPrint("Sistem Hatası: $e");
-      setState(() {
-        _mainTranslation = "Sistemsel bir hata oluştu.";
-      });
+      setState(() => _mainTranslation = "Sistemsel bir hata oluştu.");
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _fetchDictionaryData(String word) async {
+  Future<void> _fetchDictionaryData(
+    String englishWord,
+    String originalWord,
+  ) async {
     try {
-      final url = Uri.parse(
-        'https://api.dictionaryapi.dev/api/v2/entries/en/$word',
-      );
-      final response = await http.get(url);
+      if (_isEnToTr) {
+        // --- İNGİLİZCEDEN TÜRKÇEYE (EN -> TR) ---
+        Map<String, List<String>> googleMeanings =
+            await _fetchGoogleDictionaryMeanings(englishWord);
+        final url = Uri.parse(
+          'https://api.dictionaryapi.dev/api/v2/entries/en/$englishWord',
+        );
+        final response = await http.get(url);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          final meanings = data[0]['meanings'] as List<dynamic>;
+        if (response.statusCode == 200) {
+          final List<dynamic> data = jsonDecode(response.body);
+          if (data.isNotEmpty) {
+            final meanings = data[0]['meanings'] as List<dynamic>;
 
-          if (meanings.isNotEmpty) {
-            _wordType = _translateWordType(meanings[0]['partOfSpeech'] ?? "");
+            if (meanings.isNotEmpty) {
+              _wordType = _translateWordType(meanings[0]['partOfSpeech'] ?? "");
 
-            for (var meaning in meanings) {
-              final partOfSpeech = _translateWordType(
-                meaning['partOfSpeech'] ?? "",
-              );
-              final definitions = meaning['definitions'] as List<dynamic>;
+              for (var meaning in meanings) {
+                final partOfSpeech = _translateWordType(
+                  meaning['partOfSpeech'] ?? "",
+                );
+                final definitions = meaning['definitions'] as List<dynamic>;
 
-              for (var def in definitions) {
-                // Sadece İngilizce "Örnek cümlesi" olan anlamları alıyoruz
-                if (def['example'] != null && _contextualMeanings.length < 3) {
-                  final engDef = def['definition'].toString();
-                  final engEx = def['example'].toString();
+                List<String> shortTrMeanings =
+                    googleMeanings[partOfSpeech] ?? [];
 
-                  final trDef = await _translateWithDeepL(
-                    engDef,
-                    sourceLang: 'EN',
-                    targetLang: 'TR',
-                  );
-                  final trEx = await _translateWithDeepL(
-                    engEx,
-                    sourceLang: 'EN',
-                    targetLang: 'TR',
-                  );
-
-                  if (mounted && !trDef.contains("Hata")) {
-                    setState(() {
-                      _contextualMeanings.add({
-                        'type': partOfSpeech,
-                        'trDef': trDef,
-                        'engEx': engEx,
-                        'trEx': trEx,
-                      });
-                    });
+                List<Map<String, String>> examples = [];
+                int defCount = 0;
+                for (var def in definitions) {
+                  if (defCount >= 3) break;
+                  final engEx = def['example']?.toString() ?? "";
+                  if (engEx.isNotEmpty) {
+                    final trEx = await _translateWithDeepL(
+                      engEx,
+                      sourceLang: 'EN',
+                      targetLang: 'TR',
+                    );
+                    if (!trEx.contains("Hata"))
+                      examples.add({'eng': engEx, 'tr': trEx});
+                    defCount++;
                   }
                 }
+
+                if (mounted &&
+                    (shortTrMeanings.isNotEmpty || examples.isNotEmpty)) {
+                  setState(() {
+                    int existingIndex = _groupedMeanings.indexWhere(
+                      (g) => g.partOfSpeech == partOfSpeech,
+                    );
+                    if (existingIndex != -1) {
+                      _groupedMeanings[existingIndex].contextualExamples.addAll(
+                        examples,
+                      );
+                    } else {
+                      _groupedMeanings.add(
+                        WordMeaningGroup(
+                          partOfSpeech: partOfSpeech,
+                          shortMeanings: shortTrMeanings,
+                          contextualExamples: examples,
+                        ),
+                      );
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        if (_groupedMeanings.isEmpty && googleMeanings.isNotEmpty && mounted) {
+          setState(() {
+            googleMeanings.forEach((type, meanings) {
+              _groupedMeanings.add(
+                WordMeaningGroup(
+                  partOfSpeech: type,
+                  shortMeanings: meanings,
+                  contextualExamples: [],
+                ),
+              );
+            });
+          });
+        }
+      } else {
+        // --- TÜRKÇEDEN İNGİLİZCEYE (TR -> EN) GÖRSELDEKİ ÖZEL YAPI ---
+        final url = Uri.parse(
+          'https://translate.googleapis.com/translate_a/single?client=gtx&sl=tr&tl=en&dt=bd&q=${Uri.encodeComponent(originalWord)}',
+        );
+        final response = await http.get(url);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+
+          if (data != null && data.length > 1 && data[1] != null) {
+            for (var item in data[1]) {
+              String type = item[0].toString();
+              List<Map<String, List<String>>> reverseList = [];
+
+              if (item.length > 2 && item[2] != null) {
+                for (var revItem in item[2]) {
+                  String engWord = revItem[0].toString();
+                  List<String> trWords = (revItem[1] as List)
+                      .map((e) => e.toString())
+                      .toList();
+                  reverseList.add({engWord: trWords});
+                }
+              }
+
+              if (reverseList.isNotEmpty && mounted) {
+                setState(() {
+                  _groupedMeanings.add(
+                    WordMeaningGroup(
+                      partOfSpeech: _translateWordType(type),
+                      shortMeanings: [],
+                      contextualExamples: [],
+                      reverseMeanings: reverseList,
+                    ),
+                  );
+                });
               }
             }
           }
@@ -303,11 +446,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['photos'] != null && data['photos'].isNotEmpty) {
-          if (mounted) {
-            setState(() {
-              _imageUrl = data['photos'][0]['src']['medium'];
-            });
-          }
+          if (mounted)
+            setState(() => _imageUrl = data['photos'][0]['src']['medium']);
         }
       }
     } catch (e) {
@@ -346,6 +486,76 @@ class _TranslationScreenState extends State<TranslationScreen> {
         ),
       );
     }
+  }
+
+  Widget _buildHighlightedText(String text, String highlightWord) {
+    if (highlightWord.isEmpty)
+      return Text(
+        text,
+        style: const TextStyle(
+          fontSize: 15,
+          fontStyle: FontStyle.italic,
+          color: Colors.black87,
+        ),
+      );
+
+    final RegExp regex = RegExp(
+      RegExp.escape(highlightWord),
+      caseSensitive: false,
+    );
+    final Iterable<RegExpMatch> matches = regex.allMatches(text);
+
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: const TextStyle(
+          fontSize: 15,
+          fontStyle: FontStyle.italic,
+          color: Colors.black87,
+        ),
+      );
+    }
+
+    List<TextSpan> spans = [];
+    int lastMatchEnd = 0;
+
+    for (var match in matches) {
+      if (match.start > lastMatchEnd) {
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: const TextStyle(color: Colors.black87),
+          ),
+        );
+      }
+      spans.add(
+        TextSpan(
+          text: text.substring(match.start, match.end),
+          style: TextStyle(
+            backgroundColor: Colors.grey.shade300,
+            color: Colors.black87,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      lastMatchEnd = match.end;
+    }
+
+    if (lastMatchEnd < text.length) {
+      spans.add(
+        TextSpan(
+          text: text.substring(lastMatchEnd),
+          style: const TextStyle(color: Colors.black87),
+        ),
+      );
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(fontSize: 16, fontStyle: FontStyle.italic),
+        children: spans,
+      ),
+    );
   }
 
   @override
@@ -415,7 +625,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 _mainTranslation = "";
                 _textController.clear();
                 _imageUrl = "";
-                _contextualMeanings = [];
+                _groupedMeanings = [];
                 if (_isListening) _listen();
               });
               _focusNode.requestFocus();
@@ -471,12 +681,15 @@ class _TranslationScreenState extends State<TranslationScreen> {
           suffixIcon: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 📢 SADECE GİRDİ İNGİLİZCE İSE SES İKONU ÇIKAR (EN -> TR Modu)
               if (_isEnToTr)
                 IconButton(
                   icon: const Icon(Icons.volume_up, color: Colors.teal),
                   onPressed: () => _speak(_textController.text, 'en-US'),
                 ),
+              IconButton(
+                icon: Icon(Icons.camera_alt, color: Colors.teal.shade700),
+                onPressed: _openCameraScanner,
+              ),
               IconButton(
                 icon: Icon(
                   _isListening ? Icons.mic : Icons.mic_none,
@@ -491,7 +704,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   _textController.clear();
                   _mainTranslation = "";
                   _imageUrl = "";
-                  _contextualMeanings = [];
+                  _groupedMeanings = [];
                   if (_isListening) _listen();
                 }),
               ),
@@ -525,9 +738,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   Widget _buildResult() {
     if (_mainTranslation.isEmpty) return const SizedBox.shrink();
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 🌟 TEK VE BİRLEŞİK ANA KART (Görsel + Çeviri Sonucu)
+        // --- 1. ANA ÇEVİRİ VE GÖRSEL KARTI ---
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -546,7 +761,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🖼️ GÖRSEL KISMI
               if (_imageUrl.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 20),
@@ -556,7 +770,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       _imageUrl,
                       height: 200,
                       width: double.infinity,
-                      // 🚀 KULLANICI İSTEĞİ: BoxFit.fill kullanıldı
                       fit: BoxFit.fill,
                       alignment: Alignment.topCenter,
                       loadingBuilder: (context, child, loadingProgress) {
@@ -565,14 +778,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           height: 200,
                           width: double.infinity,
                           color: Colors.teal.shade50,
-                          child: Center(
+                          child: const Center(
                             child: CircularProgressIndicator(
                               color: Colors.teal,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                        (loadingProgress.expectedTotalBytes ??
-                                            1)
-                                  : null,
                             ),
                           ),
                         );
@@ -580,30 +788,34 @@ class _TranslationScreenState extends State<TranslationScreen> {
                     ),
                   ),
                 ),
-
-              // ✨ ÇEVİRİ VE OKUNUŞ KISMI
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    '✨ Çeviri Sonucu',
+                  Text(
+                    _isEnToTr
+                        ? _textController.text.trim().toLowerCase()
+                        : _mainTranslation.toLowerCase(),
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.teal,
+                      color: Colors.teal.shade800,
+                      fontSize: 22,
                     ),
                   ),
-                  // 📢 SADECE SONUÇ İNGİLİZCE İSE SES İKONU ÇIKAR (TR -> EN Modu)
-                  if (!_isEnToTr)
-                    IconButton(
-                      icon: const Icon(Icons.volume_up, color: Colors.teal),
-                      onPressed: () => _speak(_mainTranslation, 'en-US'),
+                  IconButton(
+                    icon: const Icon(Icons.volume_up, color: Colors.teal),
+                    onPressed: () => _speak(
+                      _isEnToTr
+                          ? _textController.text.trim()
+                          : _mainTranslation,
+                      'en-US',
                     ),
+                  ),
                 ],
               ),
               const Divider(),
-              const SizedBox(height: 5),
+
               Text(
-                _mainTranslation,
+                _isEnToTr ? _mainTranslation : _textController.text.trim(),
                 style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
@@ -611,53 +823,164 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 ),
               ),
 
-              if (_wordType.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 15),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.teal.shade600,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.bookmark,
-                          color: Colors.white,
-                          size: 16,
+              const SizedBox(height: 15),
+
+              if (_isEnToTr && _groupedMeanings.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: _groupedMeanings.map((group) {
+                    if (group.shortMeanings.isEmpty)
+                      return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text:
+                                  "(${_getShortPartSpeech(group.partOfSpeech)}) ",
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontStyle: FontStyle.italic,
+                                fontSize: 16,
+                              ),
+                            ),
+                            TextSpan(
+                              text: group.shortMeanings.join(', '),
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _wordType,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  }).toList(),
                 ),
             ],
           ),
         ),
 
-        // 🚀 BAĞLAMA GÖRE KULLANIMLAR VE ÖRNEKLER KUTUSU
-        if (_contextualMeanings.isNotEmpty)
+        // 🚀 ADIM 7: TR -> EN İÇİN KULLANIM YERİNE GÖRE BAŞLIK GÜNCELLEMESİ
+        if (!_isEnToTr && _groupedMeanings.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 25.0, bottom: 5.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: Colors.orange.shade600,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "\"${_textController.text.trim().toLowerCase()}\" kelimesinin kullanım yerine göre İngilizce karşılıkları:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.blueGrey.shade800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        if (!_isEnToTr && _groupedMeanings.isNotEmpty)
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.only(top: 15),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.blue.shade200, width: 1.5),
+              border: Border.all(color: Colors.blueGrey.shade100, width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _groupedMeanings.map((group) {
+                if (group.reverseMeanings.isEmpty)
+                  return const SizedBox.shrink();
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        group.partOfSpeech.toLowerCase(),
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      ...group.reverseMeanings.map((rev) {
+                        String engWord = rev.keys.first;
+                        List<String> trMeanings = rev.values.first;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 15),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                color: Colors.blueAccent.shade400,
+                                width: 3,
+                              ),
+                            ),
+                          ),
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                engWord,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                trMeanings.join(', '),
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      if (group != _groupedMeanings.last)
+                        const Divider(
+                          height: 10,
+                          thickness: 1,
+                          color: Colors.black12,
+                        ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+
+        // --- 2. ÖRNEKLER: BAĞLAM İÇİ KULLANIM KARTI (SADECE EN -> TR İÇİN) ---
+        if (_isEnToTr &&
+            _groupedMeanings.any((g) => g.contextualExamples.isNotEmpty))
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: 20),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey.shade50,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: Colors.blueGrey.shade200, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,16 +988,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 Row(
                   children: [
                     Icon(
-                      Icons.explore_rounded,
-                      color: Colors.blue.shade700,
-                      size: 22,
+                      Icons.format_quote_rounded,
+                      color: Colors.blueGrey.shade700,
+                      size: 24,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "Bağlama Göre Kullanımlar",
+                      "Örnekler: Bağlam içi kullanım",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade900,
+                        color: Colors.blueGrey.shade800,
                         fontSize: 16,
                       ),
                     ),
@@ -682,83 +1005,65 @@ class _TranslationScreenState extends State<TranslationScreen> {
                 ),
                 const SizedBox(height: 15),
 
-                // Anlamları ve Cümleleri alt alta harika bir tasarımla diziyoruz
-                ..._contextualMeanings.map((contextItem) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 15.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // 1. Satır: İsim/Fiil Etiketi ve Türkçe Anlamı
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade200,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                contextItem['type'] ?? '',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade900,
-                                ),
+                ..._groupedMeanings
+                    .where((g) => g.contextualExamples.isNotEmpty)
+                    .map((group) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: 8.0,
+                              top: 10.0,
+                            ),
+                            child: Text(
+                              "[${_getShortPartSpeech(group.partOfSpeech)}]",
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                contextItem['trDef'] ?? '',
-                                style: TextStyle(
-                                  color: Colors.blue.shade900,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
+                          ),
+
+                          ...group.contextualExamples.map(
+                            (ex) => Padding(
+                              padding: const EdgeInsets.only(bottom: 15.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildHighlightedText(
+                                    ex['eng'] ?? '',
+                                    _searchedEnglishWord,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    ex['tr'] ?? '',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade700,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 2. Satır: İngilizce Örnek Cümle
-                        Text(
-                          "\"${contextItem['engEx']}\"",
-                          style: const TextStyle(
-                            fontStyle: FontStyle.italic,
-                            fontSize: 15,
-                            color: Colors.black87,
                           ),
-                        ),
-                        const SizedBox(height: 4),
 
-                        // 3. Satır: Örnek Cümlenin Türkçe Çevirisi
-                        Text(
-                          contextItem['trEx'] ?? '',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                          ),
-                        ),
-
-                        // Araya ince bir çizgi çek
-                        if (contextItem != _contextualMeanings.last)
-                          const Divider(height: 25, thickness: 0.5),
-                      ],
-                    ),
-                  );
-                }),
+                          if (group != _groupedMeanings.last)
+                            const Divider(
+                              height: 10,
+                              thickness: 1,
+                              color: Colors.black12,
+                            ),
+                        ],
+                      );
+                    }),
               ],
             ),
           ),
+
         const SizedBox(height: 25),
 
-        // ➕ HAVUZA EKLE BUTONU
         OutlinedButton.icon(
           onPressed: _saveToPool,
           icon: const Icon(Icons.add_task),
