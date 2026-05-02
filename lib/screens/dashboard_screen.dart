@@ -213,6 +213,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _sendEmail(context);
                       },
                     ),
+
                     const SizedBox(height: 10),
                     _buildDrawerItem(
                       context,
