@@ -1,16 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // 🚀 Web kontrolü için
+import 'package:youtube_player_flutter/youtube_player_flutter.dart'
+    as native; // Mobil için
+import 'package:youtube_player_iframe/youtube_player_iframe.dart'
+    as web; // 🚀 Web için
 
 class VideoPracticeScreen extends StatelessWidget {
   const VideoPracticeScreen({super.key});
 
-  // 🎬 VİDEO PRATİK ÖZEL TEMASI (Sinematik Kırmızı Geçiş)
   final LinearGradient primaryGradient = const LinearGradient(
-    colors: [
-      Color(0xFFD32F2F),
-      Color(0xFFFF5252),
-    ], // Colors.red.shade700 ve redAccent.shade400
+    colors: [Color(0xFFD32F2F), Color(0xFFFF5252)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -31,14 +31,12 @@ class VideoPracticeScreen extends StatelessWidget {
         centerTitle: true,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
-        // 🎬 APPBAR İÇİN KIRMIZI GEÇİŞ
         flexibleSpace: Container(
           decoration: BoxDecoration(gradient: primaryGradient),
         ),
       ),
       body: Container(
         decoration: BoxDecoration(
-          // 🎬 ARKA PLAN İÇİN ÇOK YUMUŞAK KIRMIZI TİNT
           gradient: LinearGradient(
             colors: [Colors.red.shade50, Colors.white],
             begin: Alignment.topCenter,
@@ -56,51 +54,16 @@ class VideoPracticeScreen extends StatelessWidget {
               );
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    ShaderMask(
-                      shaderCallback: (bounds) =>
-                          primaryGradient.createShader(bounds),
-                      child: const Icon(
-                        Icons.ondemand_video_rounded,
-                        size: 90,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Şu an hiç video yok.',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade800,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Çok yakında harika içerikler\nburaya eklenecek!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
-                    ),
-                  ],
-                ),
-              );
+              return _buildEmptyState();
             }
 
             final videos = snapshot.data!.docs;
 
             return ListView.builder(
-              padding: const EdgeInsets.only(
-                top: 15,
-                bottom: 20,
-                left: 15,
-                right: 15,
-              ),
+              padding: const EdgeInsets.all(15),
               itemCount: videos.length,
               itemBuilder: (context, index) {
-                final video = videos[index].data();
+                final video = videos[index].data() as Map<String, dynamic>;
                 final videoId = video['id'] ?? '';
                 final title = video['title'] ?? 'Başlıksız Video';
                 final desc = video['desc'] ?? '';
@@ -110,7 +73,6 @@ class VideoPracticeScreen extends StatelessWidget {
                 return Card(
                   elevation: 5,
                   color: Colors.white,
-                  surfaceTintColor: Colors.white,
                   shadowColor: Colors.red.withOpacity(0.2),
                   margin: const EdgeInsets.only(bottom: 25),
                   shape: RoundedRectangleBorder(
@@ -130,125 +92,8 @@ class VideoPracticeScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // --- 1. VİDEO KÜÇÜK RESMİ (THUMBNAIL) VE PLAY İKONU ---
-                        Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(20),
-                              ),
-                              child: Image.network(
-                                'https://img.youtube.com/vi/$videoId/0.jpg',
-                                height: 210,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            // Karartma Perdesi (Siyah transparan)
-                            Container(
-                              height: 210,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.35),
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(20),
-                                ),
-                              ),
-                            ),
-                            // Ortadaki Büyük Beyaz Play Butonu
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.9),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.redAccent.withOpacity(0.5),
-                                    blurRadius: 15,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: Icon(
-                                Icons.play_arrow_rounded,
-                                color: Colors.red.shade700,
-                                size: 45,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // --- 2. VİDEO BİLGİLERİ (BAŞLIK & AÇIKLAMA) ---
-                        Padding(
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.black87,
-                                  height: 1.2,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                desc,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 15),
-
-                              // --- 3. ŞİMDİ İZLE ETİKETİ ---
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 15,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade50,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: Colors.red.shade200,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.slow_motion_video_rounded,
-                                          color: Colors.red.shade700,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 5),
-                                        Text(
-                                          'Şimdi İzle',
-                                          style: TextStyle(
-                                            color: Colors.red.shade700,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                        _buildThumbnail(videoId),
+                        _buildVideoInfo(title, desc),
                       ],
                     ),
                   ),
@@ -260,10 +105,107 @@ class VideoPracticeScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ShaderMask(
+            shaderCallback: (bounds) => primaryGradient.createShader(bounds),
+            child: const Icon(
+              Icons.ondemand_video_rounded,
+              size: 90,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Şu an hiç video yok.',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFC62828),
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Çok yakında harika içerikler\nburaya eklenecek!',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 16, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(String videoId) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: Image.network(
+            'https://img.youtube.com/vi/$videoId/0.jpg',
+            height: 210,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+        Container(
+          height: 210,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.35),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.play_arrow_rounded,
+            color: Colors.red,
+            size: 45,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVideoInfo(String title, String desc) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            desc,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ========================================================= //
-// OYNATICI EKRANI (PLAYER SCREEN) - SİNEMA MODU (DARK THEME)
+// OYNATICI EKRANI (PLAYER SCREEN) - MOBİL & WEB UYUMLU
 // ========================================================= //
 
 class PlayerScreen extends StatefulWidget {
@@ -277,65 +219,66 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late YoutubePlayerController _controller;
+  // Mobil Controller
+  late native.YoutubePlayerController _nativeController;
+  // Web Controller
+  late web.YoutubePlayerController _webController;
 
   @override
   void initState() {
     super.initState();
-    _controller = YoutubePlayerController(
-      initialVideoId: widget.videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        disableDragSeek: false,
-        loop: false,
-        isLive: false,
-        forceHD: true,
-      ),
-    );
+    if (kIsWeb) {
+      // 🚀 WEB İÇİN BAŞLATMA
+      _webController = web.YoutubePlayerController.fromVideoId(
+        videoId: widget.videoId,
+        params: const web.YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+        ),
+      );
+    } else {
+      // 📱 MOBİL İÇİN BAŞLATMA
+      _nativeController = native.YoutubePlayerController(
+        initialVideoId: widget.videoId,
+        flags: const native.YoutubePlayerFlags(
+          autoPlay: true,
+          mute: false,
+          forceHD: true,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (!kIsWeb) _nativeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Sinema hissi vermek için arka planı tamamen siyah yapıyoruz
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(
-          widget.title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: Colors.transparent, // AppBar şeffaf
+        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        child: YoutubePlayer(
-          controller: _controller,
-          showVideoProgressIndicator: true,
-          progressIndicatorColor: Colors.redAccent,
-          progressColors: const ProgressBarColors(
-            playedColor: Colors.red,
-            handleColor: Colors.white, // Oynatma topu beyaz (Youtube tarzı)
-            bufferedColor: Colors.white30,
-            backgroundColor: Colors.white12,
-          ),
-          bottomActions: [
-            CurrentPosition(),
-            ProgressBar(isExpanded: true),
-            RemainingDuration(),
-            const PlaybackSpeedButton(),
-            FullScreenButton(),
-          ],
-        ),
-      ),
+      body: Center(child: kIsWeb ? _buildWebPlayer() : _buildNativePlayer()),
+    );
+  }
+
+  // 🚀 WEB OYNATICI (Bağlantı kopsa da donmaz)
+  Widget _buildWebPlayer() {
+    return web.YoutubePlayer(controller: _webController, aspectRatio: 16 / 9);
+  }
+
+  // 📱 MOBİL OYNATICI
+  Widget _buildNativePlayer() {
+    return native.YoutubePlayer(
+      controller: _nativeController,
+      showVideoProgressIndicator: true,
+      progressIndicatorColor: Colors.redAccent,
     );
   }
 }

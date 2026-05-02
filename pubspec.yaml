@@ -28,6 +28,7 @@ dependencies:
   speech_to_text: ^7.3.0
   camera: ^0.11.0 # Telefonun kamerasını kontrol etmek için
   google_mlkit_text_recognition: ^0.13.0 # Kameradaki yazıları yapay zekayla okumak (OCR) için
+  youtube_player_iframe: ^5.2.2
   
 
 dev_dependencies:
@@ -41,7 +42,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/logo.png # Uygulama içi (Splash/Auth) logomuz
-    - .env
+    
 
 # --- TELEFON ANA EKRAN İKONU AYARLARI ---
 flutter_icons:
