@@ -3,9 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'camera_scanner_screen.dart';
 
@@ -24,7 +24,6 @@ class WordMeaningGroup {
   });
 }
 
-// 🚀 ADIM 8: AKILLI ÖNBELLEK (CACHE) MODELİ
 class TranslationCacheItem {
   final String originalText;
   final bool isEnToTr;
@@ -55,8 +54,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
   final FlutterTts flutterTts = FlutterTts();
   final FocusNode _focusNode = FocusNode();
 
-  late stt.SpeechToText _speechToText;
+  // 🚀 ADIM 9.8: Tembel başlatma için sistemi null-safety yaptık
+  stt.SpeechToText? _speechToText;
   bool _isListening = false;
+  bool _isSpeechInitialized = false; // Sistem hazır mı kontrolü
 
   String _mainTranslation = "";
   String _wordType = "";
@@ -68,10 +69,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
   bool _isLoading = false;
   bool _isEnToTr = true;
 
-  // 🚀 ADIM 8: CACHE HAVUZU VE LİMİTİ
   final List<TranslationCacheItem> _cachePool = [];
-  final int _maxCacheSize =
-      50; // Telefonu şişirmemek için maksimum 50 kelime hafızada tutulacak
+  final int _maxCacheSize = 50;
 
   final LinearGradient primaryGradient = LinearGradient(
     colors: [Colors.teal.shade700, Colors.tealAccent.shade700],
@@ -79,18 +78,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
     end: Alignment.bottomRight,
   );
 
-  final String _deepLApiKey = dotenv.env['DEEPL_API_KEY'] ?? "";
+  final String _proxyUrl = "https://ceviri-api.vercel.app/api/proxy";
 
   @override
   void initState() {
     super.initState();
-    _speechToText = stt.SpeechToText();
+    // 🚀 ADIM 9.8: initState içindeki ses hazırlama (initialize) satırını sildik!
   }
 
   @override
   void dispose() {
     if (_isListening) {
-      _speechToText.stop();
+      _speechToText?.stop();
     }
     _focusNode.dispose();
     _textController.dispose();
@@ -114,27 +113,37 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
   }
 
+  // 🚀 ADIM 9.8: Dinleme fonksiyonu artık çok daha akıllı
   void _listen() async {
-    if (!_isListening) {
-      bool available = await _speechToText.initialize(
+    // 1. Sistem daha önce kurulmadıysa şimdi kur
+    if (!_isSpeechInitialized) {
+      _speechToText = stt.SpeechToText();
+      bool available = await _speechToText!.initialize(
         onStatus: (val) => debugPrint('Mikrofon Durumu: $val'),
         onError: (val) => debugPrint('Mikrofon Hatası: $val'),
       );
-
       if (available) {
-        setState(() => _isListening = true);
-        _speechToText.listen(
-          localeId: _isEnToTr ? 'en_US' : 'tr_TR',
-          onResult: (val) {
-            setState(() {
-              _textController.text = val.recognizedWords;
-            });
-          },
-        );
+        setState(() => _isSpeechInitialized = true);
+      } else {
+        debugPrint("Ses tanıma başlatılamadı.");
+        return;
       }
+    }
+
+    // 2. Dinlemeyi başlat veya durdur
+    if (!_isListening) {
+      setState(() => _isListening = true);
+      _speechToText!.listen(
+        localeId: _isEnToTr ? 'en_US' : 'tr_TR',
+        onResult: (val) {
+          setState(() {
+            _textController.text = val.recognizedWords;
+          });
+        },
+      );
     } else {
       setState(() => _isListening = false);
-      _speechToText.stop();
+      _speechToText!.stop();
     }
   }
 
@@ -195,19 +204,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
     String? sourceLang,
     String? targetLang,
   }) async {
-    if (_deepLApiKey.isEmpty) return "Lütfen DeepL API Key girin.";
-
-    final url = Uri.parse('https://api-free.deepl.com/v2/translate');
+    final url = Uri.parse('$_proxyUrl?service=deepl');
     final sLang = sourceLang ?? (_isEnToTr ? 'EN' : 'TR');
     final tLang = targetLang ?? (_isEnToTr ? 'TR' : 'EN-US');
 
     try {
       final response = await http.post(
         url,
-        headers: {
-          'Authorization': 'DeepL-Auth-Key $_deepLApiKey',
-          'Content-Type': 'application/json',
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'text': [text],
           'source_lang': sLang,
@@ -217,7 +221,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data['translations'][0]['text'];
+        if (data['translations'] != null && data['translations'].isNotEmpty) {
+          return data['translations'][0]['text'];
+        }
+        return "Çeviri Bulunamadı";
       } else {
         return "Çeviri Hatası";
       }
@@ -232,7 +239,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     Map<String, List<String>> dictionaryResults = {};
     try {
       final url = Uri.parse(
-        'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=bd&q=${Uri.encodeComponent(word)}',
+        '$_proxyUrl?service=google&sl=en&tl=tr&word=${Uri.encodeComponent(word)}',
       );
       final response = await http.get(url);
 
@@ -247,9 +254,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
             dictionaryResults[_translateWordType(type)] = meanings;
           }
         }
-      } else {
-        // Çökme Kalkanı: Google bizi engellerse (429 vb.) uygulama çökmez, sadece boş döner.
-        debugPrint("Google API Yanıt Vermedi: ${response.statusCode}");
       }
     } catch (e) {
       debugPrint("Google Dictionary Hatası: $e");
@@ -263,30 +267,25 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
     if (_isListening) {
       setState(() => _isListening = false);
-      _speechToText.stop();
+      _speechToText?.stop();
     }
 
-    // 🚀 ADIM 8: CACHE KONTROLÜ (İnternete çıkmadan önce hafızaya bak)
     final cachedIndex = _cachePool.indexWhere(
       (item) =>
           item.originalText == textToTranslate && item.isEnToTr == _isEnToTr,
     );
 
     if (cachedIndex != -1) {
-      // Hafızada bulundu! API'leri hiç yormadan doğrudan ekrana bas ve işlemi bitir.
       final cachedData = _cachePool[cachedIndex];
       setState(() {
         _mainTranslation = cachedData.mainTranslation;
         _imageUrl = cachedData.imageUrl;
         _searchedEnglishWord = cachedData.searchedEnglishWord;
-        // Listeyi referans kopması yaşamamak için kopyalayarak atıyoruz
         _groupedMeanings = List.from(cachedData.groupedMeanings);
       });
-      debugPrint("[$textToTranslate] önbellekten (cache) anında yüklendi. 🚀");
       return;
     }
 
-    // Hafızada yoksa API sürecini başlat
     setState(() {
       _isLoading = true;
       _mainTranslation = "";
@@ -340,10 +339,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
         }
       }
 
-      // 🚀 ADIM 8: İŞLEM BAŞARILIYSA HAFIZAYA (CACHE) KAYDET
       if (_mainTranslation.isNotEmpty && !_mainTranslation.contains("Hata")) {
         if (_cachePool.length >= _maxCacheSize) {
-          _cachePool.removeAt(0); // FIFO: Liste doluysa en eski kelimeyi sil
+          _cachePool.removeAt(0);
         }
         _cachePool.add(
           TranslationCacheItem(
@@ -352,13 +350,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
             mainTranslation: _mainTranslation,
             imageUrl: _imageUrl,
             searchedEnglishWord: _searchedEnglishWord,
-            groupedMeanings: List.from(
-              _groupedMeanings,
-            ), // Derin kopya (Deep Copy)
+            groupedMeanings: List.from(_groupedMeanings),
           ),
-        );
-        debugPrint(
-          "[$textToTranslate] önbelleğe kaydedildi. Mevcut boyut: ${_cachePool.length}/$_maxCacheSize",
         );
       }
     } catch (e) {
@@ -374,7 +367,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
   ) async {
     try {
       if (_isEnToTr) {
-        // --- İNGİLİZCEDEN TÜRKÇEYE (EN -> TR) ---
         Map<String, List<String>> googleMeanings =
             await _fetchGoogleDictionaryMeanings(englishWord);
         final url = Uri.parse(
@@ -456,9 +448,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
           });
         }
       } else {
-        // --- TÜRKÇEDEN İNGİLİZCEYE (TR -> EN) GÖRSELDEKİ ÖZEL YAPI ---
         final url = Uri.parse(
-          'https://translate.googleapis.com/translate_a/single?client=gtx&sl=tr&tl=en&dt=bd&q=${Uri.encodeComponent(originalWord)}',
+          '$_proxyUrl?service=google&sl=tr&tl=en&word=${Uri.encodeComponent(originalWord)}',
         );
         final response = await http.get(url);
 
@@ -502,17 +493,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
   }
 
   Future<void> _fetchImage(String word) async {
-    final String pexelsApiKey = dotenv.env['PEXELS_API_KEY'] ?? "";
-    if (pexelsApiKey.isEmpty) return;
-
     try {
       final url = Uri.parse(
-        'https://api.pexels.com/v1/search?query=${Uri.encodeComponent(word)}&per_page=1&orientation=landscape',
+        '$_proxyUrl?service=pexels&word=${Uri.encodeComponent(word)}',
       );
-      final response = await http.get(
-        url,
-        headers: {'Authorization': pexelsApiKey},
-      );
+      final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -757,10 +742,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   icon: const Icon(Icons.volume_up, color: Colors.teal),
                   onPressed: () => _speak(_textController.text, 'en-US'),
                 ),
-              IconButton(
-                icon: Icon(Icons.camera_alt, color: Colors.teal.shade700),
-                onPressed: _openCameraScanner,
-              ),
+              if (!kIsWeb)
+                IconButton(
+                  icon: Icon(Icons.camera_alt, color: Colors.teal.shade700),
+                  onPressed: _openCameraScanner,
+                ),
               IconButton(
                 icon: Icon(
                   _isListening ? Icons.mic : Icons.mic_none,
@@ -813,7 +799,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- 1. ANA ÇEVİRİ VE GÖRSEL KARTI ---
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
@@ -934,7 +919,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
         ),
 
-        // --- TR -> EN İÇİN KULLANIM YERİNE GÖRE BAŞLIK GÜNCELLEMESİ ---
         if (!_isEnToTr && _groupedMeanings.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 25.0, bottom: 5.0),
@@ -1041,7 +1025,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
             ),
           ),
 
-        // --- 2. ÖRNEKLER: BAĞLAM İÇİ KULLANIM KARTI (SADECE EN -> TR İÇİN) ---
         if (_isEnToTr &&
             _groupedMeanings.any((g) => g.contextualExamples.isNotEmpty))
           Container(

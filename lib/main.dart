@@ -1,6 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:camera/camera.dart'; // 🚀 YENİ: Kamera kontrol kütüphanesi
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
@@ -19,9 +18,6 @@ void main() async {
     debugPrint("Kameralar alınırken hata oluştu: $e");
   }
 
-  // Gizli kasamızı (.env) yüklüyoruz
-  await dotenv.load(fileName: ".env");
-
   // Firebase'i başlatıyoruz
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -34,7 +30,7 @@ class IngilizceDestekApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'İngilizce Destek',
+      title: 'Owlish',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
