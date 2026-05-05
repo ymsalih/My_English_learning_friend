@@ -4,10 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:camera/camera.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../main.dart';
 import 'camera_scanner_screen.dart';
+// 🚀 YENİ: Ses servisini içeri aktarıyoruz
+import 'tts_service.dart';
 
 // --- VERİ MODELLERİ ---
 class WordMeaningGroup {
@@ -51,13 +55,14 @@ class TranslationScreen extends StatefulWidget {
 
 class _TranslationScreenState extends State<TranslationScreen> {
   final _textController = TextEditingController();
-  final FlutterTts flutterTts = FlutterTts();
   final FocusNode _focusNode = FocusNode();
 
-  // 🚀 ADIM 9.8: Tembel başlatma için sistemi null-safety yaptık
+  // 🚀 GÜNCELLEME: Merkezi ses servisimizi tanımlıyoruz
+  final TtsService _ttsService = TtsService();
+
   stt.SpeechToText? _speechToText;
   bool _isListening = false;
-  bool _isSpeechInitialized = false; // Sistem hazır mı kontrolü
+  bool _isSpeechInitialized = false;
 
   String _mainTranslation = "";
   String _wordType = "";
@@ -81,12 +86,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
   final String _proxyUrl = "https://ceviri-api.vercel.app/api/proxy";
 
   @override
-  void initState() {
-    super.initState();
-    // 🚀 ADIM 9.8: initState içindeki ses hazırlama (initialize) satırını sildik!
-  }
-
-  @override
   void dispose() {
     if (_isListening) {
       _speechToText?.stop();
@@ -97,6 +96,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
   }
 
   Future<void> _openCameraScanner() async {
+    if (cameras.isEmpty) {
+      try {
+        cameras = await availableCameras();
+      } catch (e) {
+        debugPrint("Kameralar alınırken hata oluştu: $e");
+      }
+    }
+
+    if (!mounted) return;
+
     final scannedWord = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
@@ -113,9 +122,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
   }
 
-  // 🚀 ADIM 9.8: Dinleme fonksiyonu artık çok daha akıllı
   void _listen() async {
-    // 1. Sistem daha önce kurulmadıysa şimdi kur
     if (!_isSpeechInitialized) {
       _speechToText = stt.SpeechToText();
       bool available = await _speechToText!.initialize(
@@ -130,7 +137,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
       }
     }
 
-    // 2. Dinlemeyi başlat veya durdur
     if (!_isListening) {
       setState(() => _isListening = true);
       _speechToText!.listen(
@@ -147,11 +153,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
   }
 
-  Future<void> _speak(String text, String languageCode) async {
+  // 🚀 GÜNCELLEME: Artık merkezi servisi kullanarak konuşuyoruz
+  Future<void> _speak(String text) async {
     if (text.isEmpty) return;
-    await flutterTts.setLanguage(languageCode);
-    await flutterTts.setSpeechRate(0.5);
-    await flutterTts.speak(text);
+    await _ttsService.speak(text);
   }
 
   String _translateWordType(String type) {
@@ -525,13 +530,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
           'tr': _isEnToTr ? _mainTranslation : _textController.text.trim(),
           'timestamp': FieldValue.serverTimestamp(),
           'isLearned': false,
+          'lastReviewed': Timestamp.fromDate(
+            DateTime.fromMillisecondsSinceEpoch(0),
+          ),
         });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text(
-            'Başarıyla eklendi! ✨',
+            'Havuza akıllıca eklendi! ✨',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.teal.shade600,
@@ -740,7 +748,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
               if (_isEnToTr)
                 IconButton(
                   icon: const Icon(Icons.volume_up, color: Colors.teal),
-                  onPressed: () => _speak(_textController.text, 'en-US'),
+                  onPressed: () => _speak(
+                    _textController.text,
+                  ), // 🚀 Artık merkezi motor tetikleniyor!
                 ),
               if (!kIsWeb)
                 IconButton(
@@ -822,25 +832,30 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   padding: const EdgeInsets.only(bottom: 20),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(15),
-                    child: Image.network(
-                      _imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: _imageUrl,
                       height: 200,
                       width: double.infinity,
                       fit: BoxFit.fill,
                       alignment: Alignment.topCenter,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 200,
-                          width: double.infinity,
-                          color: Colors.teal.shade50,
-                          child: const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.teal,
-                            ),
-                          ),
-                        );
-                      },
+                      placeholder: (context, url) => Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: Colors.teal.shade50,
+                        child: const Center(
+                          child: CircularProgressIndicator(color: Colors.teal),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: Colors.teal.shade50,
+                        child: const Icon(
+                          Icons.broken_image_rounded,
+                          color: Colors.teal,
+                          size: 50,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -863,8 +878,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       _isEnToTr
                           ? _textController.text.trim()
                           : _mainTranslation,
-                      'en-US',
-                    ),
+                    ), // 🚀 Artık merkezi motor tetikleniyor!
                   ),
                 ],
               ),

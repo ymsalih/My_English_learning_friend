@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'tts_service.dart'; // 🚀 Merkezi ses servisimizi çağırıyoruz
 
 class WordLearningScreen extends StatefulWidget {
   const WordLearningScreen({super.key});
@@ -13,13 +13,22 @@ class WordLearningScreen extends StatefulWidget {
 }
 
 class _WordLearningScreenState extends State<WordLearningScreen> {
+  // 🚀 Merkezi Servis
+  final TtsService _ttsService = TtsService();
+
   String _selectedLevel = 'A1';
-  List<dynamic> _words = [];
+  List<dynamic> _allWords = [];
+  List<dynamic> _displayedWords = [];
+
   bool _isLoading = false;
   final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-  final FlutterTts _flutterTts = FlutterTts();
 
-  // 🌅 DAHA ZENGİN VE KALİTELİ GÜN BATIMI (SUNSET) TURUNCUSU
+  // 🚀 PERFORMANS: Scroll dinleyici ve limitler
+  final ScrollController _scrollController = ScrollController();
+  int _currentLimit = 20;
+  bool _isFetchingMore = false;
+
+  // 🌅 ANA TEMA GRADYANI (Gün Batımı Turuncusu)
   final LinearGradient primaryGradient = LinearGradient(
     colors: [Colors.deepOrange.shade600, Colors.orange.shade400],
     begin: Alignment.topLeft,
@@ -30,33 +39,78 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   void initState() {
     super.initState();
     _fetchWordsFromAPI();
+
+    // 🚀 SCROLL DİNLEYİCİSİ (Aşağı kaydırdıkça yükle)
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !_isFetchingMore) {
+        _loadMoreWords();
+      }
+    });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // 🚀 Merkezi motor ile konuşma
   Future<void> _speak(String text) async {
-    await _flutterTts.setLanguage("en-US");
-    await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.5);
-    await _flutterTts.speak(text);
+    if (text.isEmpty) return;
+    await _ttsService.speak(text);
   }
 
   Future<void> _fetchWordsFromAPI() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _currentLimit = 20;
+      _allWords = [];
+      _displayedWords = [];
+    });
+
     try {
       final url = Uri.parse(
         'https://raw.githubusercontent.com/ymsalih/english-words-api/main/$_selectedLevel.json',
       );
       final response = await http.get(url);
+
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         if (mounted) {
           setState(() {
-            _words = data['words'];
+            _allWords = data['words'];
+            _displayedWords = _allWords.take(_currentLimit).toList();
             _isLoading = false;
           });
         }
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veri çekilirken bir hata oluştu.')),
+        );
+      }
+    }
+  }
+
+  void _loadMoreWords() {
+    if (_currentLimit < _allWords.length) {
+      setState(() {
+        _isFetchingMore = true;
+      });
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          setState(() {
+            _currentLimit += 20;
+            _displayedWords = _allWords.take(_currentLimit).toList();
+            _isFetchingMore = false;
+          });
+        }
+      });
     }
   }
 
@@ -71,20 +125,29 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
             'eng': eng,
             'tr': tr,
             'timestamp': FieldValue.serverTimestamp(),
+            'isLearned': false,
+            'lastReviewed': Timestamp.fromDate(
+              DateTime.fromMillisecondsSinceEpoch(0),
+            ),
           });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '✨ "$eng" başarıyla havuza eklendi!',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text('"$eng" başarıyla havuza eklendi!')),
+              ],
             ),
-            backgroundColor: Colors.deepOrange.shade600,
+            backgroundColor: Colors
+                .green
+                .shade600, // Eklendiğini belli eden güven veren yeşil
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
-            duration: const Duration(milliseconds: 1000),
+            duration: const Duration(milliseconds: 1500),
           ),
         );
       }
@@ -94,12 +157,17 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Arka planı tamamen çok açık ve temiz bir gri/beyaz tonu yaptık ki kartlar öne çıksın
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: const Color(
+        0xFFF4F7FA,
+      ), // Dashboard ile uyumlu çok açık gri/mavi
       appBar: AppBar(
         title: const Text(
           'Kelime Paketleri',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: -0.5,
+          ),
         ),
         centerTitle: true,
         elevation: 0,
@@ -113,8 +181,17 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
           // --- 1. SEVİYE SEÇİMİ ---
           Container(
             height: 80,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
             padding: const EdgeInsets.symmetric(vertical: 15),
-            color: Colors.white, // Menü arka planı temiz beyaz
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -132,25 +209,25 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 5),
-                    padding: const EdgeInsets.symmetric(horizontal: 25),
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
                     decoration: BoxDecoration(
                       gradient: isSelected ? primaryGradient : null,
                       color: isSelected ? null : Colors.white,
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(
+                        25,
+                      ), // Daha yuvarlak hatlar
                       border: Border.all(
                         color: isSelected
                             ? Colors.transparent
-                            : Colors
-                                  .grey
-                                  .shade300, // Seçili olmayanlar gri çerçeve
+                            : Colors.grey.shade300,
                         width: 1.5,
                       ),
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
                                 color: Colors.deepOrange.withOpacity(0.4),
-                                blurRadius: 8,
+                                blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
                             ]
@@ -164,7 +241,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                         fontWeight: FontWeight.bold,
                         color: isSelected
                             ? Colors.white
-                            : Colors.grey.shade600, // Seçilmeyen yazılar gri
+                            : const Color(0xFF64748B),
                       ),
                     ),
                   ),
@@ -172,9 +249,6 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
               },
             ),
           ),
-
-          // Çok hafif bir gölge çizgisi
-          Container(height: 1, color: Colors.grey.shade200),
 
           // --- 2. KELİME LİSTESİ ---
           Expanded(
@@ -184,7 +258,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                       color: Colors.deepOrange.shade600,
                     ),
                   )
-                : _words.isEmpty
+                : _allWords.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -192,7 +266,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                         Icon(
                           Icons.cloud_off_rounded,
                           size: 80,
-                          color: Colors.deepOrange.shade300,
+                          color: Colors.deepOrange.shade200,
                         ),
                         const SizedBox(height: 15),
                         Text(
@@ -200,109 +274,157 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                           style: TextStyle(
                             color: Colors.deepOrange.shade800,
                             fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ],
                     ),
                   )
                 : ListView.builder(
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.only(
                       top: 15,
-                      bottom: 20,
-                      left: 15,
-                      right: 15,
+                      bottom: 30,
+                      left: 16,
+                      right: 16,
                     ),
-                    itemCount: _words.length,
+                    itemCount:
+                        _displayedWords.length + (_isFetchingMore ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final word = _words[index];
-                      return Card(
-                        elevation: 3,
-                        color: Colors
-                            .white, // KART ARKA PLANI SAF BEYAZ (Renk bozulmasını önler)
-                        surfaceTintColor: Colors
-                            .white, // Material 3'ün kartlara renk vermesini engeller
-                        shadowColor: Colors.deepOrange.withOpacity(0.15),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                      if (index == _displayedWords.length) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(15.0),
+                            child: CircularProgressIndicator(
+                              color: Colors.deepOrange.shade400,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final word = _displayedWords[index];
+                      return Container(
+                        margin: const EdgeInsets.only(
+                          bottom: 16,
+                        ), // Kartlar arası mesafe artırıldı
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.grey.shade100,
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.deepOrange.withOpacity(0.06),
+                              blurRadius: 15,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
                         ),
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        child: Padding(
-                          padding: const EdgeInsets.all(8.0),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            leading: CircleAvatar(
-                              radius: 25,
-                              backgroundColor: Colors.deepOrange.shade50,
-                              child: Text(
-                                _selectedLevel,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.deepOrange.shade700,
-                                ),
-                              ),
-                            ),
-                            // 🌟 KELİMELER ŞİMDİ DAHA BÜYÜK VE KALIN
-                            title: Text(
-                              word['eng'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900, // Çok daha kalın
-                                fontSize: 20, // Daha büyük
-                                letterSpacing: 0.5,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                word['tr'],
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            trailing: Wrap(
-                              spacing: 8,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: Padding(
+                            padding: const EdgeInsets.all(
+                              20.0,
+                            ), // İçerik boşluğu artırıldı
+                            child: Row(
                               children: [
-                                // Dinleme Butonu
+                                // 🌟 YENİ: Canlı ve Parlak Seviye Rozeti
                                 Container(
+                                  width: 54,
+                                  height: 54,
                                   decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.volume_up_rounded,
-                                      color: Colors.blue.shade700,
-                                      size: 26,
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.deepOrange.shade400,
+                                        Colors.deepOrange.shade600,
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                    onPressed: () => _speak(word['eng']),
-                                    tooltip: 'Dinle',
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.deepOrange.withOpacity(
+                                          0.3,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _selectedLevel,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 18,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                // Havuza Ekleme Butonu
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepOrange.shade50,
-                                    shape: BoxShape.circle,
+                                const SizedBox(width: 18),
+
+                                // 🌟 YENİ: Tipografik Hiyerarşi (Daha büyük ve kalın metinler)
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        word['eng'],
+                                        style: const TextStyle(
+                                          fontWeight:
+                                              FontWeight.w900, // En kalın font
+                                          fontSize:
+                                              22, // Çok daha büyük İngilizce kelime
+                                          color: Color(
+                                            0xFF0F172A,
+                                          ), // Koyu lacivert/siyah
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        word['tr'],
+                                        style: TextStyle(
+                                          color: Colors
+                                              .deepOrange
+                                              .shade700, // Tema rengiyle uyumlu, belirgin
+                                          fontSize: 16,
+                                          fontWeight: FontWeight
+                                              .w700, // Türkçe anlamı da belirginleştirildi
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.add_task_rounded,
-                                      color: Colors.deepOrange.shade600,
-                                      size: 26,
+                                ),
+
+                                // 🌟 YENİ: Belirgin ve Renkli Aksiyon Butonları
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _buildActionButton(
+                                      icon: Icons.volume_up_rounded,
+                                      iconColor: Colors.blue.shade700,
+                                      bgColor: Colors.blue.shade50,
+                                      onTap: () => _speak(word['eng']),
                                     ),
-                                    onPressed: () => _addWordToMyPool(
-                                      word['eng'],
-                                      word['tr'],
+                                    const SizedBox(width: 10),
+                                    _buildActionButton(
+                                      icon: Icons.add_task_rounded,
+                                      iconColor: Colors.teal.shade600,
+                                      bgColor: Colors.teal.shade50,
+                                      onTap: () => _addWordToMyPool(
+                                        word['eng'],
+                                        word['tr'],
+                                      ),
                                     ),
-                                    tooltip: 'Havuza Ekle',
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -313,6 +435,32 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Butonları daha şık çizen yardımcı metot
+  Widget _buildActionButton({
+    required IconData icon,
+    required Color iconColor,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          splashColor: iconColor.withOpacity(0.2),
+          child: Icon(icon, color: iconColor, size: 26),
+        ),
       ),
     );
   }

@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+// 🚀 YENİ: Yerel flutter_tts silindi, Merkezi Ses Servisi içeri aktarıldı
+import 'tts_service.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -13,23 +14,34 @@ class TestScreen extends StatefulWidget {
 }
 
 class _TestScreenState extends State<TestScreen> {
-  List<Map<String, dynamic>> _words = [];
-  bool _isLoading = true;
-  final FlutterTts flutterTts = FlutterTts();
+  // 🚀 GÜNCELLEME: Merkezi ses servisimizi tanımlıyoruz
+  final TtsService _ttsService = TtsService();
 
-  // Kartı kodla döndürebilmek için gerekli anahtar
+  List<Map<String, dynamic>> _allAvailableWords = [];
+  List<Map<String, dynamic>> _words = [];
+
+  bool _isLoading = true;
+  bool _isSetupMode = true;
+  int _selectedWordCount = 10;
+
   GlobalKey<FlipCardState> cardKey = GlobalKey<FlipCardState>();
-  bool _isProcessing =
-      false; // Bekleme sırasında art arda tıklanmayı önlemek için
+  bool _isProcessing = false;
+
+  // 🚀 PERFORMANS OPTİMİZASYONU 2: ValueNotifier kullanımı.
+  // Artık sürükleme sırasında tüm ekran yenilenmeyecek, sadece bu değerleri dinleyen kart yenilenecek!
+  final ValueNotifier<Offset> _swipePosition = ValueNotifier<Offset>(
+    Offset.zero,
+  );
+  final ValueNotifier<double> _swipeAngle = ValueNotifier<double>(0.0);
+  final ValueNotifier<bool> _isDragging = ValueNotifier<bool>(false);
 
   // --- 📊 İSTATİSTİK TAKİP DEĞİŞKENLERİ ---
   int _totalWordsInSession = 0;
   int _forgotCount = 0;
   int _rememberedCount = 0;
   int _masteredCount = 0;
-  bool _testCompleted = false; // Testin bittiğini anlamak için
+  bool _testCompleted = false;
 
-  // 🔮 TEST EKRANI ÖZEL TEMASI
   final LinearGradient primaryGradient = const LinearGradient(
     colors: [Colors.deepPurpleAccent, Colors.purpleAccent],
     begin: Alignment.topLeft,
@@ -39,52 +51,106 @@ class _TestScreenState extends State<TestScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAndShuffleWords();
+    _checkAvailableWords();
   }
 
+  @override
+  void dispose() {
+    // 🚀 Bellek sızıntılarını (Memory Leak) önlemek için Notifier'ları kapatıyoruz
+    _swipePosition.dispose();
+    _swipeAngle.dispose();
+    _isDragging.dispose();
+    super.dispose();
+  }
+
+  // 🚀 GÜNCELLEME: Artık yerel ayar yapmak yerine merkezi servisi kullanarak konuşuyoruz
   Future<void> _speak(String text) async {
-    await flutterTts.setLanguage("en-US");
-    await flutterTts.setSpeechRate(0.55);
-    await flutterTts.speak(text);
+    await _ttsService.speak(text);
   }
 
-  Future<void> _fetchAndShuffleWords() async {
+  Future<void> _checkAvailableWords() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('words')
-          .get();
+      try {
+        QuerySnapshot snapshot;
 
-      final wordsList = snapshot.docs
-          .map((doc) {
-            final data = doc.data();
-            data['docId'] = doc.id;
-            return data;
-          })
-          .where((word) => word['isLearned'] != true)
-          .toList();
+        try {
+          snapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('words')
+              .get(const GetOptions(source: Source.cache));
 
-      wordsList.shuffle(Random());
+          if (snapshot.docs.isEmpty) {
+            snapshot = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .collection('words')
+                .get(const GetOptions(source: Source.server));
+          }
+        } catch (e) {
+          snapshot = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('words')
+              .get(const GetOptions(source: Source.server));
+        }
 
-      setState(() {
-        _words = wordsList;
-        _totalWordsInSession = wordsList.length; // Toplam soru sayısını kaydet
-        _forgotCount = 0;
-        _rememberedCount = 0;
-        _masteredCount = 0;
-        _testCompleted = false;
-        _isLoading = false;
-      });
+        final wordsList = snapshot.docs
+            .map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              data['docId'] = doc.id;
+              return data;
+            })
+            .where((word) => word['isLearned'] != true)
+            .toList();
+
+        setState(() {
+          _allAvailableWords = wordsList;
+          if (wordsList.isNotEmpty) {
+            _selectedWordCount = wordsList.length > 20 ? 20 : wordsList.length;
+          }
+          _isLoading = false;
+        });
+      } catch (e) {
+        debugPrint("Kelime çekme hatası: $e");
+        setState(() => _isLoading = false);
+      }
     }
   }
 
-  // --- 🚀 GÜNCELLENDİ: ÇİFTE KAYIT SERVİSİ (ÖĞRENİLENLER DAHİL) ---
+  void _startTest() {
+    _allAvailableWords.sort((a, b) {
+      Timestamp? t1 = a['lastReviewed'] as Timestamp?;
+      Timestamp? t2 = b['lastReviewed'] as Timestamp?;
+
+      int time1 = t1?.millisecondsSinceEpoch ?? 0;
+      int time2 = t2?.millisecondsSinceEpoch ?? 0;
+
+      return time1.compareTo(time2);
+    });
+
+    List<Map<String, dynamic>> selectedSessionWords = _allAvailableWords
+        .take(_selectedWordCount)
+        .toList();
+
+    selectedSessionWords.shuffle(Random());
+
+    setState(() {
+      _words = selectedSessionWords;
+      _totalWordsInSession = selectedSessionWords.length;
+      _forgotCount = 0;
+      _rememberedCount = 0;
+      _masteredCount = 0;
+      _testCompleted = false;
+      _isSetupMode = false;
+    });
+  }
+
   Future<void> _saveTestResultsToFirebase(
     int correctCount,
     int wrongCount,
-    int masteredCount, // Yeni parametre
+    int masteredCount,
   ) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -94,19 +160,15 @@ class _TestScreenState extends State<TestScreen> {
         .doc(user.uid);
 
     try {
-      // 1. ADIM: Dashboard için Genel İstatistikleri Güncelle
       await userRef.set({
         'stats': {
           'totalTests': FieldValue.increment(1),
           'totalCorrect': FieldValue.increment(correctCount),
           'totalWrong': FieldValue.increment(wrongCount),
-          'totalMastered': FieldValue.increment(
-            masteredCount,
-          ), // Genel toplama eklendi
+          'totalMastered': FieldValue.increment(masteredCount),
         },
       }, SetOptions(merge: true));
 
-      // 2. ADIM: Test Geçmişi Listesi İçin Ayrı Kaydet
       int totalQuestions = correctCount + wrongCount;
       double successRate = totalQuestions > 0
           ? (correctCount / totalQuestions) * 100
@@ -116,65 +178,69 @@ class _TestScreenState extends State<TestScreen> {
         'timestamp': FieldValue.serverTimestamp(),
         'correct': correctCount,
         'wrong': wrongCount,
-        'mastered': masteredCount, // Bu testte öğrenilen sayısı
+        'mastered': masteredCount,
         'total': totalQuestions,
         'successRate': successRate,
       });
-
-      debugPrint(
-        "Öğrenilen kelimelerle birlikte tüm veriler Firebase'e yazıldı!",
-      );
     } catch (e) {
       debugPrint("İstatistikler kaydedilirken hata oluştu: $e");
     }
   }
 
-  Future<void> _handleWordResult(String action) async {
-    if (_words.isEmpty || _isProcessing) return;
+  // 🚀 GÜNCELLENDİ: SetState Yerine ValueNotifier kullanılarak animasyon izole edildi
+  Future<void> _animateAndMove(String action, Offset targetPosition) async {
+    if (_isProcessing) return;
+    _isProcessing = true;
 
-    setState(() {
-      _isProcessing = true; // İşlem başladı, diğer tıklamaları kilitle
-    });
+    // Sadece dinleyicileri (Notifier) güncelliyoruz, tüm ekranı yeniden ÇİZDİRMİYORUZ.
+    _swipePosition.value = targetPosition;
+    _swipeAngle.value = targetPosition.dx > 0
+        ? 30
+        : (targetPosition.dx < 0 ? -30 : 0);
 
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    _handleWordResult(action);
+
+    _swipePosition.value = Offset.zero;
+    _swipeAngle.value = 0.0;
+    _isProcessing = false;
+  }
+
+  void _handleWordResult(String action) {
     final currentWord = _words[0];
     final String docId = currentWord['docId'];
     final user = FirebaseAuth.instance.currentUser;
 
+    final Map<String, dynamic> updateData = {
+      'lastReviewed': FieldValue.serverTimestamp(),
+    };
+
     if (action == 'forgot') {
-      _forgotCount++; // Unutulanları say
-      // Eğer kartın ön yüzündeysek arkasını çevir
-      if (cardKey.currentState != null && cardKey.currentState!.isFront) {
-        cardKey.currentState!.toggleCard();
-        // Kullanıcının cevabı okuması için 1.5 saniye bekle
-        await Future.delayed(const Duration(milliseconds: 1500));
-      }
+      _forgotCount++;
     } else if (action == 'remembered') {
-      _rememberedCount++; // Hatırlananları say
+      _rememberedCount++;
     } else if (action == 'mastered') {
-      _masteredCount++; // Ustalaşılanları say
-      if (user != null) {
-        FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .collection('words')
-            .doc(docId)
-            .update({'isLearned': true});
-      }
+      _masteredCount++;
+      updateData['isLearned'] = true;
     }
 
-    // Arayüzü Güncelle ve Sonraki Karta Geç
+    if (user != null) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('words')
+          .doc(docId)
+          .update(updateData);
+    }
+
+    // Kelime listesi eksildiği için burada ekranın (üstteki ilerleme çubuğunun) yenilenmesi gerek.
     setState(() {
       _words.removeAt(0);
-
-      // Animasyon çakışmasını önlemek için her yeni kelimede yeni bir anahtar üretiyoruz
       cardKey = GlobalKey<FlipCardState>();
-      _isProcessing = false; // Kilidi aç
 
-      // Eğer kelime kalmadıysa testi bitir
       if (_words.isEmpty) {
         _testCompleted = true;
-
-        // --- 🚀 GÜNCELLENDİ: MASTERED COUNT GÖNDERİLİYOR ---
         int correctAnswers = _masteredCount + _rememberedCount;
         _saveTestResultsToFirebase(
           correctAnswers,
@@ -215,139 +281,366 @@ class _TestScreenState extends State<TestScreen> {
                   color: Colors.deepPurpleAccent,
                 ),
               )
-            : _testCompleted // EĞER TEST BİTTİYSE SONUÇ EKRANINI GÖSTER
-            ? _buildResultsScreen()
-            : _words
-                  .isEmpty // HİÇ KELİME YOKSA BOŞ EKRANI GÖSTER
+            : _allAvailableWords.isEmpty
             ? _buildEmptyState()
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // --- 🏆 İLERLEME ÇUBUĞU (PROGRESS BAR) ---
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 40),
-                    child: Column(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: _totalWordsInSession == 0
-                                ? 0
-                                : (_totalWordsInSession - _words.length) /
-                                      _totalWordsInSession,
-                            minHeight: 8,
-                            backgroundColor: Colors.deepPurple.withOpacity(
-                              0.15,
-                            ),
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Colors.deepPurpleAccent,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Kalan Kelime: ${_words.length} / $_totalWordsInSession",
-                          style: const TextStyle(
-                            color: Colors.deepPurple,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.deepPurple.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      ' Anlamını görmek için karta dokun',
-                      style: TextStyle(
-                        color: Colors.deepPurple,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 500),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) {
-                          return ScaleTransition(
-                            scale: animation,
-                            child: FadeTransition(
-                              opacity: animation,
-                              child: child,
-                            ),
-                          );
-                        },
-                    // Animasyonun karışmaması için ValueKey içeren bir Container ekledik
-                    child: Container(
-                      key: ValueKey<String>(_words[0]['eng']),
-                      child: FlipCard(
-                        key:
-                            cardKey, // Kartı dışarıdan döndürebilmek için atadığımız anahtar
-                        direction: FlipDirection.HORIZONTAL,
-                        speed: 500,
-                        front: _buildCard(_words[0]['eng'], true),
-                        back: _buildCard(_words[0]['tr'], false),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 50),
-
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        // UNUTTUM BUTONU (Temaya uygun Pembe Tonları)
-                        _buildActionButton(
-                          title: "Unuttum",
-                          icon: Icons.close_rounded,
-                          colors: [
-                            Colors.pinkAccent.shade400,
-                            Colors.pink.shade300,
-                          ],
-                          onTap: () => _handleWordResult('forgot'),
-                        ),
-                        // HATIRLADIM BUTONU (Temaya uygun Mavi Tonları)
-                        _buildActionButton(
-                          title: "Hatırladım",
-                          icon: Icons.check_rounded,
-                          colors: [Colors.blueAccent, Colors.lightBlueAccent],
-                          onTap: () => _handleWordResult('remembered'),
-                        ),
-                        // ÖĞRENDİM BUTONU (Ana temaya tam uyumlu Mor Tonları ve Şapka İkonu)
-                        _buildActionButton(
-                          title: "Öğrendim",
-                          icon: Icons.school_rounded,
-                          colors: [
-                            Colors.deepPurpleAccent,
-                            Colors.purpleAccent,
-                          ],
-                          onTap: () => _handleWordResult('mastered'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            : _isSetupMode
+            ? _buildSetupScreen()
+            : _testCompleted
+            ? _buildResultsScreen()
+            : _buildTestScreen(),
       ),
     );
   }
 
-  // --- 🏆 SINAV SONUÇ VE ANALİZ EKRANI ---
+  Widget _buildSetupScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(30.0),
+        child: Container(
+          padding: const EdgeInsets.all(25),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurple.withOpacity(0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.settings_suggest_rounded,
+                size: 80,
+                color: Colors.deepPurpleAccent,
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                "Test Ayarları",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.deepPurple,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                "Havuzda öğrenilmeyi bekleyen toplam\n${_allAvailableWords.length} kelimen var.",
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 15, color: Colors.black54),
+              ),
+              const SizedBox(height: 30),
+
+              Text(
+                "$_selectedWordCount Kelime",
+                style: const TextStyle(
+                  fontSize: 35,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.deepPurpleAccent,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: Colors.deepPurpleAccent,
+                  inactiveTrackColor: Colors.deepPurple.withOpacity(0.2),
+                  thumbColor: Colors.purpleAccent,
+                  overlayColor: Colors.purpleAccent.withOpacity(0.2),
+                  trackHeight: 8.0,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 12.0,
+                  ),
+                ),
+                child: Slider(
+                  value: _selectedWordCount.toDouble(),
+                  min: 1,
+                  max: _allAvailableWords.length.toDouble(),
+                  divisions: _allAvailableWords.length > 1
+                      ? _allAvailableWords.length - 1
+                      : 1,
+                  onChanged: (double value) {
+                    setState(() {
+                      _selectedWordCount = value.toInt();
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 15),
+
+              Wrap(
+                spacing: 10,
+                alignment: WrapAlignment.center,
+                children:
+                    [10, 20, 50].map((count) {
+                      if (count > _allAvailableWords.length)
+                        return const SizedBox.shrink();
+                      return ActionChip(
+                        label: Text("$count"),
+                        labelStyle: TextStyle(
+                          color: _selectedWordCount == count
+                              ? Colors.white
+                              : Colors.deepPurple,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        backgroundColor: _selectedWordCount == count
+                            ? Colors.deepPurpleAccent
+                            : Colors.deepPurple.shade50,
+                        onPressed: () {
+                          setState(() {
+                            _selectedWordCount = count;
+                          });
+                        },
+                      );
+                    }).toList()..add(
+                      ActionChip(
+                        label: const Text("Hepsi"),
+                        labelStyle: TextStyle(
+                          color: _selectedWordCount == _allAvailableWords.length
+                              ? Colors.white
+                              : Colors.deepPurple,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        backgroundColor:
+                            _selectedWordCount == _allAvailableWords.length
+                            ? Colors.deepPurpleAccent
+                            : Colors.deepPurple.shade50,
+                        onPressed: () {
+                          setState(() {
+                            _selectedWordCount = _allAvailableWords.length;
+                          });
+                        },
+                      ),
+                    ),
+              ),
+
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _startTest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  minimumSize: const Size(double.infinity, 55),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  elevation: 5,
+                ),
+                child: const Text(
+                  "Teste Başla",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 🚀 GÜNCELLENDİ: Artık dışarıdan Offset alarak sadece bu widget'ın yenilenmesini sağlıyor
+  Widget _buildSwipeOverlay(Offset position) {
+    if (position == Offset.zero && !_isProcessing)
+      return const SizedBox.shrink();
+
+    Color overlayColor = Colors.transparent;
+    String actionText = "";
+    IconData actionIcon = Icons.help;
+    double opacity = 0.0;
+
+    if (position.dy < -50 && position.dy.abs() > position.dx.abs()) {
+      overlayColor = Colors.deepPurpleAccent;
+      actionText = "Öğrendim";
+      actionIcon = Icons.school_rounded;
+      opacity = min(1.0, position.dy.abs() / 150);
+    } else if (position.dx > 40) {
+      overlayColor = Colors.pinkAccent.shade400;
+      actionText = "Unuttum";
+      actionIcon = Icons.cancel_rounded;
+      opacity = min(1.0, position.dx.abs() / 150);
+    } else if (position.dx < -40) {
+      overlayColor = Colors.blueAccent;
+      actionText = "Hatırladım";
+      actionIcon = Icons.check_circle_rounded;
+      opacity = min(1.0, position.dx.abs() / 150);
+    }
+
+    if (opacity == 0) return const SizedBox.shrink();
+
+    return IgnorePointer(
+      child: Container(
+        width: 320,
+        height: 220,
+        decoration: BoxDecoration(
+          color: overlayColor.withOpacity(opacity * 0.85),
+          borderRadius: BorderRadius.circular(25),
+        ),
+        child: Center(
+          child: Transform.scale(
+            scale: 0.5 + (opacity * 0.5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(actionIcon, color: Colors.white, size: 80),
+                const SizedBox(height: 10),
+                Text(
+                  actionText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestScreen() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: Column(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: _totalWordsInSession == 0
+                          ? 0
+                          : (_totalWordsInSession - _words.length) /
+                                _totalWordsInSession,
+                      minHeight: 8,
+                      backgroundColor: Colors.deepPurple.withOpacity(0.15),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Colors.deepPurpleAccent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Kalan Kelime: ${_words.length} / $_totalWordsInSession",
+                    style: const TextStyle(
+                      color: Colors.deepPurple,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                '👆 Öğrendim\n👈 Hatırladım  |  (Dokun: Çevir)  |  Unuttum 👉',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.deepPurple,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  height: 1.6,
+                ),
+              ),
+            ),
+            const SizedBox(height: 50),
+
+            // 🚀 PERFORMANS OPTİMİZASYONU 2: AnimatedBuilder kullanımı.
+            // Sadece bu blok (kaydırma animasyonu) dinlenir, ekranın kalanı rahat bırakılır.
+            AnimatedBuilder(
+              animation: Listenable.merge([
+                _swipePosition,
+                _swipeAngle,
+                _isDragging,
+              ]),
+              builder: (context, child) {
+                return GestureDetector(
+                  onPanStart: (details) {
+                    if (_isProcessing) return;
+                    _isDragging.value = true;
+                  },
+                  onPanUpdate: (details) {
+                    if (_isProcessing) return;
+                    _swipePosition.value += details.delta;
+                    _swipeAngle.value =
+                        25 * (_swipePosition.value.dx / constraints.maxWidth);
+                  },
+                  onPanEnd: (details) {
+                    if (_isProcessing) return;
+                    _isDragging.value = false;
+
+                    if (_swipePosition.value.dy < -80 &&
+                        _swipePosition.value.dy.abs() >
+                            _swipePosition.value.dx.abs()) {
+                      _animateAndMove('mastered', const Offset(0, -600));
+                    } else if (_swipePosition.value.dx > 80) {
+                      _animateAndMove('forgot', const Offset(500, 0));
+                    } else if (_swipePosition.value.dx < -80) {
+                      _animateAndMove('remembered', const Offset(-500, 0));
+                    } else {
+                      _swipePosition.value = Offset.zero;
+                      _swipeAngle.value = 0.0;
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: Duration(
+                      milliseconds: _isDragging.value ? 0 : 300,
+                    ),
+                    curve: Curves.easeOutCubic,
+                    transform: Matrix4.identity()
+                      ..translate(
+                        _swipePosition.value.dx,
+                        _swipePosition.value.dy,
+                      )
+                      ..rotateZ(_swipeAngle.value * 3.14159 / 180),
+                    alignment: Alignment.center,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          key: ValueKey<String>(_words[0]['eng']),
+                          child: FlipCard(
+                            key: cardKey,
+                            direction: FlipDirection.HORIZONTAL,
+                            speed: 500,
+                            front: _buildCard(_words[0]['eng'], true),
+                            back: _buildCard(_words[0]['tr'], false),
+                          ),
+                        ),
+                        // Overlay de artık sadece position değiştiğinde tetikleniyor
+                        _buildSwipeOverlay(_swipePosition.value),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 100),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildResultsScreen() {
     int correctAnswers = _masteredCount + _rememberedCount;
     double successRate = _totalWordsInSession > 0
@@ -376,12 +669,11 @@ class _TestScreenState extends State<TestScreen> {
             ),
             const SizedBox(height: 5),
             const Text(
-              "İşte bugünkü performans analizin:",
+              "İşte bu çalışmadaki performans analizin:",
               style: TextStyle(fontSize: 16, color: Colors.black54),
             ),
             const SizedBox(height: 35),
 
-            // Başarı Yüzdesi Kutusu
             Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
@@ -420,7 +712,6 @@ class _TestScreenState extends State<TestScreen> {
             ),
             const SizedBox(height: 30),
 
-            // Detaylı İstatistikler (Yan Yana)
             Row(
               children: [
                 Expanded(
@@ -452,27 +743,60 @@ class _TestScreenState extends State<TestScreen> {
 
             const SizedBox(height: 40),
 
-            // Aksiyon Butonları
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 40,
-                  vertical: 15,
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLoading = true;
+                        _testCompleted = false;
+                        _isSetupMode = true;
+                      });
+                      _checkAvailableWords();
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      side: const BorderSide(
+                        color: Colors.deepPurple,
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      "Tekrar Test Et",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.deepPurple,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      "Ana Sayfa",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              child: const Text(
-                "Ana Sayfaya Dön",
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              ],
             ),
           ],
         ),
@@ -524,53 +848,6 @@ class _TestScreenState extends State<TestScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- YARDIMCI WIDGET'LAR ---
-
-  Widget _buildActionButton({
-    required String title,
-    required IconData icon,
-    required List<Color> colors,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 70,
-            height: 70,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: colors,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: colors[0].withOpacity(0.4),
-                  blurRadius: 15,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 35),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: colors[0],
-              letterSpacing: 0.5,
             ),
           ),
         ],
@@ -660,7 +937,8 @@ class _TestScreenState extends State<TestScreen> {
                     color: Colors.white,
                     size: 30,
                   ),
-                  onPressed: () => _speak(text),
+                  onPressed: () =>
+                      _speak(text), // 🚀 Artık merkezi motor tetikleniyor!
                   tooltip: 'Dinle',
                 ),
               ),
