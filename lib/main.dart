@@ -1,22 +1,16 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart'; // 🚀 YENİ: Kamera kontrol kütüphanesi
+import 'package:camera/camera.dart';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 
-// 🚀 YENİ: Uygulamanın her yerinden erişebileceğimiz global kamera listesi
+// Uygulamanın her yerinden erişebileceğimiz global kamera listesi
+// 🚀 YENİ: İçini açılışta değil, kullanıcı kameraya tıkladığında dolduracağız!
 List<CameraDescription> cameras = [];
 
 void main() async {
   // Flutter motorunun doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 🚀 YENİ: Cihazdaki kameraları tespit ediyoruz
-  try {
-    cameras = await availableCameras();
-  } catch (e) {
-    debugPrint("Kameralar alınırken hata oluştu: $e");
-  }
 
   // Firebase'i başlatıyoruz
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

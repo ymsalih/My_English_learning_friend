@@ -1,8 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'tts_service.dart';
 
 class LearnedWordsScreen extends StatefulWidget {
   const LearnedWordsScreen({super.key});
@@ -12,13 +12,16 @@ class LearnedWordsScreen extends StatefulWidget {
 }
 
 class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
-  List<Map<String, dynamic>> _learnedWords = [];
-  bool _isLoading = true;
-  final FlutterTts flutterTts = FlutterTts();
+  // 🚀 PERFORMANS OPTİMİZASYONU: Gerçek zamanlı akış ve dinamik limit (Pagination)
+  final ScrollController _scrollController = ScrollController();
+  int _documentLimit = 20;
+  bool _isFetchingMore = false;
 
-  // 🔮 ANA TEMA GRADYANI (Pembe/Yakut)
-  final LinearGradient primaryGradient = LinearGradient(
-    colors: [Colors.pink.shade600, Colors.pinkAccent.shade400],
+  final TtsService _ttsService = TtsService();
+
+  // 💎 CANLI VE FERAH TEMA: Royal İndigo'dan Turkuaz'a Geçiş
+  final LinearGradient primaryGradient = const LinearGradient(
+    colors: [Color(0xFF4F46E5), Color(0xFF06B6D4)], // Indigo 600 to Cyan 500
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -26,39 +29,39 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLearnedWords();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !_isFetchingMore) {
+        setState(() {
+          _isFetchingMore = true;
+          _documentLimit += 20;
+        });
+
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            setState(() {
+              _isFetchingMore = false;
+            });
+          }
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _speak(String text) async {
-    await flutterTts.setLanguage("en-US");
-    await flutterTts.setSpeechRate(0.55);
-    await flutterTts.speak(text);
+    if (text.isEmpty) return;
+    await _ttsService.speak(text);
   }
 
-  Future<void> _fetchLearnedWords() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('words')
-          .where('isLearned', isEqualTo: true)
-          .get();
-
-      final wordsList = snapshot.docs.map((doc) {
-        final data = doc.data();
-        data['docId'] = doc.id;
-        return data;
-      }).toList();
-
-      setState(() {
-        _learnedWords = wordsList;
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _restoreToPool(String docId, int index) async {
+  Future<void> _restoreToPool(String docId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await FirebaseFirestore.instance
@@ -67,10 +70,6 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           .collection('words')
           .doc(docId)
           .update({'isLearned': false});
-
-      setState(() {
-        _learnedWords.removeAt(index);
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -82,7 +81,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                 Text("Kelime tekrar test havuzuna eklendi!"),
               ],
             ),
-            backgroundColor: Colors.blueAccent,
+            backgroundColor: const Color(0xFF06B6D4), // Turkuaz bilgi mesajı
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
@@ -93,7 +92,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
     }
   }
 
-  Future<void> _deleteWord(String docId, int index) async {
+  Future<void> _deleteWord(String docId) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await FirebaseFirestore.instance
@@ -102,10 +101,6 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           .collection('words')
           .doc(docId)
           .delete();
-
-      setState(() {
-        _learnedWords.removeAt(index);
-      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +112,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                 Text("Kelime kalıcı olarak silindi."),
               ],
             ),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: const Color(0xFFEF4444), // Canlı kırmızı
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
@@ -130,11 +125,20 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
+      backgroundColor: const Color(
+        0xFFF8FAFC,
+      ), // Çok hafif buz mavisi/beyaz zemin
       appBar: AppBar(
         title: const Text(
           'Öğrendiklerim (Arşiv)',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: -0.5,
+          ),
         ),
         centerTitle: true,
         elevation: 0,
@@ -143,38 +147,71 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           decoration: BoxDecoration(gradient: primaryGradient),
         ),
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.pink.shade50, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: _isLoading
-            ? Center(
-                child: CircularProgressIndicator(color: Colors.pink.shade600),
-              )
-            : _learnedWords.isEmpty
-            ? _buildEmptyState()
-            : ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: _learnedWords.length,
-                itemBuilder: (context, index) {
-                  final word = _learnedWords[index];
-                  return _buildLearnedWordCard(word, index);
-                },
-              ),
-      ),
+      body: user == null
+          ? const Center(child: Text("Oturum açılmamış."))
+          : StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(user.uid)
+                  .collection('words')
+                  .where('isLearned', isEqualTo: true)
+                  .limit(_documentLimit)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    snapshot.data == null) {
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF4F46E5), // İndigo yükleme ikonu
+                    ),
+                  );
+                }
+
+                final allDocs = snapshot.data?.docs ?? [];
+
+                if (allDocs.isEmpty) {
+                  return _buildEmptyState();
+                }
+
+                return ListView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.only(
+                    top: 15,
+                    bottom: 30,
+                    left: 16,
+                    right: 16,
+                  ),
+                  itemCount: allDocs.length + (_isFetchingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index == allDocs.length) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(15.0),
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4F46E5),
+                            strokeWidth: 3,
+                          ),
+                        ),
+                      );
+                    }
+
+                    final doc = allDocs[index];
+                    final data = doc.data() as Map<String, dynamic>;
+                    data['docId'] = doc.id;
+
+                    return _buildLearnedWordCard(data);
+                  },
+                );
+              },
+            ),
     );
   }
 
-  // --- 🛠️ YAN YANA (SIDE-BY-SIDE) KART TASARIMI ---
-  Widget _buildLearnedWordCard(Map<String, dynamic> word, int index) {
+  // --- 🛠️ YENİ CANLI VE FERAH KART TASARIMI ---
+  Widget _buildLearnedWordCard(Map<String, dynamic> word) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Slidable(
         key: ValueKey(word['docId']),
         endActionPane: ActionPane(
@@ -183,119 +220,123 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           children: [
             SlidableAction(
               onPressed: (context) =>
-                  _showRestoreDialog(word['eng'], word['docId'], index),
-              backgroundColor: Colors.blueAccent,
+                  _showRestoreDialog(word['eng'], word['docId']),
+              backgroundColor: const Color(0xFF06B6D4), // Turkuaz
               foregroundColor: Colors.white,
               icon: Icons.settings_backup_restore_rounded,
               label: 'Havuza Al',
             ),
             SlidableAction(
               onPressed: (context) =>
-                  _showDeleteDialog(word['eng'], word['docId'], index),
-              backgroundColor: const Color(
-                0xFFFF1744,
-              ), // YENİ: Çok daha canlı, neon bir kırmızı
+                  _showDeleteDialog(word['eng'], word['docId']),
+              backgroundColor: const Color(0xFFEF4444), // Kırmızı
               foregroundColor: Colors.white,
               icon: Icons.delete_outline_rounded,
               label: 'Sil',
               borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+                topRight: Radius.circular(24),
+                bottomRight: Radius.circular(24),
               ),
             ),
           ],
         ),
-
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 15),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.white, width: 2),
             boxShadow: [
               BoxShadow(
-                color: Colors.pink.withOpacity(0.08),
-                blurRadius: 15,
-                offset: const Offset(0, 5),
+                color: const Color(
+                  0xFF4F46E5,
+                ).withOpacity(0.06), // İndigo tonlu soft gölge
+                blurRadius: 16,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: Row(
-            children: [
-              // 1. İKON (Mezuniyet Şapkası)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.school_rounded,
-                  color: Colors.orange,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 15),
+          child: Material(
+            color: Colors.transparent,
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Row(
+                children: [
+                  // 🌟 YENİ: Softlaştırılmış Başarı Rozeti (Göz yormayan pastel zemin)
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(
+                        0.15,
+                      ), // Çok hafif pastel sarı/kehribar zemin
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.school_rounded,
+                        color: Color(0xFFF59E0B), // Daha koyu ve mat ikon rengi
+                        size: 28,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 18),
 
-              // 2. YAN YANA KELİMELER VE AYIRICI ÇİZGİ
-              Expanded(
-                child: Row(
-                  children: [
-                    // İngilizce Kelime
-                    Expanded(
-                      child: Text(
-                        word['eng'],
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.bold,
-                          color: Color(
-                            0xFF2C3E50,
-                          ), // YENİ: Çok şık, koyu lacivert-gri (Asil bir görünüm)
+                  // 🌟 Yüksek Okunabilirlikli, Göz Yormayan Metinler
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          word['eng'],
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: Color(
+                              0xFF0F172A,
+                            ), // Koyu Slate (Siyah-Lacivert arası)
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          word['tr'],
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Color(
+                              0xFF4F46E5,
+                            ), // İndigo (Göz yormaz, belirgindir)
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 🌟 Canlı Dinleme Butonu
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF), // Açık İndigo arkaplan
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _speak(word['eng']),
+                        splashColor: const Color(0xFF4F46E5).withOpacity(0.2),
+                        child: const Icon(
+                          Icons.volume_up_rounded,
+                          color: Color(0xFF4F46E5), // Canlı İndigo ikon
+                          size: 26,
                         ),
                       ),
                     ),
-
-                    // Şık Dikey Ayırıcı Çizgi
-                    Container(
-                      height: 25,
-                      width: 2,
-                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.pink.shade100,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ),
-
-                    // Türkçe Anlamı
-                    Expanded(
-                      child: Text(
-                        word['tr'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors
-                              .pink
-                              .shade600, // YENİ: AppBar ile birebir uyumlu canlı pembe
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-
-              // 3. DİNLE BUTONU
-              IconButton(
-                icon: Icon(
-                  Icons.volume_up_rounded,
-                  color: Colors.pink.shade400,
-                  size: 26,
-                ),
-                onPressed: () => _speak(word['eng']),
-                tooltip: "Dinle",
-                padding: EdgeInsets.zero,
-                constraints:
-                    const BoxConstraints(), // Butonun gereksiz boşluk kaplamasını engeller
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -303,35 +344,39 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
   }
 
   // --- ONAY DİYALOGLARI ---
-  void _showRestoreDialog(String engWord, String docId, int index) {
+  void _showRestoreDialog(String engWord, String docId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text(
           "Havuza Geri Ekle",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.pink.shade600,
+            color: Color(0xFF06B6D4), // Turkuaz
           ),
         ),
         content: Text(
           "'$engWord' kelimesini tekrar öğrenmek üzere test havuzuna geri almak istiyor musun?",
+          style: const TextStyle(color: Color(0xFF475569), fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("İptal", style: TextStyle(color: Colors.black54)),
+            child: const Text(
+              "İptal",
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _restoreToPool(docId, index);
+              _restoreToPool(docId);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
+              backgroundColor: const Color(0xFF06B6D4),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
@@ -347,37 +392,39 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
     );
   }
 
-  void _showDeleteDialog(String engWord, String docId, int index) {
+  void _showDeleteDialog(String engWord, String docId) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text(
           "Kalıcı Olarak Sil",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.redAccent,
+            color: Color(0xFFEF4444),
           ),
         ),
         content: Text(
           "'$engWord' kelimesini hesabından tamamen silmek istediğine emin misin? Bu işlem geri alınamaz.",
+          style: const TextStyle(color: Color(0xFF475569), fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("İptal", style: TextStyle(color: Colors.black54)),
+            child: const Text(
+              "İptal",
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _deleteWord(docId, index);
+              _deleteWord(docId);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(
-                0xFFFF1744,
-              ), // Diyalogdaki butonu da neon kırmızı yaptık
+              backgroundColor: const Color(0xFFEF4444),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: const Text(
@@ -407,19 +454,23 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          Text(
+          const Text(
             'Henüz Öğrendiğin Kelime Yok',
             style: TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.pink.shade700,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1E293B),
             ),
           ),
           const SizedBox(height: 10),
           const Text(
             'Test ekranında "Öğrendim" dediğin\nkelimeler burada toplanacak.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.black54),
+            style: TextStyle(
+              fontSize: 15,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),

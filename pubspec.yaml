@@ -21,40 +21,42 @@ dependencies:
   http: ^1.6.0
   lottie: ^2.6.0
   url_launcher: ^6.3.1
-  webview_flutter: ^4.10.0 # Bunu ekle
+  webview_flutter: ^4.10.0
   firebase_crashlytics: ^5.1.0
   flutter_slidable: ^4.0.3
   flutter_dotenv: ^6.0.0
   speech_to_text: ^7.3.0
-  camera: ^0.11.0 # Telefonun kamerasını kontrol etmek için
-  google_mlkit_text_recognition: ^0.13.0 # Kameradaki yazıları yapay zekayla okumak (OCR) için
+  camera: ^0.11.0
+  google_mlkit_text_recognition: ^0.13.0
   youtube_player_iframe: ^5.2.2
-  
+  cached_network_image: ^3.4.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  flutter_launcher_icons: "^0.13.1" # İkon üretici buraya taşındı
+  flutter_launcher_icons: "^0.13.1"
   flutter_native_splash: ^2.4.0
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/logo.png # Uygulama içi (Splash/Auth) logomuz
-    
+    - assets/logo.png
+    - assets/logo_seffaf.png
+    - assets/logo_ios.png
 
 # --- TELEFON ANA EKRAN İKONU AYARLARI ---
-flutter_icons:
+flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/logo.png" # Dışarıda görünecek devasa ve sade ikon
-  adaptive_icon_background: "#4527A0" # YENİ: Çemberi tamamen dolduracak Koyu Mor renk!
-  adaptive_icon_foreground: "assets/logo_seffaf.png" # YENİ: Morun üzerine binecek şeffaf baykuş
+  image_path: "assets/logo.png"
+  image_path_ios: "assets/logo_ios.png" # YENİ: iOS için özel, tam dolu kare logo
+  adaptive_icon_background: "#4527A0"
+  adaptive_icon_foreground: "assets/logo_seffaf.png"
 
 flutter_native_splash:
-  color: "#F8FAFF" # Uygulamanın arka plan rengi
-  image: "assets/logo.png" # İçerideki detaylı logomuz!
+  color: "#F8FAFF"
+  image: "assets/logo.png"
   android_12:
     color: "#F8FAFF"
     image: "assets/logo.png"
