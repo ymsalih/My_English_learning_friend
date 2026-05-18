@@ -45,13 +45,9 @@ android {
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
 
-            // 🚀 R8 Hatalarını çözen proguard dosyasını sisteme tanıtıyoruz
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android.txt"),
-                "proguard-rules.pro"
-            )
+            // 🚀 DÜZELTME: isMinifyEnabled ve isShrinkResources BURADAN TAMAMEN SİLİNDİ!
+            // Çekirdek dosyaların silinmesini engelledik. 
+            // Flutter, kendi güvenli daraltma işlemini yapacak ve proguard-rules.pro'yu otomatik okuyacaktır.
         }
     }
 }

@@ -56,7 +56,6 @@ class TranslationScreen extends StatefulWidget {
 class _TranslationScreenState extends State<TranslationScreen> {
   final _textController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-
   // 🚀 GÜNCELLEME: Merkezi ses servisimizi tanımlıyoruz
   final TtsService _ttsService = TtsService();
 
@@ -68,7 +67,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
   String _wordType = "";
   String _imageUrl = "";
   String _searchedEnglishWord = "";
-
   List<WordMeaningGroup> _groupedMeanings = [];
 
   bool _isLoading = false;
@@ -82,7 +80,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-
   final String _proxyUrl = "https://ceviri-api.vercel.app/api/proxy";
 
   @override
@@ -105,12 +102,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
 
     if (!mounted) return;
-
     final scannedWord = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
     );
-
     if (scannedWord != null &&
         scannedWord is String &&
         scannedWord.isNotEmpty) {
@@ -212,7 +207,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     final url = Uri.parse('$_proxyUrl?service=deepl');
     final sLang = sourceLang ?? (_isEnToTr ? 'EN' : 'TR');
     final tLang = targetLang ?? (_isEnToTr ? 'TR' : 'EN-US');
-
     try {
       final response = await http.post(
         url,
@@ -223,7 +217,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           'target_lang': tLang,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['translations'] != null && data['translations'].isNotEmpty) {
@@ -279,7 +272,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
       (item) =>
           item.originalText == textToTranslate && item.isEnToTr == _isEnToTr,
     );
-
     if (cachedIndex != -1) {
       final cachedData = _cachePool[cachedIndex];
       setState(() {
@@ -299,10 +291,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
       _imageUrl = "";
       _searchedEnglishWord = "";
     });
-
     try {
       String deepLResult = await _translateWithDeepL(textToTranslate);
-
       if (!_isEnToTr &&
           deepLResult.toLowerCase() == textToTranslate &&
           !textToTranslate.contains(' ')) {
@@ -332,10 +322,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ? textToTranslate
           : deepLResult.toLowerCase();
       _searchedEnglishWord = englishWordToSearch;
-
       if (!englishWordToSearch.contains(' ')) {
         await _fetchDictionaryData(englishWordToSearch, textToTranslate);
-
         if (_wordType == 'İsim' ||
             _wordType == 'Sıfat' ||
             _wordType == 'Fiil' ||
@@ -383,10 +371,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
           final List<dynamic> data = jsonDecode(response.body);
           if (data.isNotEmpty) {
             final meanings = data[0]['meanings'] as List<dynamic>;
-
             if (meanings.isNotEmpty) {
               _wordType = _translateWordType(meanings[0]['partOfSpeech'] ?? "");
-
               for (var meaning in meanings) {
                 final partOfSpeech = _translateWordType(
                   meaning['partOfSpeech'] ?? "",
@@ -460,7 +446,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-
           if (data != null && data.length > 1 && data[1] != null) {
             for (var item in data[1]) {
               String type = item[0].toString();
@@ -534,7 +519,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
             DateTime.fromMillisecondsSinceEpoch(0),
           ),
         });
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -562,7 +546,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
           color: Colors.black87,
         ),
       );
-
     final RegExp regex = RegExp(
       RegExp.escape(highlightWord),
       caseSensitive: false,
@@ -582,7 +565,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
     List<TextSpan> spans = [];
     int lastMatchEnd = 0;
-
     for (var match in matches) {
       if (match.start > lastMatchEnd) {
         spans.add(
@@ -805,7 +787,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   Widget _buildResult() {
     if (_mainTranslation.isEmpty) return const SizedBox.shrink();
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -862,14 +843,17 @@ class _TranslationScreenState extends State<TranslationScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _isEnToTr
-                        ? _textController.text.trim().toLowerCase()
-                        : _mainTranslation.toLowerCase(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade800,
-                      fontSize: 22,
+                  // 🚀 DÜZELTME: Uzun metinlerde taşmayı engellemek için metin Expanded ile sarmalandı!
+                  Expanded(
+                    child: Text(
+                      _isEnToTr
+                          ? _textController.text.trim().toLowerCase()
+                          : _mainTranslation.toLowerCase(),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade800,
+                        fontSize: 22,
+                      ),
                     ),
                   ),
                   IconButton(
@@ -972,7 +956,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
               children: _groupedMeanings.map((group) {
                 if (group.reverseMeanings.isEmpty)
                   return const SizedBox.shrink();
-
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 20.0),
                   child: Column(
