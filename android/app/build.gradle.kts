@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -23,7 +25,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -42,6 +44,10 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+
+            // 🚀 DÜZELTME: isMinifyEnabled ve isShrinkResources BURADAN TAMAMEN SİLİNDİ!
+            // Çekirdek dosyaların silinmesini engelledik. 
+            // Flutter, kendi güvenli daraltma işlemini yapacak ve proguard-rules.pro'yu otomatik okuyacaktır.
         }
     }
 }

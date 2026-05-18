@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
-// 🚀 YENİ: Yerel flutter_tts silindi, Merkezi Ses Servisi içeri aktarıldı
 import 'tts_service.dart';
 
 class TestScreen extends StatefulWidget {
@@ -14,7 +13,6 @@ class TestScreen extends StatefulWidget {
 }
 
 class _TestScreenState extends State<TestScreen> {
-  // 🚀 GÜNCELLEME: Merkezi ses servisimizi tanımlıyoruz
   final TtsService _ttsService = TtsService();
 
   List<Map<String, dynamic>> _allAvailableWords = [];
@@ -27,8 +25,6 @@ class _TestScreenState extends State<TestScreen> {
   GlobalKey<FlipCardState> cardKey = GlobalKey<FlipCardState>();
   bool _isProcessing = false;
 
-  // 🚀 PERFORMANS OPTİMİZASYONU 2: ValueNotifier kullanımı.
-  // Artık sürükleme sırasında tüm ekran yenilenmeyecek, sadece bu değerleri dinleyen kart yenilenecek!
   final ValueNotifier<Offset> _swipePosition = ValueNotifier<Offset>(
     Offset.zero,
   );
@@ -56,14 +52,12 @@ class _TestScreenState extends State<TestScreen> {
 
   @override
   void dispose() {
-    // 🚀 Bellek sızıntılarını (Memory Leak) önlemek için Notifier'ları kapatıyoruz
     _swipePosition.dispose();
     _swipeAngle.dispose();
     _isDragging.dispose();
     super.dispose();
   }
 
-  // 🚀 GÜNCELLEME: Artık yerel ayar yapmak yerine merkezi servisi kullanarak konuşuyoruz
   Future<void> _speak(String text) async {
     await _ttsService.speak(text);
   }
@@ -73,14 +67,12 @@ class _TestScreenState extends State<TestScreen> {
     if (user != null) {
       try {
         QuerySnapshot snapshot;
-
         try {
           snapshot = await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .collection('words')
               .get(const GetOptions(source: Source.cache));
-
           if (snapshot.docs.isEmpty) {
             snapshot = await FirebaseFirestore.instance
                 .collection('users')
@@ -187,19 +179,16 @@ class _TestScreenState extends State<TestScreen> {
     }
   }
 
-  // 🚀 GÜNCELLENDİ: SetState Yerine ValueNotifier kullanılarak animasyon izole edildi
   Future<void> _animateAndMove(String action, Offset targetPosition) async {
     if (_isProcessing) return;
     _isProcessing = true;
 
-    // Sadece dinleyicileri (Notifier) güncelliyoruz, tüm ekranı yeniden ÇİZDİRMİYORUZ.
     _swipePosition.value = targetPosition;
     _swipeAngle.value = targetPosition.dx > 0
         ? 30
         : (targetPosition.dx < 0 ? -30 : 0);
 
     await Future.delayed(const Duration(milliseconds: 300));
-
     _handleWordResult(action);
 
     _swipePosition.value = Offset.zero;
@@ -234,7 +223,6 @@ class _TestScreenState extends State<TestScreen> {
           .update(updateData);
     }
 
-    // Kelime listesi eksildiği için burada ekranın (üstteki ilerleme çubuğunun) yenilenmesi gerek.
     setState(() {
       _words.removeAt(0);
       cardKey = GlobalKey<FlipCardState>();
@@ -444,16 +432,13 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
-  // 🚀 GÜNCELLENDİ: Artık dışarıdan Offset alarak sadece bu widget'ın yenilenmesini sağlıyor
   Widget _buildSwipeOverlay(Offset position) {
     if (position == Offset.zero && !_isProcessing)
       return const SizedBox.shrink();
-
     Color overlayColor = Colors.transparent;
     String actionText = "";
     IconData actionIcon = Icons.help;
     double opacity = 0.0;
-
     if (position.dy < -50 && position.dy.abs() > position.dx.abs()) {
       overlayColor = Colors.deepPurpleAccent;
       actionText = "Öğrendim";
@@ -472,7 +457,6 @@ class _TestScreenState extends State<TestScreen> {
     }
 
     if (opacity == 0) return const SizedBox.shrink();
-
     return IgnorePointer(
       child: Container(
         width: 320,
@@ -551,7 +535,7 @@ class _TestScreenState extends State<TestScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                '👆 Öğrendim\n👈 Hatırladım  |  (Dokun: Çevir)  |  Unuttum 👉',
+                '👆 Öğrendim\n👈 Hatırladım  |  (Dokun: Çevir)  | Unuttum 👉',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.deepPurple,
@@ -563,8 +547,6 @@ class _TestScreenState extends State<TestScreen> {
             ),
             const SizedBox(height: 50),
 
-            // 🚀 PERFORMANS OPTİMİZASYONU 2: AnimatedBuilder kullanımı.
-            // Sadece bu blok (kaydırma animasyonu) dinlenir, ekranın kalanı rahat bırakılır.
             AnimatedBuilder(
               animation: Listenable.merge([
                 _swipePosition,
@@ -625,7 +607,6 @@ class _TestScreenState extends State<TestScreen> {
                             back: _buildCard(_words[0]['tr'], false),
                           ),
                         ),
-                        // Overlay de artık sadece position değiştiğinde tetikleniyor
                         _buildSwipeOverlay(_swipePosition.value),
                       ],
                     ),
@@ -646,7 +627,6 @@ class _TestScreenState extends State<TestScreen> {
     double successRate = _totalWordsInSession > 0
         ? (correctAnswers / _totalWordsInSession) * 100
         : 0;
-
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(25.0),
@@ -885,6 +865,11 @@ class _TestScreenState extends State<TestScreen> {
   }
 
   Widget _buildCard(String text, bool isFront) {
+    // 🚀 DÜZELTME: Metin uzunluğuna göre dinamik font boyutu (Yapay Zeka Mantığı)
+    double dynamicFontSize = text.length > 30
+        ? 22
+        : (text.length > 15 ? 28 : 38);
+
     return Container(
       width: 320,
       height: 220,
@@ -909,16 +894,29 @@ class _TestScreenState extends State<TestScreen> {
       ),
       child: Stack(
         children: [
+          // 🚀 DÜZELTME: Taşmayı önlemek için SingleChildScrollView ve Padding eklendi
           Align(
             alignment: Alignment.center,
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 38,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                letterSpacing: 1.2,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 50,
+                bottom: 50,
+              ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: dynamicFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.1,
+                    height: 1.3, // Satır aralığı ferahlatıldı
+                  ),
+                ),
               ),
             ),
           ),
@@ -937,8 +935,7 @@ class _TestScreenState extends State<TestScreen> {
                     color: Colors.white,
                     size: 30,
                   ),
-                  onPressed: () =>
-                      _speak(text), // 🚀 Artık merkezi motor tetikleniyor!
+                  onPressed: () => _speak(text),
                   tooltip: 'Dinle',
                 ),
               ),
