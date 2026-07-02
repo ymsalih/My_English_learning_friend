@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // 🚀 YENİ
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 
@@ -11,6 +12,9 @@ List<CameraDescription> cameras = [];
 void main() async {
   // Flutter motorunun doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
+
+  // .env dosyasını yüklüyoruz (Gemini API vb. için)
+  await dotenv.load(fileName: ".env");
 
   // Firebase'i başlatıyoruz
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

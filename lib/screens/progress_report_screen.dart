@@ -1,7 +1,7 @@
-import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+// For BackdropFilter if needed
 
 class ProgressReportScreen extends StatefulWidget {
   const ProgressReportScreen({super.key});
@@ -46,10 +46,11 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
       await batch.commit();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Test silindi, istatistikleriniz güncellendi."),
-            backgroundColor: Colors.black87,
+          SnackBar(
+            content: const Text("Test silindi, istatistikleriniz güncellendi."),
+            backgroundColor: Colors.purpleAccent.withOpacity(0.9), // Temaya Uygun SnackBar
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           ),
         );
       }
@@ -63,7 +64,8 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F4FF),
+      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
+      extendBodyBehindAppBar: true,
       body: Stack(
         children: [
           _buildBackgroundDecor(),
@@ -82,9 +84,10 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   title: Text(
                     "Gelişim Raporu",
                     style: TextStyle(
-                      color: Colors.black87,
+                      color: Colors.white,
                       fontWeight: FontWeight.w900,
                       fontSize: 20,
+                      letterSpacing: 0.5,
                     ),
                   ),
                 ),
@@ -106,7 +109,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: Colors.black87,
+                          color: Colors.white,
                         ),
                       ),
                       _buildFilterMenu(),
@@ -127,7 +130,17 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
   // --- FİLTRELEME MENÜSÜ ---
   Widget _buildFilterMenu() {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.tune_rounded, color: Colors.deepPurpleAccent),
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: const Icon(Icons.tune_rounded, color: Colors.purpleAccent, size: 20),
+      ),
+      color: const Color(0xFF1E293B),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       onSelected: (val) {
         setState(() {
           if (val == 'new') {
@@ -147,9 +160,9 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           value: 'new',
           child: Row(
             children: [
-              Icon(Icons.history, size: 20),
+              Icon(Icons.history, size: 20, color: Colors.white70),
               SizedBox(width: 8),
-              Text("En Yeni"),
+              Text("En Yeni", style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -157,9 +170,9 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           value: 'old',
           child: Row(
             children: [
-              Icon(Icons.first_page, size: 20),
+              Icon(Icons.first_page, size: 20, color: Colors.white70),
               SizedBox(width: 8),
-              Text("En Eski"),
+              Text("En Eski", style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -167,9 +180,9 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           value: 'top',
           child: Row(
             children: [
-              Icon(Icons.star_rounded, size: 20, color: Colors.orange),
+              Icon(Icons.star_rounded, size: 20, color: Colors.orangeAccent),
               SizedBox(width: 8),
-              Text("En Başarılı"),
+              Text("En Başarılı", style: TextStyle(color: Colors.white)),
             ],
           ),
         ),
@@ -187,21 +200,23 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           .orderBy(_sortBy, descending: _descending)
           .snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return const SliverToBoxAdapter(
-            child: Center(child: CircularProgressIndicator()),
+            child: Center(child: CircularProgressIndicator(color: Colors.purpleAccent)),
           );
+        }
 
         final tests = snapshot.data!.docs;
-        if (tests.isEmpty)
-          return const SliverFillRemaining(
+        if (tests.isEmpty) {
+          return SliverFillRemaining(
             child: Center(
               child: Text(
                 "Henüz test çözmedin.",
-                style: TextStyle(color: Colors.grey),
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 16),
               ),
             ),
           );
+        }
 
         return SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
@@ -218,23 +233,26 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   return await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E293B),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
                       ),
-                      title: const Text("Testi Sil?"),
-                      content: const Text(
+                      title: const Text("Testi Sil?", style: TextStyle(color: Colors.white)),
+                      content: Text(
                         "Bu test silinecek ve genel puanlarınızdan düşülecek. Emin misiniz?",
+                        style: TextStyle(color: Colors.white.withOpacity(0.7)),
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, false),
-                          child: const Text("İptal"),
+                          child: Text("İptal", style: TextStyle(color: Colors.white.withOpacity(0.5))),
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           child: const Text(
                             "Sil",
-                            style: TextStyle(color: Colors.red),
+                            style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
@@ -247,8 +265,11 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   padding: const EdgeInsets.only(right: 20),
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent,
+                    color: Colors.redAccent.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(color: Colors.redAccent.withOpacity(0.4), blurRadius: 15),
+                    ],
                   ),
                   child: const Icon(
                     Icons.delete_sweep_rounded,
@@ -265,14 +286,14 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     );
   }
 
-  // --- KART TASARIMI ---
+  // --- KART TASARIMI (Glassmorphism) ---
   Widget _buildHistoryItem(Map<String, dynamic> data, int testNo) {
     double rate = (data['successRate'] ?? 0).toDouble();
     Color statusColor = rate >= 80
-        ? Colors.teal
-        : (rate >= 50 ? Colors.orange : Colors.redAccent);
+        ? Colors.tealAccent
+        : (rate >= 50 ? Colors.orangeAccent : Colors.redAccent);
 
-    // --- GÜNCELLENDİ: TARİH VE SAAT FORMATI ---
+    // --- TARİH VE SAAT FORMATI ---
     String dateStr = "Tarih Yok";
     if (data['timestamp'] != null) {
       DateTime dt = (data['timestamp'] as Timestamp).toDate();
@@ -286,11 +307,12 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1E293B).withOpacity(0.7), // Glass background
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withOpacity(0.08),
+            color: statusColor.withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -301,7 +323,16 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
         child: IntrinsicHeight(
           child: Row(
             children: [
-              Container(width: 6, color: statusColor),
+              // Sol Taraftaki Parlayan Renk Şeridi
+              Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  boxShadow: [
+                    BoxShadow(color: statusColor, blurRadius: 10, spreadRadius: -2),
+                  ],
+                ),
+              ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -314,14 +345,16 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                           Text(
                             "Test Görevi #$testNo",
                             style: const TextStyle(
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w900,
                               fontSize: 17,
+                              color: Colors.white,
+                              letterSpacing: 0.5,
                             ),
                           ),
                           Text(
                             dateStr,
                             style: TextStyle(
-                              color: Colors.grey.shade500,
+                              color: Colors.white.withOpacity(0.4),
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -334,7 +367,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                           _buildMiniChip(
                             Icons.check_circle_rounded,
                             "${data['correct']}",
-                            Colors.teal,
+                            Colors.tealAccent,
                           ),
                           const SizedBox(width: 8),
                           _buildMiniChip(
@@ -346,7 +379,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                           _buildMiniChip(
                             Icons.school_rounded,
                             "${data['mastered'] ?? 0}",
-                            Colors.deepPurpleAccent,
+                            Colors.purpleAccent,
                           ),
                         ],
                       ),
@@ -365,21 +398,22 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
   Widget _buildRateIndicator(double rate, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(color: color.withOpacity(0.05)),
+      decoration: BoxDecoration(color: color.withOpacity(0.1)),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             "%${rate.toStringAsFixed(0)}",
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: FontWeight.w900,
               color: color,
+              shadows: [Shadow(color: color.withOpacity(0.5), blurRadius: 10)],
             ),
           ),
-          const Text(
+          Text(
             "Başarı",
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -390,7 +424,8 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withOpacity(0.15),
+        border: Border.all(color: color.withOpacity(0.3)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -402,7 +437,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
             style: TextStyle(
               color: color,
               fontWeight: FontWeight.bold,
-              fontSize: 12,
+              fontSize: 13,
             ),
           ),
         ],
@@ -425,10 +460,11 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: colors.last.withOpacity(0.3),
-            blurRadius: 15,
+            color: colors.last.withOpacity(0.4),
+            blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
@@ -436,7 +472,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white.withOpacity(0.6), size: 30),
+          Icon(icon, color: Colors.white.withOpacity(0.8), size: 30),
           const SizedBox(height: 15),
           Text(
             val,
@@ -449,7 +485,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -485,7 +521,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   "Öğrenilen",
                   "$learned",
                   Icons.auto_awesome,
-                  [Colors.orange.shade400, Colors.orange.shade700],
+                  [Colors.orangeAccent, Colors.deepOrangeAccent],
                 ),
               ),
               const SizedBox(width: 15),
@@ -494,7 +530,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   "Havuzda",
                   "$inPool",
                   Icons.layers_rounded,
-                  [Colors.blue.shade400, Colors.blue.shade700],
+                  [Colors.blueAccent, Colors.indigoAccent],
                 ),
               ),
             ],
@@ -508,13 +544,14 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.5),
+        color: Colors.white.withOpacity(0.1),
         shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: IconButton(
         icon: const Icon(
           Icons.arrow_back_ios_new,
-          color: Colors.black87,
+          color: Colors.white,
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),
@@ -522,28 +559,41 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     );
   }
 
+  // --- ARKA PLAN (AURA) ---
   Widget _buildBackgroundDecor() {
-    return Positioned.fill(
-      child: Stack(
-        children: [
-          Positioned(
-            top: -100,
-            right: -50,
-            child: CircleAvatar(
-              radius: 150,
-              backgroundColor: Colors.blue.shade50.withOpacity(0.5),
+    return Stack(
+      children: [
+        Positioned(
+          top: -100,
+          left: -50,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
+                stops: const [0.1, 1.0],
+              ),
             ),
           ),
-          Positioned(
-            bottom: -50,
-            left: -50,
-            child: CircleAvatar(
-              radius: 100,
-              backgroundColor: Colors.purple.shade50.withOpacity(0.5),
+        ),
+        Positioned(
+          bottom: -50,
+          right: -50,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
+                stops: const [0.1, 1.0],
+              ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

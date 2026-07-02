@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart'; // WriteBuffer ve donanım araçları için
+// WriteBuffer ve donanım araçları için
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -56,8 +56,9 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
 
   // 🔦 FLAŞ KONTROLÜ (Torch modu)
   Future<void> _toggleFlash() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
 
     try {
       if (_isFlashOn) {
@@ -75,8 +76,9 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
 
   // 📸 FOTOĞRAF ÇEK VE METNİ TARA (Profesyonel Snapshot Yöntemi)
   Future<void> _takePictureAndProcess() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
 
     setState(() {
       _isProcessing = true;

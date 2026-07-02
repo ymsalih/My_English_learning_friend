@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dashboard_screen.dart';
-import 'auth_screen.dart';
+import 'landing_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -12,7 +12,6 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-// SingleTickerProviderStateMixin animasyonları yönetmemizi sağlar
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
@@ -23,28 +22,23 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
 
     // --- SÜREKLİ SÜZÜLME (FLOATING) ANİMASYONU ---
-    _controller =
-        AnimationController(
-          duration: const Duration(seconds: 2), // Yukarıdan aşağı inme süresi
-          vsync: this,
-        )..repeat(
-          reverse: true,
-        ); // repeat(reverse: true) ile sürekli aşağı yukarı hareket eder!
+    _controller = AnimationController(
+      duration: const Duration(seconds: 2), // Yukarıdan aşağı inme süresi
+      vsync: this,
+    )..repeat(reverse: true);
 
-    // Baykuşun Y ekseninde (yukarı-aşağı) ne kadar hareket edeceğini belirliyoruz
-    _floatAnimation =
-        Tween<Offset>(
-          begin: const Offset(0, -0.05), // Biraz yukarıda başla
-          end: const Offset(0, 0.05), // Biraz aşağı in
-        ).animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: Curves.easeInOut, // Yumuşak bir ivmelenme sağlar
-          ),
-        );
+    _floatAnimation = Tween<Offset>(
+      begin: const Offset(0, -0.05), // Biraz yukarıda başla
+      end: const Offset(0, 0.05), // Biraz aşağı in
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
 
-    // --- YÖNLENDİRME (4 Saniye Sonra) ---
-    Timer(const Duration(seconds: 4), () {
+    // --- YÖNLENDİRME (1.5 Saniye Sonra) ---
+    Timer(const Duration(milliseconds: 1500), () {
       final user = FirebaseAuth.instance.currentUser;
 
       if (user != null) {
@@ -53,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen>
         );
       } else {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const AuthScreen()),
+          MaterialPageRoute(builder: (context) => const LandingScreen()),
         );
       }
     });
@@ -61,104 +55,134 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   void dispose() {
-    _controller.dispose(); // Animasyonu hafızadan temizle
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
       body: Stack(
         children: [
-          // --- 1. DİNAMİK ARKA PLAN (Aura Efekti) ---
-          Container(color: const Color(0xFFF8FAFF)),
+          // --- 1. DİNAMİK ARKA PLAN (Karanlık Aura Efekti) ---
           Positioned(
             top: -100,
             left: -100,
-            child: _buildAuraCircle(Colors.deepPurple.withOpacity(0.15), 400),
+            child: _buildAuraCircle(Colors.purpleAccent.withOpacity(0.15), 400),
           ),
           Positioned(
             bottom: -50,
             right: -100,
-            child: _buildAuraCircle(Colors.blue.withOpacity(0.15), 400),
+            child: _buildAuraCircle(Colors.blueAccent.withOpacity(0.15), 400),
           ),
 
-          // --- 2. ANA İÇERİK (Tam Ekran Hissiyatı) ---
+          // --- 2. ANA İÇERİK ---
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // --- CANLI BAYKUŞ ANİMASYONU ---
+                // --- CANLI BAYKUŞ (Neon Cam Efekti) ---
                 SlideTransition(
-                  position:
-                      _floatAnimation, // Hazırladığımız süzülme animasyonunu buraya bağladık
+                  position: _floatAnimation,
                   child: Container(
-                    width: 180, // Baykuşu biraz daha büyüttük
-                    height: 180,
+                    width: 200,
+                    height: 200,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withOpacity(0.05), // Glass background
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1),
+                        width: 2,
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.deepPurple.withOpacity(0.3),
-                          blurRadius: 30,
-                          spreadRadius: 10,
-                          offset: const Offset(
-                            0,
-                            10,
-                          ), // Gölgeyi biraz aşağı kaydırdık
+                          color: Colors.purpleAccent.withOpacity(0.3),
+                          blurRadius: 40,
+                          spreadRadius: 5,
+                        ),
+                        BoxShadow(
+                          color: Colors.blueAccent.withOpacity(0.2),
+                          blurRadius: 60,
+                          spreadRadius: -10,
+                          offset: const Offset(0, 20),
                         ),
                       ],
                     ),
                     child: ClipOval(
-                      child: Transform.scale(
-                        scale:
-                            1.1, // Dairenin içini tam doldurması için hafif zoom
-                        child: Image.asset(
-                          'assets/logo.png',
-                          fit: BoxFit.cover,
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                        child: Transform.scale(
+                          scale: 1.15,
+                          child: Image.asset(
+                            'assets/logo.png',
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
 
-                // --- UYGULAMA ADI ---
-                const Text(
+                // --- UYGULAMA ADI (Neon Parlama) ---
+                Text(
                   "İngilizce Arkadaşım",
                   style: TextStyle(
-                    fontSize: 34,
+                    fontSize: 36,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF1A1A2E),
-                    letterSpacing: -0.5,
+                    color: Colors.white,
+                    letterSpacing: 0.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.purpleAccent.withOpacity(0.8),
+                        blurRadius: 15,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 15),
 
                 // --- ALT BAŞLIK ---
-                const Text(
+                Text(
                   "Kelimelerin dünyasına yolculuk başlasın.",
                   style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.black54,
+                    fontSize: 17,
+                    color: Colors.white.withOpacity(0.6),
                     fontWeight: FontWeight.w500,
+                    letterSpacing: 0.3,
                   ),
                 ),
               ],
             ),
           ),
 
-          // --- 3. YÜKLENİYOR İNDİKATÖRÜ ---
-          const Positioned(
-            bottom: 60,
+          // --- 3. YÜKLENİYOR İNDİKATÖRÜ (Modern) ---
+          Positioned(
+            bottom: 70,
             left: 0,
             right: 0,
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Colors.deepPurple,
-                strokeWidth: 3,
-              ),
+            child: Column(
+              children: [
+                const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    color: Colors.purpleAccent,
+                    strokeWidth: 3,
+                  ),
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  "Yükleniyor...",
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.4),
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -172,10 +196,6 @@ class _SplashScreenState extends State<SplashScreen>
       width: size,
       height: size,
       decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-        child: Container(color: Colors.transparent),
-      ),
     );
   }
 }

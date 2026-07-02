@@ -3,9 +3,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'dashboard_screen.dart';
+import 'landing_screen.dart';
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key});
+  final bool initialLoginMode;
+  
+  const AuthScreen({super.key, this.initialLoginMode = true});
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -18,38 +21,19 @@ class _AuthScreenState extends State<AuthScreen>
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  bool _isLogin = true;
+  late bool _isLogin;
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
-  late AnimationController _animationController;
-  late Animation<Offset> _floatAnimation;
-
   @override
   void initState() {
     super.initState();
-
-    _animationController = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _floatAnimation =
-        Tween<Offset>(
-          begin: const Offset(0, -0.05),
-          end: const Offset(0, 0.05),
-        ).animate(
-          CurvedAnimation(
-            parent: _animationController,
-            curve: Curves.easeInOut,
-          ),
-        );
+    _isLogin = widget.initialLoginMode;
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -206,8 +190,14 @@ class _AuthScreenState extends State<AuthScreen>
               .doc(user.uid)
               .set({
                 'username': username,
+                'displayName': username,
                 'email': _emailController.text.trim(),
                 'createdAt': FieldValue.serverTimestamp(),
+                'isPro': false,
+                'level': 'A1',
+                'streak': 0,
+                'photoURL': '',
+                'lastActive': FieldValue.serverTimestamp(),
               });
 
           if (mounted) {
@@ -299,27 +289,27 @@ class _AuthScreenState extends State<AuthScreen>
     return Scaffold(
       body: Stack(
         children: [
-          Container(color: const Color(0xFFF8FAFF)),
-          Positioned(
-            top: -100,
-            left: -100,
-            child: _buildAuraCircle(Colors.deepPurple.withOpacity(0.15), 400),
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF0F172A)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.0, 0.5, 1.0],
+              ),
+            ),
           ),
-          Positioned(
-            bottom: -50,
-            right: -100,
-            child: _buildAuraCircle(Colors.blue.withOpacity(0.15), 400),
-          ),
+          Positioned(top: -100, left: -100, child: _buildAuraCircle(Colors.deepPurpleAccent.withOpacity(0.3), 400)),
+          Positioned(top: 400, right: -150, child: _buildAuraCircle(Colors.blueAccent.withOpacity(0.2), 500)),
+          Positioned(bottom: 200, left: -100, child: _buildAuraCircle(Colors.tealAccent.withOpacity(0.2), 400)),
+          Positioned(bottom: -150, right: -100, child: _buildAuraCircle(Colors.pinkAccent.withOpacity(0.2), 400)),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(30.0),
                 child: Column(
                   children: [
-                    SlideTransition(
-                      position: _floatAnimation,
-                      child: _buildHeroLogo(),
-                    ),
+                    _buildHeroLogo(),
                     const SizedBox(height: 30),
                     const Text(
                       'İngilizce Arkadaşım',
@@ -327,14 +317,14 @@ class _AuthScreenState extends State<AuthScreen>
                         fontSize: 34,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -1,
-                        color: Color(0xFF1A1A2E),
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Kelimelerin dünyasına yolculuk başlasın.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black45, fontSize: 16),
+                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 16),
                     ),
                     const SizedBox(height: 40),
                     ClipRRect(
@@ -344,16 +334,16 @@ class _AuthScreenState extends State<AuthScreen>
                         child: Container(
                           padding: const EdgeInsets.all(25),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
+                            color: Colors.white.withOpacity(0.05),
                             borderRadius: BorderRadius.circular(30),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withOpacity(0.1),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 20,
-                                offset: const Offset(0, 10),
+                                color: Colors.black.withOpacity(0.2),
+                                blurRadius: 30,
+                                offset: const Offset(0, 15),
                               ),
                             ],
                           ),
@@ -366,7 +356,7 @@ class _AuthScreenState extends State<AuthScreen>
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1A1A2E),
+                                  color: Colors.white,
                                 ),
                               ),
                               const SizedBox(height: 25),
@@ -405,7 +395,7 @@ class _AuthScreenState extends State<AuthScreen>
                                     child: const Text(
                                       "Şifremi unuttum",
                                       style: TextStyle(
-                                        color: Colors.deepPurple,
+                                        color: Colors.amberAccent,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -437,7 +427,7 @@ class _AuthScreenState extends State<AuthScreen>
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.black54.withOpacity(0.6),
+                                      color: Colors.white.withOpacity(0.5),
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
@@ -463,7 +453,7 @@ class _AuthScreenState extends State<AuthScreen>
                                       ? 'Yeni kayıt oluştur'
                                       : 'Zaten hesabım var, Giriş yap',
                                   style: const TextStyle(
-                                    color: Colors.deepPurple,
+                                    color: Colors.amberAccent,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -487,30 +477,49 @@ class _AuthScreenState extends State<AuthScreen>
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-        child: Container(color: Colors.transparent),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color.withOpacity(0.5), Colors.transparent],
+          stops: const [0.1, 1.0],
+        ),
       ),
     );
   }
 
   Widget _buildHeroLogo() {
-    return Container(
-      width: 140,
-      height: 140,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.deepPurple.withOpacity(0.2),
-            blurRadius: 30,
-            spreadRadius: 10,
+    return GestureDetector(
+      onTap: () {
+        // Logoya tıklandığında tanıtım sayfasına geri dön
+        Navigator.of(context).pushReplacement(
+          PageRouteBuilder(
+            transitionDuration: const Duration(milliseconds: 600),
+            pageBuilder: (context, animation, secondaryAnimation) => const LandingScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(opacity: animation, child: child);
+            },
           ),
-        ],
+        );
+      },
+      child: Tooltip(
+        message: 'Ana Sayfaya Dön',
+        child: Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurpleAccent.withOpacity(0.5),
+                blurRadius: 30,
+                spreadRadius: 10,
+              ),
+            ],
+          ),
+          child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
+        ),
       ),
-      child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
     );
   }
 
@@ -523,18 +532,24 @@ class _AuthScreenState extends State<AuthScreen>
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.deepPurple.shade300),
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+        prefixIcon: Icon(icon, color: Colors.deepPurpleAccent.shade100),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.8),
+        fillColor: Colors.white.withOpacity(0.05),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.deepPurple.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: Colors.deepPurpleAccent),
         ),
       ),
     );
@@ -549,28 +564,34 @@ class _AuthScreenState extends State<AuthScreen>
     return TextField(
       controller: controller,
       obscureText: !isVisible,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
         prefixIcon: Icon(
           Icons.lock_outline_rounded,
-          color: Colors.deepPurple.shade300,
+          color: Colors.deepPurpleAccent.shade100,
         ),
         suffixIcon: IconButton(
           icon: Icon(
             isVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-            color: Colors.grey.shade600,
+            color: Colors.white.withOpacity(0.5),
           ),
           onPressed: onVisibilityChanged,
         ),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.8),
+        fillColor: Colors.white.withOpacity(0.05),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: BorderSide(color: Colors.deepPurple.withOpacity(0.1)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(color: Colors.deepPurpleAccent),
         ),
       ),
     );
