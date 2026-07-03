@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:translator/translator.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 import 'tts_service.dart';
 
 class ReadingPracticeScreen extends StatefulWidget {
@@ -28,6 +31,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   final translator = GoogleTranslator();
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
 
   bool _isListening = false;
   bool _speechEnabled = false;
@@ -282,6 +286,14 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   }
 
   Future<void> _addWordToPool(String english, String turkish, BuildContext bottomSheetContext) async {
+    if (!await _subService.canAddWord()) {
+      if (mounted) {
+        Navigator.pop(bottomSheetContext); // Close bottom sheet
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -296,6 +308,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
         'isLearned': false,
         'timestamp': FieldValue.serverTimestamp(),
       });
+      await _subService.incrementWordCount();
       
       if (mounted) {
         Navigator.pop(bottomSheetContext);

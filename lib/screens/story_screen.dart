@@ -5,6 +5,8 @@ import '../services/gemini_story_service.dart';
 import 'tts_service.dart';
 import 'package:translator/translator.dart';
 import 'dart:ui';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class StoryScreen extends StatefulWidget {
   const StoryScreen({super.key});
@@ -17,6 +19,7 @@ class _StoryScreenState extends State<StoryScreen> {
   final GeminiStoryService _storyService = GeminiStoryService();
   final TtsService _ttsService = TtsService();
   final _translator = GoogleTranslator();
+  final SubscriptionService _subService = SubscriptionService();
 
   String _selectedGenre = 'Macera';
   String _selectedLevel = 'A2';
@@ -43,10 +46,36 @@ class _StoryScreenState extends State<StoryScreen> {
   String? _translatedExplanation;
   bool _isTranslatingExplanation = false;
 
+  int _currentGenUsage = 0;
+  int _currentGenLimit = 2;
+  bool _isGenUnlimited = false;
+
+  int _currentReadUsage = 0;
+  int _currentReadLimit = 2;
+  bool _isReadUnlimited = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserLevel();
+    _loadLimits();
+  }
+
+  Future<void> _loadLimits() async {
+    final genUsage = await _subService.getActionUsage('storyGenCount');
+    final readUsage = await _subService.getActionUsage('storyReadCount');
+    
+    if (mounted) {
+      setState(() {
+        _currentGenUsage = genUsage['current'] ?? 0;
+        _currentGenLimit = genUsage['limit'] ?? 2;
+        _isGenUnlimited = _currentGenLimit >= 999999;
+
+        _currentReadUsage = readUsage['current'] ?? 0;
+        _currentReadLimit = readUsage['limit'] ?? 2;
+        _isReadUnlimited = _currentReadLimit >= 999999;
+      });
+    }
   }
 
   @override
@@ -75,42 +104,23 @@ class _StoryScreenState extends State<StoryScreen> {
     if (user == null) return;
 
     if (forceGenerate) {
-      // Limit kontrolü
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      final isPro = doc.data()?['isPro'] ?? false;
-
-      if (!isPro) {
-        final today = DateTime.now().toIso8601String().substring(0, 10);
-        final lastStoryDate = doc.data()?['last_story_date'] ?? '';
-        final storyUsageCount = doc.data()?['story_usage_count'] ?? 0;
-
-        if (lastStoryDate == today && storyUsageCount >= 1) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Günlük "Yeni Hikaye Üretme" limitiniz doldu (1/1). Havuzdaki hikayeleri sınırsız okuyabilir veya Pro\'ya geçebilirsiniz.',
-                ),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-          return;
+      if (!await _subService.canGenerateStory()) {
+        if (mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
         }
-
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-              'last_story_date': today,
-              'story_usage_count': lastStoryDate == today
-                  ? storyUsageCount + 1
-                  : 1,
-            });
+        return;
       }
+      await _subService.incrementStoryGen();
+      await _loadLimits();
+    } else {
+      if (!await _subService.canReadStory()) {
+        if (mounted) {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+        }
+        return;
+      }
+      await _subService.incrementStoryRead();
+      await _loadLimits();
     }
 
     setState(() {
@@ -886,15 +896,28 @@ class _StoryScreenState extends State<StoryScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_storyTree != null && !_showQuiz)
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: "Hikayeyi Kapat",
-              onPressed: () => setState(() {
-                _storyTree = null;
-                _showQuiz = false;
-              }),
+          Center(
+            child: Row(
+              children: [
+                _buildLimitBadge(
+                  icon: Icons.auto_stories, 
+                  isUnlimited: _isGenUnlimited, 
+                  usage: _currentGenUsage, 
+                  limit: _currentGenLimit, 
+                  color: Colors.amberAccent
+                ),
+                const SizedBox(width: 8),
+                _buildLimitBadge(
+                  icon: Icons.library_books, 
+                  isUnlimited: _isReadUnlimited, 
+                  usage: _currentReadUsage, 
+                  limit: _currentReadLimit, 
+                  color: Colors.blueAccent
+                ),
+                const SizedBox(width: 16),
+              ],
             ),
+          ),
         ],
       ),
       body: Stack(
@@ -940,6 +963,32 @@ class _StoryScreenState extends State<StoryScreen> {
             child: _storyTree == null
                 ? _buildSetupScreen()
                 : (_showQuiz ? _buildQuiz() : _buildStoryContent()),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLimitBadge({required IconData icon, required bool isUnlimited, required int usage, required int limit, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 12),
+          const SizedBox(width: 4),
+          Text(
+            isUnlimited ? "Sınırsız" : "$usage/$limit",
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

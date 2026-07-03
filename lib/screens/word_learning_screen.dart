@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'tts_service.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class WordLearningScreen extends StatefulWidget {
   const WordLearningScreen({super.key});
@@ -14,6 +17,7 @@ class WordLearningScreen extends StatefulWidget {
 
 class _WordLearningScreenState extends State<WordLearningScreen> {
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
 
   String _selectedLevel = 'A1';
   List<dynamic> _allWords = [];
@@ -115,6 +119,13 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   }
 
   Future<void> _addWordToMyPool(String eng, String tr) async {
+    if (!await _subService.canAddWord()) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       await FirebaseFirestore.instance
@@ -130,6 +141,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
               DateTime.fromMillisecondsSinceEpoch(0),
             ),
           });
+      await _subService.incrementWordCount();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -6,6 +6,8 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'tts_service.dart';
 import 'package:translator/translator.dart';
 import 'dart:async';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,9 +21,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // 🚀 GÜNCELLEME: Eski FlutterTts yerine merkezi servisimizi tanımlıyoruz
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
 
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = "";
+
+  int _currentUsage = 0;
+  int _currentLimit = 50;
+  bool _isUnlimited = false;
 
   final ScrollController _scrollController = ScrollController();
   int _documentLimit = 20;
@@ -30,6 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loadLimits();
 
     _searchController.addListener(() {
       setState(() {
@@ -57,6 +65,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> _loadLimits() async {
+    final usage = await _subService.getActionUsage('lifetimeWordsAdded');
+    if (mounted) {
+      setState(() {
+        _currentUsage = usage['current'] ?? 0;
+        _currentLimit = usage['limit'] ?? 50;
+        _isUnlimited = _currentLimit >= 999999;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -78,7 +97,16 @@ class _HomeScreenState extends State<HomeScreen> {
         .delete();
   }
 
-  void _showAddWordBottomSheet() {
+  void _showAddWordBottomSheet() async {
+    if (!await _subService.canAddWord()) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
     final engController = TextEditingController();
     final trController = TextEditingController();
     Timer? debounce;
@@ -202,6 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   'isLearned': false,
                                   'lastReviewed': Timestamp.fromDate(DateTime.fromMillisecondsSinceEpoch(0)),
                                 });
+                            await _subService.incrementWordCount();
+                            await _loadLimits();
                             if (mounted) Navigator.pop(context);
                           }
                         },
@@ -240,6 +270,27 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
+              ),
+              child: Text(
+                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
+                style: const TextStyle(
+                  color: Colors.orangeAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [

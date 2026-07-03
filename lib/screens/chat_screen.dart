@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../services/chat_service.dart';
 import 'tts_service.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class ChatMessage {
   final String text;
@@ -32,6 +34,10 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final ChatService _chatService = ChatService();
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
+  int _currentUsage = 0;
+  int _currentLimit = 3;
+  bool _isUnlimited = false;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -39,10 +45,8 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Content> _history = [];
 
   bool _isLoading = false;
-  bool _isPro = false;
+  int _chatMsgCount = 0;
   String _userLevel = 'A1';
-  int _dailyMessages = 0;
-  String _lastMessageDate = '';
 
   String _selectedMode = 'Serbest';
   final List<String> _modes = [
@@ -58,7 +62,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-    _loadDailyLimits();
+    _loadLimits();
 
     // Add initial welcome message
     _messages.add(
@@ -70,6 +74,17 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Future<void> _loadLimits() async {
+    final usage = await _subService.getActionUsage('chatMsgCount');
+    if (mounted) {
+      setState(() {
+        _currentUsage = usage['current'] ?? 0;
+        _currentLimit = usage['limit'] ?? 3;
+        _isUnlimited = _currentLimit >= 999999;
+      });
+    }
+  }
+
   Future<void> _loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -79,42 +94,11 @@ class _ChatScreenState extends State<ChatScreen> {
           .get();
       if (doc.exists && mounted) {
         setState(() {
-          _isPro = doc.data()?['isPro'] ?? false;
+          _chatMsgCount = doc.data()?['dailyUsage']?['chatMsgCount'] ?? 0;
           _userLevel = doc.data()?['level'] ?? 'A1';
         });
       }
     }
-  }
-
-  Future<void> _loadDailyLimits() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
-
-    final savedDate = prefs.getString('chat_last_date') ?? '';
-    if (savedDate != today) {
-      // New day, reset counter
-      await prefs.setInt('chat_daily_messages', 0);
-      await prefs.setString('chat_last_date', today);
-      if (mounted) {
-        setState(() {
-          _dailyMessages = 0;
-          _lastMessageDate = today;
-        });
-      }
-    } else {
-      if (mounted) {
-        setState(() {
-          _dailyMessages = prefs.getInt('chat_daily_messages') ?? 0;
-          _lastMessageDate = today;
-        });
-      }
-    }
-  }
-
-  Future<void> _incrementDailyLimit() async {
-    final prefs = await SharedPreferences.getInstance();
-    _dailyMessages++;
-    await prefs.setInt('chat_daily_messages', _dailyMessages);
   }
 
   void _scrollToBottom() {
@@ -133,7 +117,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    if (!_isPro && _dailyMessages >= 3) {
+    if (!await _subService.canChat()) {
       _showLimitDialog();
       return;
     }
@@ -158,10 +142,9 @@ class _ChatScreenState extends State<ChatScreen> {
       _history.add(Content.text(text));
       _history.add(Content.model([TextPart(aiResponse['reply'] ?? '')]));
 
-      // Update daily limit
-      if (!_isPro) {
-        await _incrementDailyLimit();
-      }
+      // Update daily limit in Firestore and reload limits UI
+      await _subService.incrementChat();
+      await _loadLimits();
 
       // Save to Firestore
       await _chatService.saveMessageToHistory(_selectedMode, text, aiResponse);
@@ -185,9 +168,13 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
+        String errorMessage = e.toString();
+        if (errorMessage.contains('503') || errorMessage.contains('UNAVAILABLE')) {
+          errorMessage = 'Yapay zeka sunucuları şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(errorMessage),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -216,28 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showLimitDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Günlük Limit Doldu"),
-        content: const Text(
-          "Ücretsiz planda günde sadece 3 AI mesajı atabilirsiniz. Sınırsız sohbet ve analizler için Premium'a geçebilirsiniz.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Anladım"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // TODO: Odeme (Pricing) sayfasina yonlendir
-            },
-            child: const Text("Premium'a Geç"),
-          ),
-        ],
-      ),
-    );
+    Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
   }
 
   @override
@@ -310,31 +276,33 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   ),
                 ),
-                if (!_isPro)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.pinkAccent.withAlpha(30),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.pinkAccent.withAlpha(100)),
-                    ),
-                    child: Text(
-                      "$_dailyMessages/3",
-                      style: const TextStyle(
-                        color: Colors.pinkAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
-      ),
+        actions: [
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.pinkAccent.withAlpha(30),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.pinkAccent.withAlpha(100)),
+              ),
+              margin: const EdgeInsets.only(right: 16),
+              child: Text(
+                _isUnlimited ? 'Sınırsız' : '$_currentUsage/$_currentLimit',
+                style: const TextStyle(
+                  color: Colors.pinkAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: RadialGradient(

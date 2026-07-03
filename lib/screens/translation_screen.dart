@@ -12,6 +12,8 @@ import '../main.dart';
 import 'camera_scanner_screen.dart';
 // 🚀 YENİ: Ses servisini içeri aktarıyoruz
 import 'tts_service.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 // --- VERİ MODELLERİ ---
 class WordMeaningGroup {
@@ -120,6 +122,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   bool _isLoading = false;
   bool _isEnToTr = true;
+  final SubscriptionService _subService = SubscriptionService();
+  int _currentUsage = 0;
+  int _currentLimit = 20;
+  bool _isUnlimited = false;
 
   static final List<TranslationCacheItem> _cachePool = []; // 🚀 O(1) Global RAM Cache
   final int _maxCacheSize = 50;
@@ -130,6 +136,24 @@ class _TranslationScreenState extends State<TranslationScreen> {
     end: Alignment.bottomRight,
   );
   final String _proxyUrl = "https://ceviri-api.vercel.app/api/proxy";
+
+  @override
+  void initState() {
+    super.initState();
+    _speechToText = stt.SpeechToText();
+    _loadLimits();
+  }
+
+  Future<void> _loadLimits() async {
+    final usage = await _subService.getActionUsage('translateCount');
+    if (mounted) {
+      setState(() {
+        _currentUsage = usage['current'] ?? 0;
+        _currentLimit = usage['limit'] ?? 20;
+        _isUnlimited = _currentLimit >= 999999;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -143,35 +167,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   Future<void> _openCameraScanner() async {
     final user = FirebaseAuth.instance.currentUser;
-    bool isPro = false;
-    String today = DateTime.now().toIso8601String().substring(0, 10);
-    int usageCount = 0;
-
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        isPro = data['isPro'] ?? false;
-        if (!isPro) {
-          final lastOcrDate = data['last_ocr_date'] ?? '';
-          usageCount = data['ocr_usage_count'] ?? 0;
-          
-          if (lastOcrDate != today) {
-            usageCount = 0;
-          }
-          
-          if (usageCount >= 3) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Günlük OCR okutma limitiniz (3/3) doldu. Sınırsız kullanım için Pro\'ya geçin.'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
-            }
-            return;
-          }
+      bool canTranslate = await _subService.canTranslate();
+      if (!canTranslate) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Günlük çeviri limitiniz doldu. Sınırsız kullanım için paketinizi yükseltin.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
         }
+        return;
       }
     }
 
@@ -192,11 +199,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
         scannedWord is String &&
         scannedWord.isNotEmpty) {
       
-      if (user != null && !isPro) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'last_ocr_date': today,
-          'ocr_usage_count': usageCount + 1,
-        });
+      if (user != null) {
+        await _subService.incrementTranslate();
       }
 
       setState(() {
@@ -355,6 +359,15 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _translateAndFetchDictionary() async {
     final textToTranslate = _textController.text.trim().toLowerCase();
     if (textToTranslate.isEmpty) return;
+
+    if (!await _subService.canTranslate()) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+    await _subService.incrementTranslate();
+    await _loadLimits();
 
     if (_isListening) {
       setState(() => _isListening = false);
@@ -631,24 +644,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-    if (doc.exists) {
-      final isPro = doc.data()?['isPro'] ?? false;
-      if (!isPro) {
-        final wordsSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('words').count().get();
-        if (wordsSnapshot.count! >= 50) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Kelime havuzu limitiniz (50/50) doldu. Sınırsız kelime eklemek için Pro\'ya geçin.'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-          return;
-        }
+    if (!await _subService.canAddWord()) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
       }
+      return;
     }
+    await _subService.incrementWordCount();
 
     await FirebaseFirestore.instance
         .collection('users')
@@ -763,6 +765,27 @@ class _TranslationScreenState extends State<TranslationScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.greenAccent.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+              ),
+              child: Text(
+                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [

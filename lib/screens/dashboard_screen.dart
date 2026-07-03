@@ -17,6 +17,9 @@ import 'chat_screen.dart';
 import 'onboarding_screen.dart';
 import 'story_screen.dart';
 import 'reading_practice_screen.dart';
+import 'paywall_screen.dart';
+import 'profile_screen.dart';
+import '../services/subscription_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -34,7 +37,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalWrong = 0;
   int _totalLearned = 0;
 
-  bool _isPro = false;
+  String _subscriptionPlan = 'basic';
+  Map<String, Map<String, int>> _limitsSummary = {};
   int _streak = 0;
 
   StreamSubscription<DocumentSnapshot>? _userSubscription;
@@ -89,8 +93,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _fetchLearnedCount(user.uid);
                     }
 
-                    _isPro = data['isPro'] ?? false;
+                    _subscriptionPlan = data['subscriptionPlan'] ?? 'basic';
                     _streak = data['streak'] ?? 0;
+
+                    // Build real-time limits summary from snapshot
+                    final limitsMap = SubscriptionService.limits[_subscriptionPlan] ?? SubscriptionService.limits['basic']!;
+                    final dailyUsage = data['dailyUsage'] as Map<String, dynamic>? ?? {};
+                    _limitsSummary = {
+                      'words': {
+                        'current': (data['lifetimeWordsAdded'] ?? 0) as int,
+                        'limit': limitsMap['lifetimeWordsAdded'] as int
+                      },
+                      'storyGen': {
+                        'current': (dailyUsage['storyGenCount'] ?? 0) as int,
+                        'limit': limitsMap['storyGenCount'] as int
+                      },
+                      'storyRead': {
+                        'current': (dailyUsage['storyReadCount'] ?? 0) as int,
+                        'limit': limitsMap['storyReadCount'] as int
+                      },
+                      'chat': {
+                        'current': (dailyUsage['chatMsgCount'] ?? 0) as int,
+                        'limit': limitsMap['chatMsgCount'] as int
+                      },
+                      'translate': {
+                        'current': (dailyUsage['translateCount'] ?? 0) as int,
+                        'limit': limitsMap['translateCount'] as int
+                      },
+                      'test': {
+                        'current': (dailyUsage['testCount'] ?? 0) as int,
+                        'limit': limitsMap['testCount'] as int
+                      }
+                    };
                   });
                 }
               }
@@ -216,6 +250,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
@@ -281,6 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         _buildPremiumStatCard(context),
 
                         const SizedBox(height: 40),
+
                         const Text(
                           "Ana Modüller",
                           style: TextStyle(
@@ -756,6 +801,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       iconColor: Colors.blueAccent,
                       onTap: () => Navigator.pop(context),
                     ),
+
                     _buildDrawerTile(
                       context,
                       icon: Icons.trending_up_rounded,
@@ -784,6 +830,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 15),
                       child: Divider(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    _buildDrawerTile(
+                      context,
+                      icon: Icons.auto_awesome,
+                      title: 'Owlish Premium',
+                      iconColor: Colors.amberAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PaywallScreen(),
+                          ),
+                        );
+                      },
                     ),
                     _buildDrawerTile(
                       context,

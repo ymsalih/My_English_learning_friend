@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
 import 'tts_service.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -14,6 +16,7 @@ class TestScreen extends StatefulWidget {
 
 class _TestScreenState extends State<TestScreen> {
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
 
   List<Map<String, dynamic>> _allAvailableWords = [];
   List<Map<String, dynamic>> _words = [];
@@ -21,6 +24,10 @@ class _TestScreenState extends State<TestScreen> {
   bool _isLoading = true;
   bool _isSetupMode = true;
   int _selectedWordCount = 10;
+
+  int _currentUsage = 0;
+  int _currentLimit = 40;
+  bool _isUnlimited = false;
 
   GlobalKey<FlipCardState> cardKey = GlobalKey<FlipCardState>();
   bool _isProcessing = false;
@@ -46,6 +53,18 @@ class _TestScreenState extends State<TestScreen> {
   void initState() {
     super.initState();
     _checkAvailableWords();
+    _loadLimits();
+  }
+
+  Future<void> _loadLimits() async {
+    final usage = await _subService.getActionUsage('testCount');
+    if (mounted) {
+      setState(() {
+        _currentUsage = usage['current'] ?? 0;
+        _currentLimit = usage['limit'] ?? 40;
+        _isUnlimited = _currentLimit >= 999999;
+      });
+    }
   }
 
   @override
@@ -109,19 +128,34 @@ class _TestScreenState extends State<TestScreen> {
     }
   }
 
-  void _startTest() {
-    _allAvailableWords.sort((a, b) {
-      Timestamp? t1 = a['lastReviewed'] as Timestamp?;
-      Timestamp? t2 = b['lastReviewed'] as Timestamp?;
-      int time1 = t1?.millisecondsSinceEpoch ?? 0;
-      int time2 = t2?.millisecondsSinceEpoch ?? 0;
-      return time1.compareTo(time2);
-    });
-
-    List<Map<String, dynamic>> selectedSessionWords = _allAvailableWords.take(_selectedWordCount).toList();
-    selectedSessionWords.shuffle(Random());
-
+  void _startTest() async {
+    final int remaining = await _subService.getRemainingTestCount();
+    if (remaining <= 0) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+    
+    await _loadLimits();
+    
     setState(() {
+      // Limit the test to remaining limit if needed
+      if (_selectedWordCount > remaining) {
+        _selectedWordCount = remaining;
+      }
+      
+      _allAvailableWords.sort((a, b) {
+        Timestamp? t1 = a['lastReviewed'] as Timestamp?;
+        Timestamp? t2 = b['lastReviewed'] as Timestamp?;
+        int time1 = t1?.millisecondsSinceEpoch ?? 0;
+        int time2 = t2?.millisecondsSinceEpoch ?? 0;
+        return time1.compareTo(time2);
+      });
+
+      List<Map<String, dynamic>> selectedSessionWords = _allAvailableWords.take(_selectedWordCount).toList();
+      selectedSessionWords.shuffle(Random());
+
       _words = selectedSessionWords;
       _totalWordsInSession = selectedSessionWords.length;
       _forgotCount = 0;
@@ -164,6 +198,7 @@ class _TestScreenState extends State<TestScreen> {
 
   Future<void> _animateAndMove(String action, Offset targetPosition) async {
     if (_isProcessing) return;
+
     _isProcessing = true;
     _swipePosition.value = targetPosition;
     _swipeAngle.value = targetPosition.dx > 0 ? 30 : (targetPosition.dx < 0 ? -30 : 0);
@@ -192,6 +227,9 @@ class _TestScreenState extends State<TestScreen> {
       updateData['isLearned'] = true;
     }
 
+    // Increment word limit counter
+    _subService.incrementTest();
+
     if (user != null) {
       FirebaseFirestore.instance
           .collection('users')
@@ -202,6 +240,9 @@ class _TestScreenState extends State<TestScreen> {
     }
 
     setState(() {
+      if (!_isUnlimited) {
+        _currentUsage++;
+      }
       _words.removeAt(0);
       cardKey = GlobalKey<FlipCardState>();
 
@@ -217,16 +258,36 @@ class _TestScreenState extends State<TestScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text(
-          'Kendini Test Et',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+        title: Text(
+          _isSetupMode ? 'Kendini Test Et' : 'Öğrenme Zamanı',
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
         ),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
+              ),
+              child: Text(
+                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
+                style: const TextStyle(
+                  color: Colors.purpleAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Stack(
         children: [

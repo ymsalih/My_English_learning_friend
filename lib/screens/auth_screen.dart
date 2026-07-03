@@ -194,6 +194,8 @@ class _AuthScreenState extends State<AuthScreen>
         if (user != null) {
           await user.sendEmailVerification();
 
+          final todayStr = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+
           await FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
@@ -202,7 +204,16 @@ class _AuthScreenState extends State<AuthScreen>
                 'displayName': username,
                 'email': _emailController.text.trim(),
                 'createdAt': FieldValue.serverTimestamp(),
-                'isPro': false,
+                'subscriptionPlan': 'basic',
+                'lifetimeWordsAdded': 0,
+                'dailyUsage': {
+                  'date': todayStr,
+                  'storyGenCount': 0,
+                  'storyReadCount': 0,
+                  'chatMsgCount': 0,
+                  'translateCount': 0,
+                  'testCount': 0,
+                },
                 'level': 'A1',
                 'streak': 0,
                 'photoURL': '',
