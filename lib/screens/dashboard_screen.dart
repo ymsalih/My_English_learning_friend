@@ -14,7 +14,9 @@ import 'learned_words_screen.dart';
 import 'progress_report_screen.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
+import 'onboarding_screen.dart';
 import 'story_screen.dart';
+import 'reading_practice_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -392,6 +394,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               Icons.play_circle_fill,
                               Colors.redAccent,
                               const VideoPracticeScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Telaffuz',
+                              'Oku & Dinle',
+                              Icons.mic_external_on,
+                              Colors.pinkAccent,
+                              const ReadingPracticeScreen(),
                             ),
                           ],
                         ),

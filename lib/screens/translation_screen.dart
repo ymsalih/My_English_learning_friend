@@ -313,11 +313,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
           return data['translations'][0]['text'];
         }
         return "Çeviri Bulunamadı";
+      } else if (response.statusCode == 429) {
+        // RATE LIMIT (Çok Fazla İstek) Yakalandı
+        return "Sistem yoğun. Lütfen 1 dakika bekleyin.";
       } else {
-        return "Çeviri Hatası";
+        return "Çeviri Hatası (${response.statusCode})";
       }
     } catch (e) {
-      return "Bağlantı Hatası";
+      return "Bağlantı Hatası (Sunucu engeli veya internet sorunu)";
     }
   }
 

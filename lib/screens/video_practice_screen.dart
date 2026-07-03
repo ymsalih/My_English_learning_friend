@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:youtube_player_iframe/youtube_player_iframe.dart'; 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart' as native;
+import 'package:youtube_player_iframe/youtube_player_iframe.dart' as web;
 import 'dart:ui'; // For BackdropFilter
 import 'package:flutter/services.dart';
 
@@ -89,9 +91,11 @@ class VideoPracticeScreen extends StatelessWidget {
                   itemCount: videos.length,
                   itemBuilder: (context, index) {
                     final video = videos[index].data();
-                    final videoId = video['id'] ?? '';
+                    final rawVideoId = video['id'] ?? '';
                     final title = video['title'] ?? 'Başlıksız Video';
                     final desc = video['desc'] ?? '';
+
+                    final videoId = _extractYoutubeId(rawVideoId);
 
                     if (videoId.isEmpty) return const SizedBox.shrink();
 
@@ -104,6 +108,29 @@ class VideoPracticeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  // Kullanıcı Firebase'e yanlışlıkla tam URL girse bile ID'yi söküp alır
+  String _extractYoutubeId(String urlOrId) {
+    if (urlOrId.isEmpty) return '';
+    String cleaned = urlOrId.trim();
+    
+    // Eğer sadece 11 karakterli ham ID girdiyse
+    if (cleaned.length == 11 && !cleaned.contains('http') && !cleaned.contains('/')) return cleaned;
+    
+    // URL'den ID çıkarma (Çok daha gelişmiş Regex)
+    final RegExp regExp = RegExp(
+      r'(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})',
+      caseSensitive: false,
+      multiLine: false,
+    );
+    final match = regExp.firstMatch(cleaned);
+    if (match != null && match.group(1) != null && match.group(1)!.length == 11) {
+      return match.group(1)!;
+    }
+    
+    // Bulamazsa temizlenmiş halini döndür (çökmekten iyidir)
+    return cleaned;
   }
 
   Widget _buildEmptyState() {
@@ -270,8 +297,7 @@ class VideoPracticeScreen extends StatelessWidget {
 }
 
 // ========================================================= //
-// OYNATICI EKRANI (PLAYER SCREEN) - MOBİL & WEB UYUMLU 
-// (TAMAMEN youtube_player_iframe'e GEÇİLDİ)
+// OYNATICI EKRANI (PLAYER SCREEN) - MOBİL & WEB UYUMLU
 // ========================================================= //
 
 class PlayerScreen extends StatefulWidget {
@@ -285,55 +311,66 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> {
-  late YoutubePlayerController _controller;
+  // Mobil Controller
+  late native.YoutubePlayerController _nativeController;
+  // Web Controller
+  late web.YoutubePlayerController _webController;
 
   @override
   void initState() {
     super.initState();
-    // 🚀 Tüm platformlar (Mobil + Web) için tek bir modern kontrolcü!
-    _controller = YoutubePlayerController.fromVideoId(
-      videoId: widget.videoId,
-      autoPlay: true, // autoPlay webview tabanlı iframe'de çok daha stabil çalışır
-      params: const YoutubePlayerParams(
-        showControls: true,
-        showFullscreenButton: true,
-        mute: false,
-        strictRelatedVideos: true, // İlgisiz videoları kısıtlar
-      ),
-    );
-    
-    // Uygulama ekranını yatay döndürme gibi özellikler eklenebilir
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    if (kIsWeb) {
+      // 🚀 WEB İÇİN BAŞLATMA
+      _webController = web.YoutubePlayerController.fromVideoId(
+        videoId: widget.videoId,
+        params: const web.YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+        ),
+      );
+    } else {
+      // 📱 MOBİL İÇİN BAŞLATMA
+      _nativeController = native.YoutubePlayerController(
+        initialVideoId: widget.videoId,
+        flags: const native.YoutubePlayerFlags(
+          autoPlay: true,
+          mute: false,
+          forceHD: true,
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    // Portre moduna geri dön
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    _controller.close();
+    if (!kIsWeb) _nativeController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black, // Oynatıcı arkası tam siyah olmalı (Sinema hissi)
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        elevation: 0,
       ),
-      body: Center(
-        child: YoutubePlayer(
-          controller: _controller,
-          aspectRatio: 16 / 9,
-        ),
-      ),
+      body: Center(child: kIsWeb ? _buildWebPlayer() : _buildNativePlayer()),
+    );
+  }
+
+  // 🚀 WEB OYNATICI (Bağlantı kopsa da donmaz)
+  Widget _buildWebPlayer() {
+    return web.YoutubePlayer(controller: _webController, aspectRatio: 16 / 9);
+  }
+
+  // 📱 MOBİL OYNATICI
+  Widget _buildNativePlayer() {
+    return native.YoutubePlayer(
+      controller: _nativeController,
+      showVideoProgressIndicator: true,
+      progressIndicatorColor: Colors.purpleAccent,
     );
   }
 }

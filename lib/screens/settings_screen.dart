@@ -19,7 +19,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _selectedLevel = 'A1';
   bool _isLoadingUser = true;
-  final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1'];
+  final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
   final TextEditingController _testTextController = TextEditingController(
     text: "Hello, this is a test for the new voice settings.",

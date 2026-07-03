@@ -26,14 +26,22 @@ class _AuthScreenState extends State<AuthScreen>
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
 
+  late AnimationController _floatingController;
+
   @override
   void initState() {
     super.initState();
     _isLogin = widget.initialLoginMode;
+    // Pürüzsüz ve sıfır işlemci yüküyle çalışan süzülme (hover) animasyonu
+    _floatingController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
+    _floatingController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
@@ -50,14 +58,15 @@ class _AuthScreenState extends State<AuthScreen>
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-        title: const Text("Şifre Sıfırlama"),
+        backgroundColor: const Color(0xFF1E293B), // Koyu arka plan
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: BorderSide(color: Colors.white.withOpacity(0.1))),
+        title: const Text("Şifre Sıfırlama", style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
               "Kayıtlı e-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.",
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: TextStyle(fontSize: 14, color: Colors.white70),
             ),
             const SizedBox(height: 20),
             _buildTextField(
@@ -503,21 +512,21 @@ class _AuthScreenState extends State<AuthScreen>
       },
       child: Tooltip(
         message: 'Ana Sayfaya Dön',
-        child: Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.deepPurpleAccent.withOpacity(0.5),
-                blurRadius: 30,
-                spreadRadius: 10,
-              ),
-            ],
+        child: AnimatedBuilder(
+          animation: _floatingController,
+          builder: (context, child) {
+            // Kusursuz bir süzülme için Sine eğrisi kullanıyoruz (Daha doğal durur)
+            final double bounce = Curves.easeInOutSine.transform(_floatingController.value);
+            return Transform.translate(
+              offset: Offset(0, -10 + (bounce * 20)), // Yukarı aşağı 10 piksel süzülür
+              child: child,
+            );
+          },
+          child: Container(
+            width: 140,
+            height: 140,
+            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
           ),
-          child: ClipOval(child: Image.asset('assets/logo.png', fit: BoxFit.cover)),
         ),
       ),
     );

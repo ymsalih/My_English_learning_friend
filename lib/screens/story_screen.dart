@@ -16,6 +16,7 @@ class StoryScreen extends StatefulWidget {
 class _StoryScreenState extends State<StoryScreen> {
   final GeminiStoryService _storyService = GeminiStoryService();
   final TtsService _ttsService = TtsService();
+  final _translator = GoogleTranslator();
 
   String _selectedGenre = 'Macera';
   String _selectedLevel = 'A2';
@@ -27,7 +28,7 @@ class _StoryScreenState extends State<StoryScreen> {
     'Günlük Yaşam',
     'Fantastik',
   ];
-  final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1'];
+  final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
   bool _isLoading = false;
   Map<String, dynamic>? _storyTree;
@@ -38,10 +39,20 @@ class _StoryScreenState extends State<StoryScreen> {
   int _score = 0;
   bool _quizCompleted = false;
 
+  int? _selectedAnswerIndex;
+  String? _translatedExplanation;
+  bool _isTranslatingExplanation = false;
+
   @override
   void initState() {
     super.initState();
     _loadUserLevel();
+  }
+
+  @override
+  void dispose() {
+    _ttsService.stop();
+    super.dispose();
   }
 
   Future<void> _loadUserLevel() async {
@@ -110,6 +121,9 @@ class _StoryScreenState extends State<StoryScreen> {
       _quizCompleted = false;
       _currentQuestionIndex = 0;
       _score = 0;
+      _selectedAnswerIndex = null;
+      _translatedExplanation = null;
+      _isTranslatingExplanation = false;
     });
 
     try {
@@ -515,38 +529,147 @@ class _StoryScreenState extends State<StoryScreen> {
           ),
           const SizedBox(height: 30),
           ...options.asMap().entries.map((entry) {
+            bool isSelected = _selectedAnswerIndex == entry.key;
+            bool isCorrect = entry.key == currentQ['correctIndex'];
+            bool showColors = _selectedAnswerIndex != null;
+
+            Color borderColor = Colors.purpleAccent.withAlpha(128);
+            Color bgColor = const Color(0xFF1E293B).withAlpha(204);
+
+            if (showColors) {
+              if (isCorrect) {
+                borderColor = Colors.greenAccent;
+                bgColor = Colors.green.withAlpha(50);
+              } else if (isSelected) {
+                borderColor = Colors.redAccent;
+                bgColor = Colors.red.withAlpha(50);
+              }
+            }
+
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
-                  BoxShadow(color: Colors.purpleAccent.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 3)),
+                  if (isSelected || (showColors && isCorrect))
+                    BoxShadow(color: borderColor.withAlpha(50), blurRadius: 10, offset: const Offset(0, 3)),
                 ],
               ),
               child: OutlinedButton(
-                onPressed: () {
-                  if (entry.key == currentQ['correctIndex']) {
-                    _score++;
-                  }
-                  if (_currentQuestionIndex < questions.length - 1) {
-                    setState(() => _currentQuestionIndex++);
-                  } else {
-                    setState(() => _quizCompleted = true);
-                  }
-                },
+                onPressed: _selectedAnswerIndex != null
+                    ? null // Eğer zaten cevap verildiyse butonları kilitle
+                    : () {
+                        setState(() {
+                          _selectedAnswerIndex = entry.key;
+                          if (isCorrect) _score++;
+                        });
+                      },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.all(18),
-                  backgroundColor: const Color(0xFF1E293B).withOpacity(0.8),
+                  backgroundColor: bgColor,
                   foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.purpleAccent.withOpacity(0.5), width: 1.5),
+                  disabledForegroundColor: Colors.white,
+                  side: BorderSide(color: borderColor, width: isSelected || (showColors && isCorrect) ? 2.0 : 1.5),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
                 ),
-                child: Text(entry.value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(entry.value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+                    if (showColors && isCorrect) const Icon(Icons.check_circle, color: Colors.greenAccent),
+                    if (showColors && isSelected && !isCorrect) const Icon(Icons.cancel, color: Colors.redAccent),
+                  ],
+                ),
               ),
             );
           }),
+
+          if (_selectedAnswerIndex != null && currentQ['explanation'] != null) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(20),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.amber.withAlpha(100)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.lightbulb_outline, color: Colors.amberAccent),
+                          SizedBox(width: 8),
+                          Text("Açıklama (Explanation)", style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      IconButton(
+                        icon: _isTranslatingExplanation
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
+                            : const Icon(Icons.g_translate, color: Colors.cyanAccent),
+                        onPressed: () async {
+                          if (_translatedExplanation != null) return;
+                          setState(() => _isTranslatingExplanation = true);
+                          try {
+                            var trans = await _translator.translate(currentQ['explanation'], from: 'en', to: 'tr');
+                            if (mounted) setState(() => _translatedExplanation = trans.text);
+                          } catch (e) {
+                            debugPrint("Translate error: $e");
+                          } finally {
+                            if (mounted) setState(() => _isTranslatingExplanation = false);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    currentQ['explanation'],
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                  ),
+                  if (_translatedExplanation != null) ...[
+                    const SizedBox(height: 10),
+                    Divider(color: Colors.amber.withAlpha(50)),
+                    const SizedBox(height: 10),
+                    Text(
+                      _translatedExplanation!,
+                      style: const TextStyle(color: Colors.cyanAccent, fontSize: 14, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
+          if (_selectedAnswerIndex != null) ...[
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () {
+                if (_currentQuestionIndex < questions.length - 1) {
+                  setState(() {
+                    _currentQuestionIndex++;
+                    _selectedAnswerIndex = null;
+                    _translatedExplanation = null;
+                  });
+                } else {
+                  setState(() => _quizCompleted = true);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blueAccent,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              child: Text(
+                _currentQuestionIndex < questions.length - 1 ? 'Sonraki Soru' : 'Sonuçları Gör',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+            ),
+          ],
         ],
       ),
     );

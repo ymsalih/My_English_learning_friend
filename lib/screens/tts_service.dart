@@ -85,6 +85,13 @@ class TtsService {
     await _flutterTts!.speak(text);
   }
 
+  // DIŞARIYA AÇILAN DURDURMA FONKSİYONU
+  Future<void> stop() async {
+    if (_isInitialized && _flutterTts != null) {
+      await _flutterTts!.stop();
+    }
+  }
+
   // --- AYAR GÜNCELLEME VE KAYDETME FONKSİYONLARI ---
   Future<void> setRate(double rate) async {
     _speechRate = rate;

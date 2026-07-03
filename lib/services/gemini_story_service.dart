@@ -95,7 +95,8 @@ Format the response purely as a JSON object matching this exact schema:
     {
        "question": "A reading comprehension question about the story?",
        "options": ["A", "B", "C", "D"],
-       "correctIndex": 1
+       "correctIndex": 1,
+       "explanation": "Brief explanation in English of why this is the correct answer."
     }
   ]
 }

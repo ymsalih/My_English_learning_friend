@@ -209,13 +209,22 @@ class LandingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
 
-                    // 1. SATIR: BÜYÜK KART (AI Chat)
                     _buildLargeBentoCard(
                       icon: Icons.forum_rounded,
                       iconColor: Colors.amberAccent,
                       title: "Yapay Zeka Öğretmen",
                       description: "AI tabanlı chat sistemi ile 7/24 kesintisiz pratik yapın ve hatalarınızı anında görün.",
                       gradientColors: [Colors.amberAccent.withOpacity(0.2), Colors.orangeAccent.withOpacity(0.05)],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // YENİ: BÜYÜK KART (Okuma ve Telaffuz)
+                    _buildLargeBentoCard(
+                      icon: Icons.mic_external_on_rounded,
+                      iconColor: Colors.pinkAccent,
+                      title: "Okuma ve Telaffuz Analizi",
+                      description: "İngilizce metinleri sesli okuyun, AI telaffuzunuzu analiz edip hatalarınızı kırmızı ile göstersin.",
+                      gradientColors: [Colors.pinkAccent.withOpacity(0.2), Colors.purpleAccent.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
 
