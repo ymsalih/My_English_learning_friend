@@ -1,4 +1,4 @@
-package com.example.ingilizce_destek_app
+package com.owlish.app
 
 import io.flutter.embedding.android.FlutterActivity
 

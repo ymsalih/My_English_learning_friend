@@ -1,7 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-// For BackdropFilter if needed
+import 'package:url_launcher/url_launcher.dart';
+import 'auth_screen.dart';
 import 'tts_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -104,6 +105,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       );
+    }
+  }
+
+  Future<void> _launchURL(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
+  }
+
+  Future<void> _signOut() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E293B),
+        title: const Text("Hesabı Sil", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Hesabınızı ve tüm kelime havuzu/istatistik verilerinizi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 15),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+              ),
+              child: const Text(
+                "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini cihazınızın App Store veya Google Play ayarlarından yapmanız gerekmektedir.",
+                style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Vazgeç", style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteAccount();
+            },
+            child: const Text("Kalıcı Olarak Sil", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        // 1. Önce kullanıcının oturumunun taze olup olmadığını kontrol et
+        final lastSignIn = user.metadata.lastSignInTime;
+        if (lastSignIn != null) {
+          final diff = DateTime.now().difference(lastSignIn);
+          if (diff.inMinutes > 5) {
+            // Eğer 5 dakikadan eskiyse, Firebase Auth zaten hata verecektir.
+            // Bu yüzden veritabanını silmeden önce işlemi durduruyoruz.
+            throw FirebaseAuthException(
+              code: 'requires-recent-login',
+              message: 'Güvenlik nedeniyle yeniden giriş yapmalısınız.',
+            );
+          }
+        }
+
+        // 2. Oturum tazeyse önce veritabanındaki verileri siliyoruz
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+        
+        // 3. Son olarak Auth (Giriş) hesabını tamamen siliyoruz
+        await user.delete();
+        
+        if (mounted) {
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(builder: (context) => const AuthScreen()),
+            (route) => false,
+          );
+        }
+      } catch (e) {
+        debugPrint("Hesap silinirken hata: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Güvenlik nedeniyle hesabınızı silmek için lütfen uygulamadan çıkış yapıp tekrar giriş yapın ve tekrar deneyin."),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -490,6 +601,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 40),
+
+                  // --- HESAP VE YASAL BİLGİLER (MAĞAZA ZORUNLULUĞU) ---
+                  const Text(
+                    "Hesap ve Yasal Bilgiler",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 15),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B).withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blueAccent),
+                          title: const Text("Gizlilik Politikası", style: TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.open_in_new, color: Colors.white54, size: 18),
+                          onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
+                        ),
+                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.description_outlined, color: Colors.purpleAccent),
+                          title: const Text("Kullanım Şartları", style: TextStyle(color: Colors.white)),
+                          trailing: const Icon(Icons.open_in_new, color: Colors.white54, size: 18),
+                          onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
+                        ),
+                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.logout_rounded, color: Colors.white70),
+                          title: const Text("Çıkış Yap", style: TextStyle(color: Colors.white70)),
+                          onTap: _signOut,
+                        ),
+                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                          title: const Text("Hesabımı Sil", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                          onTap: _confirmDeleteAccount,
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                 ],

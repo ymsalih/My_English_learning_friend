@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 
 class SubscriptionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -126,13 +128,13 @@ class SubscriptionService {
     
     int current = 0;
     if (actionKey == 'lifetimeWordsAdded') {
-      current = (data['lifetimeWordsAdded'] ?? 0) as int;
+      current = (data['lifetimeWordsAdded'] ?? 0);
     } else {
       final dailyUsage = await _getValidDailyUsage(data);
-      current = (dailyUsage[actionKey] ?? 0) as int;
+      current = (dailyUsage[actionKey] ?? 0);
     }
     
-    final limit = (limits[plan]?[actionKey] ?? 0) as int;
+    final limit = (limits[plan]?[actionKey] ?? 0);
     return current < limit;
   }
 
@@ -144,13 +146,13 @@ class SubscriptionService {
     
     int current = 0;
     if (actionKey == 'lifetimeWordsAdded') {
-      current = (data['lifetimeWordsAdded'] ?? 0) as int;
+      current = (data['lifetimeWordsAdded'] ?? 0);
     } else {
       final dailyUsage = await _getValidDailyUsage(data);
-      current = (dailyUsage[actionKey] ?? 0) as int;
+      current = (dailyUsage[actionKey] ?? 0);
     }
     
-    final limit = (limits[plan]?[actionKey] ?? 0) as int;
+    final limit = (limits[plan]?[actionKey] ?? 0);
     
     return {'current': current, 'limit': limit};
   }
@@ -166,27 +168,27 @@ class SubscriptionService {
     return {
       'words': {
         'current': lifetimeWordsAdded as int,
-        'limit': (limits[plan]?['lifetimeWordsAdded'] ?? 50) as int
+        'limit': limits[plan]?['lifetimeWordsAdded'] ?? 50
       },
       'storyGen': {
-        'current': (dailyUsage['storyGenCount'] ?? 0) as int,
-        'limit': (limits[plan]?['storyGenCount'] ?? 0) as int
+        'current': dailyUsage['storyGenCount'] ?? 0,
+        'limit': limits[plan]?['storyGenCount'] ?? 0
       },
       'storyRead': {
-        'current': (dailyUsage['storyReadCount'] ?? 0) as int,
-        'limit': (limits[plan]?['storyReadCount'] ?? 0) as int
+        'current': dailyUsage['storyReadCount'] ?? 0,
+        'limit': limits[plan]?['storyReadCount'] ?? 0
       },
       'chat': {
-        'current': (dailyUsage['chatMsgCount'] ?? 0) as int,
-        'limit': (limits[plan]?['chatMsgCount'] ?? 0) as int
+        'current': dailyUsage['chatMsgCount'] ?? 0,
+        'limit': limits[plan]?['chatMsgCount'] ?? 0
       },
       'translate': {
-        'current': (dailyUsage['translateCount'] ?? 0) as int,
-        'limit': (limits[plan]?['translateCount'] ?? 0) as int
+        'current': dailyUsage['translateCount'] ?? 0,
+        'limit': limits[plan]?['translateCount'] ?? 0
       },
       'test': {
-        'current': (dailyUsage['testCount'] ?? 0) as int,
-        'limit': (limits[plan]?['testCount'] ?? 0) as int
+        'current': dailyUsage['testCount'] ?? 0,
+        'limit': limits[plan]?['testCount'] ?? 0
       }
     };
   }
@@ -230,7 +232,44 @@ class SubscriptionService {
   Future<void> incrementTranslate() => _incrementAction('translateCount');
   Future<void> incrementTest() => _incrementAction('testCount');
 
+  // --- REVENUECAT SYNC ---
+  
+  void setupRevenueCatListener() {
+    Purchases.addCustomerInfoUpdateListener((customerInfo) {
+      syncRevenueCatStatus();
+    });
+  }
+
+  Future<void> syncRevenueCatStatus() async {
+    try {
+      final customerInfo = await Purchases.getCustomerInfo();
+      String activePlan = 'basic';
+      
+      if (customerInfo.entitlements.active.isNotEmpty) {
+        if (customerInfo.entitlements.active.containsKey('max')) {
+          activePlan = 'max';
+        } else if (customerInfo.entitlements.active.containsKey('pro')) {
+          activePlan = 'pro';
+        } else if (customerInfo.entitlements.active.containsKey('plus') || customerInfo.entitlements.active.containsKey('premium')) {
+          activePlan = 'plus';
+        }
+      }
+      
+      final docRef = await _getUserDocRef();
+      if (docRef != null) {
+        final data = await _getUserData();
+        if (data['subscriptionPlan'] != activePlan) {
+          await docRef.set({'subscriptionPlan': activePlan}, SetOptions(merge: true));
+        }
+      }
+    } catch (e) {
+      debugPrint("RevenueCat sync error: $e");
+    }
+  }
+
   Future<void> cancelSubscription() async {
+    // In RevenueCat, users must cancel via App Store / Google Play.
+    // We just mock it here for testing if needed, or leave it as basic.
     final docRef = await _getUserDocRef();
     if (docRef != null) {
       await docRef.set({
@@ -240,6 +279,8 @@ class SubscriptionService {
   }
 
   Future<void> upgradeSubscription(String planId) async {
+    // This will now be handled by RevenueCat Purchases.purchasePackage in PaywallScreen.
+    // Kept here for fallback/testing.
     final docRef = await _getUserDocRef();
     if (docRef != null) {
       await docRef.set({

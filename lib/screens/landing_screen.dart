@@ -345,6 +345,20 @@ class LandingScreen extends StatelessWidget {
                       comment:
                           "Hikayeler bölümü mükemmel. Bilmediğim kelimeye basıp çevirisini gördüğüm için artık hikaye okumak hiç sıkıcı değil!",
                     ),
+                    const SizedBox(height: 16),
+                    _buildTestimonialCard(
+                      name: "Mehmet Yıldırım",
+                      role: "İngilizce Öğretmeni",
+                      comment:
+                          "Öğrencilerime tavsiye ettiğim tek uygulama. Kaydırılabilir kelime kartları (Flashcards) ve akıllı tekrar sistemi kelimeleri kalıcı belleğe adeta kazıyor.",
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTestimonialCard(
+                      name: "Burcu Kaya",
+                      role: "Banka Yöneticisi",
+                      comment:
+                          "Kelime testleri ve seri (streak) koruma hırsı sayesinde İngilizce çalışmak bağımlılık yapan bir oyun gibi oldu. Artık her gün pratik yapıyorum!",
+                    ),
 
                     const SizedBox(height: 80),
 

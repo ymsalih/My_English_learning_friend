@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
 import 'landing_screen.dart';
 
@@ -230,7 +231,7 @@ class _AuthScreenState extends State<AuthScreen>
                 ),
                 title: const Text("Kayıt Başarılı! 🎉"),
                 content: const Text(
-                  "Hesabınız başarıyla oluşturuldu. Giriş yapabilmek için e-posta adresinize gönderilen doğrulama linkine tıklamanız gerekmektedir.",
+                  "Hesabınız başarıyla oluşturuldu. Giriş yapabilmek için e-posta adresinize gönderilen doğrulama linkine tıklamanız gerekmektedir.\n\nEğer e-postayı göremiyorsanız lütfen Spam (Gereksiz) kutunuzu kontrol etmeyi unutmayın.",
                 ),
                 actions: [
                   TextButton(
@@ -452,6 +453,28 @@ class _AuthScreenState extends State<AuthScreen>
                                     ),
                                   ),
                                 ),
+                                
+                                // YASAL METİN (MAĞAZA ŞARTI)
+                                const SizedBox(height: 15),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5),
+                                  child: Wrap(
+                                    alignment: WrapAlignment.center,
+                                    children: [
+                                      const Text("Kayıt olarak ", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                      GestureDetector(
+                                        onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa')),
+                                        child: const Text("Kullanım Şartları", style: TextStyle(color: Colors.amberAccent, fontSize: 11, decoration: TextDecoration.underline)),
+                                      ),
+                                      const Text(" ve ", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                      GestureDetector(
+                                        onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa')),
+                                        child: const Text("Gizlilik Politikasını", style: TextStyle(color: Colors.amberAccent, fontSize: 11, decoration: TextDecoration.underline)),
+                                      ),
+                                      const Text(" kabul etmiş olursunuz.", style: TextStyle(color: Colors.white54, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
                               ],
                               const SizedBox(height: 20),
                               _isLoading
@@ -523,21 +546,41 @@ class _AuthScreenState extends State<AuthScreen>
       },
       child: Tooltip(
         message: 'Ana Sayfaya Dön',
-        child: AnimatedBuilder(
-          animation: _floatingController,
-          builder: (context, child) {
-            // Kusursuz bir süzülme için Sine eğrisi kullanıyoruz (Daha doğal durur)
-            final double bounce = Curves.easeInOutSine.transform(_floatingController.value);
-            return Transform.translate(
-              offset: Offset(0, -10 + (bounce * 20)), // Yukarı aşağı 10 piksel süzülür
-              child: child,
-            );
-          },
-          child: Container(
-            width: 140,
-            height: 140,
-            child: Image.asset('assets/logo.png', fit: BoxFit.contain),
-          ),
+        child: Column(
+          children: [
+            AnimatedBuilder(
+              animation: _floatingController,
+              builder: (context, child) {
+                // Kusursuz bir süzülme için Sine eğrisi kullanıyoruz (Daha doğal durur)
+                final double bounce = Curves.easeInOutSine.transform(_floatingController.value);
+                return Transform.translate(
+                  offset: Offset(0, -10 + (bounce * 20)), // Yukarı aşağı 10 piksel süzülür
+                  child: child,
+                );
+              },
+              child: Container(
+                width: 140,
+                height: 140,
+                child: Image.asset('assets/logo.png', fit: BoxFit.contain),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white54, size: 12),
+                const SizedBox(width: 5),
+                const Text(
+                  "Ana Sayfaya Dön",
+                  style: TextStyle(
+                    color: Colors.white54, 
+                    fontSize: 12, 
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

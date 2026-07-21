@@ -20,7 +20,7 @@ import 'reading_practice_screen.dart';
 import 'paywall_screen.dart';
 import 'profile_screen.dart';
 import '../services/subscription_service.dart';
-
+import 'package:package_info_plus/package_info_plus.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -40,6 +40,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _subscriptionPlan = 'basic';
   Map<String, Map<String, int>> _limitsSummary = {};
   int _streak = 0;
+  String _appVersion = "1.0.0";
 
   StreamSubscription<DocumentSnapshot>? _userSubscription;
 
@@ -47,6 +48,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _setupUserListener();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = info.version;
+      });
+    }
   }
 
   @override
@@ -59,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _fetchLearnedCount(user.uid); // İlk girişte gerçek sayıyı çek
-      
+
       // 1. ANA KULLANICI VE STATS DİNLEYİCİSİ (Doğru/Yanlış oranları için)
       _userSubscription = FirebaseFirestore.instance
           .collection('users')
@@ -88,7 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _totalTests = (stats['totalTests'] ?? 0).toInt();
                       _totalCorrect = (stats['totalCorrect'] ?? 0).toInt();
                       _totalWrong = (stats['totalWrong'] ?? 0).toInt();
-                      // stats['totalLearned'] artık eski verilerde sıfır olabileceği için 
+                      // stats['totalLearned'] artık eski verilerde sıfır olabileceği için
                       // güvenilir olan _fetchLearnedCount ile alıyoruz.
                       _fetchLearnedCount(user.uid);
                     }
@@ -97,33 +108,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _streak = data['streak'] ?? 0;
 
                     // Build real-time limits summary from snapshot
-                    final limitsMap = SubscriptionService.limits[_subscriptionPlan] ?? SubscriptionService.limits['basic']!;
-                    final dailyUsage = data['dailyUsage'] as Map<String, dynamic>? ?? {};
+                    final limitsMap =
+                        SubscriptionService.limits[_subscriptionPlan] ??
+                        SubscriptionService.limits['basic']!;
+                    final dailyUsage =
+                        data['dailyUsage'] as Map<String, dynamic>? ?? {};
                     _limitsSummary = {
                       'words': {
                         'current': (data['lifetimeWordsAdded'] ?? 0) as int,
-                        'limit': limitsMap['lifetimeWordsAdded'] as int
+                        'limit': limitsMap['lifetimeWordsAdded'] as int,
                       },
                       'storyGen': {
                         'current': (dailyUsage['storyGenCount'] ?? 0) as int,
-                        'limit': limitsMap['storyGenCount'] as int
+                        'limit': limitsMap['storyGenCount'] as int,
                       },
                       'storyRead': {
                         'current': (dailyUsage['storyReadCount'] ?? 0) as int,
-                        'limit': limitsMap['storyReadCount'] as int
+                        'limit': limitsMap['storyReadCount'] as int,
                       },
                       'chat': {
                         'current': (dailyUsage['chatMsgCount'] ?? 0) as int,
-                        'limit': limitsMap['chatMsgCount'] as int
+                        'limit': limitsMap['chatMsgCount'] as int,
                       },
                       'translate': {
                         'current': (dailyUsage['translateCount'] ?? 0) as int,
-                        'limit': limitsMap['translateCount'] as int
+                        'limit': limitsMap['translateCount'] as int,
                       },
                       'test': {
                         'current': (dailyUsage['testCount'] ?? 0) as int,
-                        'limit': limitsMap['testCount'] as int
-                      }
+                        'limit': limitsMap['testCount'] as int,
+                      },
                     };
                   });
                 }
@@ -146,7 +160,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             },
           );
-
     }
   }
 
@@ -160,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           .where('isLearned', isEqualTo: true)
           .count()
           .get();
-      
+
       if (mounted) {
         setState(() {
           _totalLearned = snapshot.count ?? 0;
@@ -551,7 +564,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '$_totalLearned' " kelime tamamlandı",
+                            '$_totalLearned'
+                            " kelime tamamlandı",
                             style: const TextStyle(
                               color: Colors.orangeAccent,
                               fontSize: 12,
@@ -583,7 +597,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     Center(
                       child: Text(
-                        "%" '${(successRate * 100).toInt()}',
+                        "%"
+                        '${(successRate * 100).toInt()}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -849,7 +864,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildDrawerTile(
                       context,
                       icon: Icons.record_voice_over_rounded,
-                      title: 'Ses Ayarları',
+                      title: 'Ayarlar',
                       iconColor: Colors.tealAccent,
                       onTap: () {
                         Navigator.pop(context);
@@ -887,7 +902,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      "Sürüm 1.0.1",
+                      "Sürüm $_appVersion",
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.3),
                         fontSize: 13,
