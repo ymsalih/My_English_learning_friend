@@ -103,6 +103,7 @@ class _StoryScreenState extends State<StoryScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    // Sadece kontrol ediyoruz, henüz kotayı düşmüyoruz
     if (forceGenerate) {
       if (!await _subService.canGenerateStory()) {
         if (mounted) {
@@ -110,8 +111,6 @@ class _StoryScreenState extends State<StoryScreen> {
         }
         return;
       }
-      await _subService.incrementStoryGen();
-      await _loadLimits();
     } else {
       if (!await _subService.canReadStory()) {
         if (mounted) {
@@ -119,8 +118,6 @@ class _StoryScreenState extends State<StoryScreen> {
         }
         return;
       }
-      await _subService.incrementStoryRead();
-      await _loadLimits();
     }
 
     setState(() {
@@ -142,6 +139,14 @@ class _StoryScreenState extends State<StoryScreen> {
         _selectedLevel,
         forceGenerate: forceGenerate,
       );
+      
+      // Hikaye başarıyla üretildi veya okundu, ŞİMDİ kotayı düşürüyoruz!
+      if (forceGenerate) {
+        await _subService.incrementStoryGen();
+      } else {
+        await _subService.incrementStoryRead();
+      }
+      await _loadLimits();
       if (mounted) {
         setState(() {
           _storyTree = tree;
@@ -150,9 +155,31 @@ class _StoryScreenState extends State<StoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
+        String errorMsg = 'Beklenmeyen bir hata oluştu. Lütfen birazdan tekrar deneyin.';
+        final errorString = e.toString().toLowerCase();
+        
+        if (errorString.contains('socket') || errorString.contains('host lookup') || errorString.contains('network') || errorString.contains('clientexception')) {
+           errorMsg = 'İnternet bağlantınız koptu veya çok yavaş. Lütfen kontrol edip tekrar deneyin.';
+        } else if (errorString.contains('503') || errorString.contains('timeout') || errorString.contains('busy') || errorString.contains('quota')) {
+           errorMsg = 'Yapay zeka sunucuları şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(child: Text(errorMsg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+              ],
+            ),
+            backgroundColor: Colors.redAccent.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(15),
+            duration: const Duration(seconds: 4),
+          )
+        );
       }
     } finally {
       if (mounted) {

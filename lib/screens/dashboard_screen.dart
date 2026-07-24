@@ -14,7 +14,6 @@ import 'learned_words_screen.dart';
 import 'progress_report_screen.dart';
 import 'settings_screen.dart';
 import 'chat_screen.dart';
-import 'onboarding_screen.dart';
 import 'story_screen.dart';
 import 'reading_practice_screen.dart';
 import 'paywall_screen.dart';

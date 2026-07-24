@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:ui';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import '../services/subscription_service.dart';
 
 class PaywallScreen extends StatefulWidget {
@@ -16,6 +18,7 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   bool _isLoading = false;
   String _currentPlan = 'basic';
+  String? _activeProductId;
   Offerings? _offerings;
   final SubscriptionService _subService = SubscriptionService();
 
@@ -46,13 +49,28 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Future<void> _fetchCurrentPlan() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       if (doc.exists && doc.data()!.containsKey('subscriptionPlan')) {
-        setState(() {
-          _currentPlan = doc.data()!['subscriptionPlan'];
-        });
+        if (mounted) {
+          setState(() {
+            _currentPlan = doc.data()!['subscriptionPlan'];
+          });
+        }
       }
     }
+
+    try {
+      final customerInfo = await Purchases.getCustomerInfo();
+      if (customerInfo.activeSubscriptions.isNotEmpty && mounted) {
+        setState(() {
+          _activeProductId = customerInfo.activeSubscriptions.first
+              .toLowerCase();
+        });
+      }
+    } catch (e) {}
   }
 
   Future<void> _purchasePlan() async {
@@ -64,46 +82,79 @@ class _PaywallScreenState extends State<PaywallScreen> {
       // 1. Try to use RevenueCat if available
       if (_offerings != null && _offerings!.current != null) {
         Package? packageToBuy;
-        
+
         // Find package based on selected Tab and Duration
         try {
-           packageToBuy = _offerings!.current!.availablePackages.firstWhere(
-            (p) {
-              final id = p.identifier.toLowerCase();
-              final isTargetTab = id.contains(_selectedTab);
-              final isTargetDuration = _selectedDuration == 'annual' 
-                  ? (id.contains('annual') || id.contains('yillik'))
-                  : (id.contains('monthly') || id.contains('aylik'));
-              return isTargetTab && isTargetDuration;
-            },
-          );
-        } catch(e) {
-           // Fallback to first available if exact match not found
-           if (_offerings!.current!.availablePackages.isNotEmpty) {
-             packageToBuy = _offerings!.current!.availablePackages.first;
-           }
+          packageToBuy = _offerings!.current!.availablePackages.firstWhere((p) {
+            final id = p.identifier.toLowerCase();
+            final isTargetTab = id.contains(_selectedTab);
+            final isTargetDuration = _selectedDuration == 'annual'
+                ? (id.contains('annual') || id.contains('yillik'))
+                : (id.contains('monthly') || id.contains('aylik'));
+            return isTargetTab && isTargetDuration;
+          });
+        } catch (e) {
+          // Fallback to first available if exact match not found
+          if (_offerings!.current!.availablePackages.isNotEmpty) {
+            packageToBuy = _offerings!.current!.availablePackages.first;
+          }
         }
 
         if (packageToBuy != null) {
-          await Purchases.purchasePackage(packageToBuy);
+          final customerInfo = await Purchases.getCustomerInfo();
+          String? oldProductId;
+          if (customerInfo.activeSubscriptions.isNotEmpty) {
+            oldProductId = customerInfo.activeSubscriptions.first;
+          }
+
+          if (oldProductId != null && Platform.isAndroid) {
+            // Google Play'de aynı ana aboneliğin alt paketleri (Aylık/Yıllık) arasında geçiş yapılıyorsa
+            // GoogleProductChangeInfo gönderilMEMELİDİR. Sadece farklı paketlere (Plus -> Pro) geçerken gönderilir.
+            final oldGroup = oldProductId.split(':').first;
+            final newGroup = packageToBuy.storeProduct.identifier
+                .split(':')
+                .first;
+
+            if (oldGroup == newGroup) {
+              // Aynı paketin Süre (Aylık <-> Yıllık) değişimi
+              await Purchases.purchasePackage(packageToBuy);
+            } else {
+              // Tamamen farklı bir pakete Yükseltme/Düşürme
+              await Purchases.purchasePackage(
+                packageToBuy,
+                googleProductChangeInfo: GoogleProductChangeInfo(
+                  oldProductId,
+                  prorationMode: GoogleProrationMode.immediateWithTimeProration,
+                ),
+              );
+            }
+          } else {
+            await Purchases.purchasePackage(packageToBuy);
+          }
+
           await _subService.syncRevenueCatStatus();
           await _fetchCurrentPlan();
-          
+
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! 🎉'), backgroundColor: Colors.green),
+              SnackBar(
+                content: Text(
+                  'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! 🎉',
+                ),
+                backgroundColor: Colors.green,
+              ),
             );
             Navigator.pop(context, true);
           }
           return;
         }
       }
-      
+
       // 2. Fallback Mock (If API keys not yet set or products missing)
-      await Future.delayed(const Duration(seconds: 1)); 
+      await Future.delayed(const Duration(seconds: 1));
       await _subService.upgradeSubscription(_selectedTab);
-      
+
       if (mounted) {
         setState(() {
           _currentPlan = _selectedTab;
@@ -111,17 +162,76 @@ class _PaywallScreenState extends State<PaywallScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! (Test) 🎉'),
+            content: Text(
+              'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! (Test) 🎉',
+            ),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.pop(context, true);
       }
+    } on PlatformException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        final errorCode = PurchasesErrorHelper.getErrorCode(e);
+        if (errorCode == PurchasesErrorCode.purchaseCancelledError) {
+          // Sessiz iptal
+          return;
+        }
+
+        String errorMessage =
+            'Ödeme işlemi iptal edildi veya bir sorun oluştu.';
+        Color bgColor = Colors.redAccent;
+
+        switch (errorCode) {
+          case PurchasesErrorCode.productAlreadyPurchasedError:
+            errorMessage = 'Bu pakete zaten sahipsiniz! 🔒';
+            bgColor = Colors.orangeAccent;
+            break;
+          case PurchasesErrorCode.paymentPendingError:
+            errorMessage =
+                'Ödemeniz şu anda beklemede. Bankanız onayladığında paketiniz aktifleşecek. ⏳';
+            bgColor = Colors.orangeAccent;
+            break;
+          case PurchasesErrorCode.networkError:
+            errorMessage =
+                'İnternet bağlantınızı kontrol edip tekrar deneyin. 📶';
+            break;
+          case PurchasesErrorCode.receiptAlreadyInUseError:
+            errorMessage =
+                'Bu satın alma işlemi zaten başka bir hesapta kullanılıyor. 👤';
+            break;
+          case PurchasesErrorCode.storeProblemError:
+            errorMessage =
+                'Mağaza tarafında geçici bir sorun var. Lütfen daha sonra tekrar deneyin. 🏪';
+            break;
+          case PurchasesErrorCode.purchaseNotAllowedError:
+            errorMessage =
+                'Cihazınızda satın alma işlemleri kısıtlanmış olabilir. 🚫';
+            break;
+          case PurchasesErrorCode.productNotAvailableForPurchaseError:
+            errorMessage = 'Bu paket şu anda satın alınamıyor. ❌';
+            break;
+          case PurchasesErrorCode.purchaseInvalidError:
+            errorMessage = 'Satın alma işlemi doğrulanamadı veya geçersiz. ⚠️';
+            break;
+          default:
+            errorMessage =
+                'Ödeme sırasında bir hata oluştu. Lütfen tekrar deneyin.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: bgColor),
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('İşlem iptal edildi veya hata: $e'), backgroundColor: Colors.redAccent),
+          const SnackBar(
+            content: Text('Beklenmeyen bir hata oluştu.'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -130,20 +240,41 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Future<void> _restorePurchases() async {
     setState(() => _isLoading = true);
     try {
-      await Purchases.restorePurchases();
-      await _subService.syncRevenueCatStatus();
-      await _fetchCurrentPlan();
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Satın alımlarınız başarıyla geri yüklendi!'), backgroundColor: Colors.green),
-        );
+      final customerInfo = await Purchases.restorePurchases();
+
+      if (customerInfo.entitlements.active.isNotEmpty) {
+        await _subService.syncRevenueCatStatus();
+        await _fetchCurrentPlan();
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Satın alımlarınız başarıyla geri yüklendi! 🎒'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Geçmiş tarihli aktif bir VIP planınız bulunamadı. 🔍',
+              ),
+              backgroundColor: Colors.orangeAccent,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Geri yükleme başarısız oldu veya bulunamadı.'), backgroundColor: Colors.redAccent),
+          const SnackBar(
+            content: Text('Geri yükleme işlemi başarısız oldu.'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -158,13 +289,28 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   // MARK: - UI Helpers
 
+  int _getTier(String plan) {
+    switch (plan.toLowerCase()) {
+      case 'max':
+        return 3;
+      case 'pro':
+        return 2;
+      case 'plus':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
   Map<String, dynamic> _getTabData(String tab) {
     final plusL = SubscriptionService.limits['plus']!;
     final proL = SubscriptionService.limits['pro']!;
     final maxL = SubscriptionService.limits['max']!;
 
-    String formatLimit(int limit) => limit == 999999 ? 'Sınırsız' : limit.toString();
-    String formatWords(int limit) => limit == 999999 ? 'Sınırsız' : limit.toString();
+    String formatLimit(int limit) =>
+        limit == 999999 ? 'Sınırsız' : limit.toString();
+    String formatWords(int limit) =>
+        limit == 999999 ? 'Sınırsız' : limit.toString();
 
     if (tab == 'plus') {
       return {
@@ -173,12 +319,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'accent': const Color(0xFF60A5FA),
         'icon': Icons.star_border,
         'features': [
-          _buildFeatureRow(Icons.add_circle, '${formatWords(plusL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi', Colors.blueAccent),
-          _buildFeatureRow(Icons.auto_stories, 'Günde ${formatLimit(plusL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi', Colors.blueAccent),
-          _buildFeatureRow(Icons.library_books, 'Günde ${formatLimit(plusL['storyReadCount']!)} Havuzdan Hikaye Okuma', Colors.blueAccent),
-          _buildFeatureRow(Icons.chat, 'Günde ${formatLimit(plusL['chatMsgCount']!)} OwlishAI Sohbet Mesajı', Colors.blueAccent),
-          _buildFeatureRow(Icons.translate, 'Günde ${formatLimit(plusL['translateCount']!)} Çeviri Hakkı', Colors.blueAccent),
-          _buildFeatureRow(Icons.school, 'Günde ${formatLimit(plusL['testCount']!)} Kelime Testi Soru Hakkı', Colors.blueAccent),
+          _buildFeatureRow(
+            Icons.add_circle,
+            '${formatWords(plusL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
+            Colors.blueAccent,
+          ),
+          _buildFeatureRow(
+            Icons.auto_stories,
+            'Günde ${formatLimit(plusL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi',
+            Colors.blueAccent,
+          ),
+          _buildFeatureRow(
+            Icons.library_books,
+            'Günde ${formatLimit(plusL['storyReadCount']!)} Havuzdan Hikaye Okuma',
+            Colors.blueAccent,
+          ),
+          _buildFeatureRow(
+            Icons.chat,
+            'Günde ${formatLimit(plusL['chatMsgCount']!)} OwlishAI Sohbet Mesajı',
+            Colors.blueAccent,
+          ),
+          _buildFeatureRow(
+            Icons.translate,
+            'Günde ${formatLimit(plusL['translateCount']!)} Çeviri Hakkı',
+            Colors.blueAccent,
+          ),
+          _buildFeatureRow(
+            Icons.school,
+            'Günde ${formatLimit(plusL['testCount']!)} Kelime Testi Soru Hakkı',
+            Colors.blueAccent,
+          ),
         ],
         'fallbackMonthlyPrice': '₺99.99',
         'fallbackAnnualPrice': '₺599.99',
@@ -190,12 +360,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'accent': const Color(0xFFC084FC),
         'icon': Icons.star,
         'features': [
-          _buildFeatureRow(Icons.add_circle, '${formatWords(proL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi', Colors.purpleAccent),
-          _buildFeatureRow(Icons.auto_stories, 'Günde ${formatLimit(proL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi', Colors.purpleAccent),
-          _buildFeatureRow(Icons.library_books, 'Günde ${formatLimit(proL['storyReadCount']!)} Havuzdan Hikaye Okuma', Colors.purpleAccent),
-          _buildFeatureRow(Icons.chat, 'Günde ${formatLimit(proL['chatMsgCount']!)} OwlishAI Sohbet Mesajı', Colors.purpleAccent),
-          _buildFeatureRow(Icons.translate, 'Günde ${formatLimit(proL['translateCount']!)} Çeviri Hakkı', Colors.purpleAccent),
-          _buildFeatureRow(Icons.school, 'Günde ${formatLimit(proL['testCount']!)} Kelime Testi Soru Hakkı', Colors.purpleAccent),
+          _buildFeatureRow(
+            Icons.add_circle,
+            '${formatWords(proL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
+            Colors.purpleAccent,
+          ),
+          _buildFeatureRow(
+            Icons.auto_stories,
+            'Günde ${formatLimit(proL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi',
+            Colors.purpleAccent,
+          ),
+          _buildFeatureRow(
+            Icons.library_books,
+            'Günde ${formatLimit(proL['storyReadCount']!)} Havuzdan Hikaye Okuma',
+            Colors.purpleAccent,
+          ),
+          _buildFeatureRow(
+            Icons.chat,
+            'Günde ${formatLimit(proL['chatMsgCount']!)} OwlishAI Sohbet Mesajı',
+            Colors.purpleAccent,
+          ),
+          _buildFeatureRow(
+            Icons.translate,
+            'Günde ${formatLimit(proL['translateCount']!)} Çeviri Hakkı',
+            Colors.purpleAccent,
+          ),
+          _buildFeatureRow(
+            Icons.school,
+            'Günde ${formatLimit(proL['testCount']!)} Kelime Testi Soru Hakkı',
+            Colors.purpleAccent,
+          ),
         ],
         'fallbackMonthlyPrice': '₺199.99',
         'fallbackAnnualPrice': '₺1199.99',
@@ -207,12 +401,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'accent': const Color(0xFFFCD34D),
         'icon': Icons.workspace_premium,
         'features': [
-          _buildFeatureRow(Icons.all_inclusive, '${formatWords(maxL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi', Colors.amberAccent),
-          _buildFeatureRow(Icons.auto_stories, '${maxL['storyGenCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyGenCount']}'} Yeni Yapay Zeka Hikayesi', Colors.amberAccent),
-          _buildFeatureRow(Icons.library_books, '${maxL['storyReadCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyReadCount']}'} Havuzdan Hikaye Okuma', Colors.amberAccent),
-          _buildFeatureRow(Icons.chat, '${maxL['chatMsgCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['chatMsgCount']}'} OwlishAI Sohbet Mesajı', Colors.amberAccent),
-          _buildFeatureRow(Icons.translate, '${maxL['translateCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['translateCount']}'} Çeviri Hakkı', Colors.amberAccent),
-          _buildFeatureRow(Icons.school, '${maxL['testCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['testCount']}'} Kelime Testi Soru Hakkı', Colors.amberAccent),
+          _buildFeatureRow(
+            Icons.all_inclusive,
+            '${formatWords(maxL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
+            Colors.amberAccent,
+          ),
+          _buildFeatureRow(
+            Icons.auto_stories,
+            '${maxL['storyGenCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyGenCount']}'} Yeni Yapay Zeka Hikayesi',
+            Colors.amberAccent,
+          ),
+          _buildFeatureRow(
+            Icons.library_books,
+            '${maxL['storyReadCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyReadCount']}'} Havuzdan Hikaye Okuma',
+            Colors.amberAccent,
+          ),
+          _buildFeatureRow(
+            Icons.chat,
+            '${maxL['chatMsgCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['chatMsgCount']}'} OwlishAI Sohbet Mesajı',
+            Colors.amberAccent,
+          ),
+          _buildFeatureRow(
+            Icons.translate,
+            '${maxL['translateCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['translateCount']}'} Çeviri Hakkı',
+            Colors.amberAccent,
+          ),
+          _buildFeatureRow(
+            Icons.school,
+            '${maxL['testCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['testCount']}'} Kelime Testi Soru Hakkı',
+            Colors.amberAccent,
+          ),
         ],
         'fallbackMonthlyPrice': '₺399.99',
         'fallbackAnnualPrice': '₺2399.99',
@@ -237,7 +455,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -255,8 +477,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
         decoration: BoxDecoration(
           color: isSelected ? color : Colors.white.withOpacity(0.05),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? color : Colors.white.withOpacity(0.1)),
-          boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 4))] : [],
+          border: Border.all(
+            color: isSelected ? color : Colors.white.withOpacity(0.1),
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
         child: Text(
           title,
@@ -279,14 +511,16 @@ class _PaywallScreenState extends State<PaywallScreen> {
     bool isPopular = false,
   }) {
     final isSelected = _selectedDuration == durationId;
-    
+
     return GestureDetector(
       onTap: () => setState(() => _selectedDuration = durationId),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor.withOpacity(0.15) : Colors.white.withOpacity(0.03),
+          color: isSelected
+              ? activeColor.withOpacity(0.15)
+              : Colors.white.withOpacity(0.03),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? activeColor : Colors.white.withOpacity(0.1),
@@ -301,12 +535,22 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 top: -26,
                 right: -10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: activeColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text('EN AVANTAJLI', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'EN AVANTAJLI',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             Column(
@@ -315,9 +559,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: TextStyle(color: isSelected ? Colors.white : Colors.white70, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : Colors.white70,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Icon(
-                      isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                      isSelected
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
                       color: isSelected ? activeColor : Colors.white30,
                     ),
                   ],
@@ -325,12 +578,23 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 const SizedBox(height: 8),
                 Text(
                   priceStr,
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
                 if (subtitle.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(subtitle, style: TextStyle(color: activeColor.withOpacity(0.8), fontSize: 12, fontWeight: FontWeight.w500)),
+                    child: Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: activeColor.withOpacity(0.8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -344,25 +608,45 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     final tabData = _getTabData(_selectedTab);
     final themeColor = tabData['color'] as Color;
-    final isCurrentPlan = _currentPlan == _selectedTab;
+
+    final currentTier = _getTier(_currentPlan);
+    final selectedTier = _getTier(_selectedTab);
+
+    bool isDowngrade = selectedTier < currentTier;
+    bool isExactSame = false;
+
+    // Alt ve üst paket süre analizi (Aylık vs Yıllık)
+    if (_activeProductId != null &&
+        _activeProductId!.contains(_selectedTab.toLowerCase())) {
+      final isTargetAnnual = _selectedDuration == 'annual';
+      final isActiveAnnual =
+          _activeProductId!.contains('annual') ||
+          _activeProductId!.contains('yillik');
+
+      if (isTargetAnnual == isActiveAnnual) {
+        isExactSame = true; // Birebir aynı ürün
+      } else if (isActiveAnnual && !isTargetAnnual) {
+        isDowngrade = true; // Yıllıktan aylığa düşüş
+      }
+    }
 
     // Dinamik Fiyat Okuma Mantığı (RevenueCat Yoksa Fallback)
     String monthlyPrice = tabData['fallbackMonthlyPrice'];
     String annualPrice = tabData['fallbackAnnualPrice'];
-    
+
     // RevenueCat'ten paket gelirse burası dolacak:
     // (Şu an ürünler Google Play'e eklenmediği için boş olacaktır)
     if (_offerings != null && _offerings!.current != null) {
-       for(var pkg in _offerings!.current!.availablePackages) {
-          final id = pkg.identifier.toLowerCase();
-          if (id.contains(_selectedTab)) {
-             if (id.contains('monthly') || id.contains('aylik')) {
-                monthlyPrice = pkg.storeProduct.priceString;
-             } else if (id.contains('annual') || id.contains('yillik')) {
-                annualPrice = pkg.storeProduct.priceString;
-             }
+      for (var pkg in _offerings!.current!.availablePackages) {
+        final id = pkg.identifier.toLowerCase();
+        if (id.contains(_selectedTab)) {
+          if (id.contains('monthly') || id.contains('aylik')) {
+            monthlyPrice = pkg.storeProduct.priceString;
+          } else if (id.contains('annual') || id.contains('yillik')) {
+            annualPrice = pkg.storeProduct.priceString;
           }
-       }
+        }
+      }
     }
 
     return Scaffold(
@@ -377,32 +661,59 @@ class _PaywallScreenState extends State<PaywallScreen> {
         children: [
           // Background Blobs
           Positioned(
-            top: -50, left: -50,
+            top: -50,
+            left: -50,
             child: Container(
-              width: 200, height: 200,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: themeColor.withOpacity(0.2)),
-              child: BackdropFilter(filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100), child: Container(color: Colors.transparent)),
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: themeColor.withOpacity(0.2),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                child: Container(color: Colors.transparent),
+              ),
             ),
           ),
-          
+
           SafeArea(
             child: Column(
               children: [
                 // Header
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0,
+                    vertical: 10,
+                  ),
                   child: Column(
                     children: [
                       Text(
                         "Planınızı Seçin",
-                        style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Colors.white, shadows: [Shadow(color: themeColor.withOpacity(0.5), blurRadius: 10)]),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          shadows: [
+                            Shadow(
+                              color: themeColor.withOpacity(0.5),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
-                      Text("İstediğiniz zaman iptal edebilirsiniz.", style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6))),
+                      Text(
+                        "İstediğiniz zaman iptal edebilirsiniz.",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.6),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                
+
                 const SizedBox(height: 10),
 
                 // Tabs
@@ -429,9 +740,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: const Color(0xFF1E293B),
-                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(40), topRight: Radius.circular(40)),
-                      border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, -5))],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(40),
+                        topRight: Radius.circular(40),
+                      ),
+                      border: Border(
+                        top: BorderSide(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 20,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
                     ),
                     child: SingleChildScrollView(
                       child: Column(
@@ -439,21 +761,33 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(tabData['icon'], color: themeColor, size: 32),
+                              Icon(
+                                tabData['icon'],
+                                color: themeColor,
+                                size: 32,
+                              ),
                               const SizedBox(width: 12),
-                              Text(tabData['name'], style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text(
+                                tabData['name'],
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 20),
-                          
+
                           // Features List
                           ...List.generate(
                             (tabData['features'] as List).length,
-                            (index) => (tabData['features'] as List)[index] as Widget
+                            (index) =>
+                                (tabData['features'] as List)[index] as Widget,
                           ),
-                          
+
                           const SizedBox(height: 30),
-                          
+
                           // Duration Selectors
                           _buildDurationCard(
                             durationId: 'monthly',
@@ -471,54 +805,110 @@ class _PaywallScreenState extends State<PaywallScreen> {
                             activeColor: themeColor,
                             isPopular: true,
                           ),
-                          
+
                           const SizedBox(height: 30),
-                          
+
                           // Action Button
                           SizedBox(
                             width: double.infinity,
                             height: 56,
                             child: ElevatedButton(
-                              onPressed: isCurrentPlan ? null : () => _purchasePlan(),
+                              onPressed: isExactSame
+                                  ? null
+                                  : () {
+                                      if (isDowngrade) {
+                                        _launchURL(
+                                          Platform.isIOS
+                                              ? 'https://apps.apple.com/account/subscriptions'
+                                              : 'https://play.google.com/store/account/subscriptions',
+                                        );
+                                      } else {
+                                        _purchasePlan();
+                                      }
+                                    },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: isCurrentPlan ? Colors.grey.shade800 : themeColor,
+                                backgroundColor: isDowngrade
+                                    ? Colors.grey.shade800
+                                    : themeColor,
                                 foregroundColor: Colors.white,
-                                elevation: 8,
+                                elevation: isExactSame ? 0 : 8,
                                 shadowColor: themeColor.withOpacity(0.5),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                disabledBackgroundColor: Colors.grey.shade800,
+                                disabledForegroundColor: Colors.white54,
                               ),
                               child: _isLoading
-                                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : Text(
-                                      isCurrentPlan ? 'Mevcut Paketiniz' : '${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} ${tabData['name']} Al',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if (!isDowngrade && !isExactSame)
+                                          const Icon(
+                                            Icons.lock,
+                                            size: 16,
+                                            color: Colors.white70,
+                                          ),
+                                        if (!isDowngrade && !isExactSame)
+                                          const SizedBox(width: 8),
+                                        Text(
+                                          isExactSame
+                                              ? 'Mevcut Planınız (Aktif)'
+                                              : (isDowngrade
+                                                    ? 'Aboneliği Yönet / Düşür'
+                                                    : 'Güvenli Ödeme ile ${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} Al'),
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          
+
                           // Restore Purchases
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: Column(
                               children: [
                                 TextButton(
-                                  onPressed: _isLoading ? null : _restorePurchases,
+                                  onPressed: _isLoading
+                                      ? null
+                                      : _restorePurchases,
                                   child: const Text(
                                     "Satın Alımları Geri Yükle (Restore Purchases)",
-                                    style: TextStyle(color: Colors.white70, fontSize: 14, decoration: TextDecoration.underline),
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                      decoration: TextDecoration.underline,
+                                    ),
                                   ),
                                 ),
                                 const Text(
                                   "Önceden aktif bir aboneliğiniz varsa veya hesabınızı silip yeniden kayıt olduysanız VIP paketinizi buradan geri çağırabilirsiniz.",
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white38, fontSize: 10),
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 10,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 10),
-                          
+
                           // Legal Links (MAĞAZA ZORUNLULUĞU)
                           Center(
                             child: Wrap(
@@ -526,13 +916,35 @@ class _PaywallScreenState extends State<PaywallScreen> {
                               spacing: 10,
                               children: [
                                 GestureDetector(
-                                  onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
-                                  child: const Text("Gizlilik Politikası", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                  onTap: () => _launchURL(
+                                    'https://sites.google.com/view/owlishprivacypolicy/ana-sayfa',
+                                  ),
+                                  child: const Text(
+                                    "Gizlilik Politikası",
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
-                                const Text("|", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                const Text(
+                                  "|",
+                                  style: TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 12,
+                                  ),
+                                ),
                                 GestureDetector(
-                                  onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
-                                  child: const Text("Kullanım Şartları", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                  onTap: () => _launchURL(
+                                    'https://sites.google.com/view/owlish-terms-of-use/ana-sayfa',
+                                  ),
+                                  child: const Text(
+                                    "Kullanım Şartları",
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

@@ -29,7 +29,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 700,
       'storyGenCount': 5,
       'storyReadCount': 8,
-      'chatMsgCount': 7,
+      'chatMsgCount': 10,
       'translateCount': 100,
       'testCount': 150,
     },
@@ -37,7 +37,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 999999, // Unlimited
       'storyGenCount': 8,
       'storyReadCount': 11,
-      'chatMsgCount': 10,
+      'chatMsgCount': 20,
       'translateCount': 999999,
       'testCount': 999999,
     },
@@ -54,10 +54,12 @@ class SubscriptionService {
   }
 
   // Ensures dailyUsage exists and is for today. If not, resets it.
-  Future<Map<String, dynamic>> _getValidDailyUsage(Map<String, dynamic> userData) async {
+  Future<Map<String, dynamic>> _getValidDailyUsage(
+    Map<String, dynamic> userData,
+  ) async {
     final today = _getTodayString();
     Map<String, dynamic> dailyUsage = userData['dailyUsage'] ?? {};
-    
+
     if (dailyUsage['date'] != today) {
       dailyUsage = {
         'date': today,
@@ -67,7 +69,7 @@ class SubscriptionService {
         'translateCount': 0,
         'testCount': 0,
       };
-      
+
       final docRef = await _getUserDocRef();
       if (docRef != null) {
         await docRef.update({'dailyUsage': dailyUsage});
@@ -81,9 +83,9 @@ class SubscriptionService {
     if (docRef == null) return {};
     final doc = await docRef.get();
     if (!doc.exists) return {};
-    
+
     final data = doc.data() as Map<String, dynamic>;
-    
+
     // Migration for older users
     bool changed = false;
     if (!data.containsKey('subscriptionPlan')) {
@@ -125,7 +127,7 @@ class SubscriptionService {
     final data = await _getUserData();
     if (data.isEmpty) return false;
     final plan = data['subscriptionPlan'] ?? 'basic';
-    
+
     int current = 0;
     if (actionKey == 'lifetimeWordsAdded') {
       current = (data['lifetimeWordsAdded'] ?? 0);
@@ -133,7 +135,7 @@ class SubscriptionService {
       final dailyUsage = await _getValidDailyUsage(data);
       current = (dailyUsage[actionKey] ?? 0);
     }
-    
+
     final limit = (limits[plan]?[actionKey] ?? 0);
     return current < limit;
   }
@@ -141,9 +143,9 @@ class SubscriptionService {
   Future<Map<String, int>> getActionUsage(String actionKey) async {
     final data = await _getUserData();
     if (data.isEmpty) return {'current': 0, 'limit': 0};
-    
+
     final plan = data['subscriptionPlan'] ?? 'basic';
-    
+
     int current = 0;
     if (actionKey == 'lifetimeWordsAdded') {
       current = (data['lifetimeWordsAdded'] ?? 0);
@@ -151,45 +153,45 @@ class SubscriptionService {
       final dailyUsage = await _getValidDailyUsage(data);
       current = (dailyUsage[actionKey] ?? 0);
     }
-    
+
     final limit = (limits[plan]?[actionKey] ?? 0);
-    
+
     return {'current': current, 'limit': limit};
   }
 
   Future<Map<String, Map<String, int>>> getLimitsSummary() async {
     final data = await _getUserData();
     if (data.isEmpty) return {};
-    
+
     final plan = data['subscriptionPlan'] ?? 'basic';
     final dailyUsage = await _getValidDailyUsage(data);
     final lifetimeWordsAdded = data['lifetimeWordsAdded'] ?? 0;
-    
+
     return {
       'words': {
         'current': lifetimeWordsAdded as int,
-        'limit': limits[plan]?['lifetimeWordsAdded'] ?? 50
+        'limit': limits[plan]?['lifetimeWordsAdded'] ?? 50,
       },
       'storyGen': {
         'current': dailyUsage['storyGenCount'] ?? 0,
-        'limit': limits[plan]?['storyGenCount'] ?? 0
+        'limit': limits[plan]?['storyGenCount'] ?? 0,
       },
       'storyRead': {
         'current': dailyUsage['storyReadCount'] ?? 0,
-        'limit': limits[plan]?['storyReadCount'] ?? 0
+        'limit': limits[plan]?['storyReadCount'] ?? 0,
       },
       'chat': {
         'current': dailyUsage['chatMsgCount'] ?? 0,
-        'limit': limits[plan]?['chatMsgCount'] ?? 0
+        'limit': limits[plan]?['chatMsgCount'] ?? 0,
       },
       'translate': {
         'current': dailyUsage['translateCount'] ?? 0,
-        'limit': limits[plan]?['translateCount'] ?? 0
+        'limit': limits[plan]?['translateCount'] ?? 0,
       },
       'test': {
         'current': dailyUsage['testCount'] ?? 0,
-        'limit': limits[plan]?['testCount'] ?? 0
-      }
+        'limit': limits[plan]?['testCount'] ?? 0,
+      },
     };
   }
 
@@ -220,8 +222,8 @@ class SubscriptionService {
     if (docRef != null) {
       // First ensure the day hasn't changed before incrementing
       final data = await _getUserData();
-      await _getValidDailyUsage(data); 
-      
+      await _getValidDailyUsage(data);
+
       await docRef.update({'dailyUsage.$actionKey': FieldValue.increment(1)});
     }
   }
@@ -233,7 +235,7 @@ class SubscriptionService {
   Future<void> incrementTest() => _incrementAction('testCount');
 
   // --- REVENUECAT SYNC ---
-  
+
   void setupRevenueCatListener() {
     Purchases.addCustomerInfoUpdateListener((customerInfo) {
       syncRevenueCatStatus();
@@ -244,22 +246,25 @@ class SubscriptionService {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       String activePlan = 'basic';
-      
+
       if (customerInfo.entitlements.active.isNotEmpty) {
         if (customerInfo.entitlements.active.containsKey('max')) {
           activePlan = 'max';
         } else if (customerInfo.entitlements.active.containsKey('pro')) {
           activePlan = 'pro';
-        } else if (customerInfo.entitlements.active.containsKey('plus') || customerInfo.entitlements.active.containsKey('premium')) {
+        } else if (customerInfo.entitlements.active.containsKey('plus') ||
+            customerInfo.entitlements.active.containsKey('premium')) {
           activePlan = 'plus';
         }
       }
-      
+
       final docRef = await _getUserDocRef();
       if (docRef != null) {
         final data = await _getUserData();
         if (data['subscriptionPlan'] != activePlan) {
-          await docRef.set({'subscriptionPlan': activePlan}, SetOptions(merge: true));
+          await docRef.set({
+            'subscriptionPlan': activePlan,
+          }, SetOptions(merge: true));
         }
       }
     } catch (e) {
@@ -272,9 +277,7 @@ class SubscriptionService {
     // We just mock it here for testing if needed, or leave it as basic.
     final docRef = await _getUserDocRef();
     if (docRef != null) {
-      await docRef.set({
-        'subscriptionPlan': 'basic',
-      }, SetOptions(merge: true));
+      await docRef.set({'subscriptionPlan': 'basic'}, SetOptions(merge: true));
     }
   }
 
@@ -283,9 +286,7 @@ class SubscriptionService {
     // Kept here for fallback/testing.
     final docRef = await _getUserDocRef();
     if (docRef != null) {
-      await docRef.set({
-        'subscriptionPlan': planId,
-      }, SetOptions(merge: true));
+      await docRef.set({'subscriptionPlan': planId}, SetOptions(merge: true));
     }
   }
 }

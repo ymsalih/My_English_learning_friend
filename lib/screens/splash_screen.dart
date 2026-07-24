@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:ui';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import '../services/subscription_service.dart';
 import 'dashboard_screen.dart';
 import 'landing_screen.dart';
 
@@ -45,25 +46,45 @@ class _SplashScreenState extends State<SplashScreen>
       }
     });
 
-    // SIFIR PERFORMANS KAYBI: Tam 1.5 saniyede yönlendirme (Eskiyle aynı süre)
-    Timer(const Duration(milliseconds: 1500), () {
+    // SIFIR PERFORMANS KAYBI: Animasyon süresi (1.5s) ile ağ işlemlerini (RevenueCat) PARALEL çalıştırıyoruz.
+    // Böylece ağ işlemi 1.5 saniyeden kısa sürerse, kullanıcıya gram gecikme hissettirmez!
+    final minimumDelay = Future.delayed(const Duration(milliseconds: 1500));
+    final networkTask = () async {
       final user = FirebaseAuth.instance.currentUser;
-      if (!mounted) return;
       if (user != null) {
+        try {
+          await Purchases.logIn(user.uid);
+          await SubscriptionService().syncRevenueCatStatus();
+        } catch (e) {
+          debugPrint("RevenueCat LogIn Error: $e");
+        }
+      }
+      return user != null;
+    }().timeout(const Duration(seconds: 3), onTimeout: () {
+      debugPrint("RevenueCat Splash Sync Timed Out (Slow Internet)");
+      return FirebaseAuth.instance.currentUser != null;
+    });
+
+    Future.wait([minimumDelay, networkTask]).then((results) {
+      if (!mounted) return;
+      
+      final isLoggedIn = results[1] as bool;
+      
+      if (isLoggedIn) {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const DashboardScreen(),
+            pageBuilder: (_, _, _) => const DashboardScreen(),
             transitionDuration: const Duration(milliseconds: 600),
-            transitionsBuilder: (_, a, __, c) =>
+            transitionsBuilder: (_, a, _, c) =>
                 FadeTransition(opacity: a, child: c),
           ),
         );
       } else {
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
-            pageBuilder: (_, __, ___) => const LandingScreen(),
+            pageBuilder: (_, _, _) => const LandingScreen(),
             transitionDuration: const Duration(milliseconds: 600),
-            transitionsBuilder: (_, a, __, c) =>
+            transitionsBuilder: (_, a, _, c) =>
                 FadeTransition(opacity: a, child: c),
           ),
         );

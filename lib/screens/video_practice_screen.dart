@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart' as native;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart' as web;
 import 'dart:ui'; // For BackdropFilter
-import 'package:flutter/services.dart';
 
 class VideoPracticeScreen extends StatelessWidget {
   const VideoPracticeScreen({super.key});

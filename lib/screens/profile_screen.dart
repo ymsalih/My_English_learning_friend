@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:ui';
+import 'dart:io';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 
@@ -39,14 +41,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _cancelSubscription() async {
-    final bool? confirm = await showDialog<bool>(
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text("Emin misiniz?", style: TextStyle(color: Colors.white)),
+        title: const Text("Aboneliği Yönet / İptal Et", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: const Text(
-          "Aboneliğinizi iptal etmek üzeresiniz. İşlemi onaylarsanız 'Basic' (Ücretsiz) plana düşürüleceksiniz ve kısıtlamalarınız anında devreye girecek.",
+          "Güvenliğiniz için abonelik iptal işlemleri doğrudan uygulama mağazası üzerinden yapılmaktadır. Sizi mağazaya yönlendirmemizi ister misiniz?",
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -60,31 +61,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: Colors.redAccent,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text("İptal Et", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text("Mağazaya Git", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
 
     if (confirm == true) {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.cyanAccent)),
-      );
-
-      await _subService.cancelSubscription();
-
-      if (mounted) {
-        Navigator.pop(context); // Close loading indicator
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("Aboneliğiniz iptal edildi. Basic plana döndünüz.", style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.greenAccent.withAlpha(200),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+      final url = Platform.isIOS 
+          ? 'https://apps.apple.com/account/subscriptions' 
+          : 'https://play.google.com/store/account/subscriptions';
+      
+      try {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Mağaza açılamadı. Lütfen telefonunuzun ayarlarından aboneliklerinize gidin.'), backgroundColor: Colors.redAccent),
+          );
+        }
       }
     }
   }

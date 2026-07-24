@@ -1,10 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:translator/translator.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import 'tts_service.dart';
@@ -28,6 +26,9 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   ];
   String _selectedCategory = 'Daily Life';
 
+  final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  String _selectedLevel = 'A1';
+
   final stt.SpeechToText _speech = stt.SpeechToText();
   final translator = GoogleTranslator();
   final TtsService _ttsService = TtsService();
@@ -40,6 +41,10 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   
   // Telaffuz testi durumu: 0 = Normal, 1 = Okuma Modu, 2 = Sonuçlar
   int _pronunciationState = 0; 
+  
+  bool _isLoadingTexts = false;
+  List<Map<String, dynamic>> _categoryTexts = [];
+  int _currentTextIndex = 0;
 
   // Hangi kelimelerin doğru/yanlış okunduğunu tutan map (Index -> isCorrect)
   Map<int, bool> _wordEvaluations = {};
@@ -48,6 +53,40 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   void initState() {
     super.initState();
     _initSpeech();
+    _fetchTexts();
+  }
+
+  void _fetchTexts() async {
+    if (!mounted) return;
+    setState(() => _isLoadingTexts = true);
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('reading_texts')
+          .where('category', isEqualTo: _selectedCategory)
+          .get(const GetOptions(source: Source.serverAndCache));
+
+      if (snap.docs.isNotEmpty) {
+        // Firebase karmaşık indexleme hatası (Composite Index) vermesin diye seviyeyi cihazda filtreliyoruz
+        var docs = snap.docs.where((d) => (d.data())['level'] == _selectedLevel).toList();
+        
+        if (docs.isNotEmpty) {
+          docs.shuffle(); // Kullanıcı sıkılmasın diye metinleri rastgele karıştırıyoruz
+          _categoryTexts = docs.map((d) => d.data()).toList();
+          _currentTextIndex = 0;
+        } else {
+          _categoryTexts = [];
+        }
+      } else {
+        _categoryTexts = [];
+      }
+    } catch (e) {
+      debugPrint("Firebase Fetch Error: $e");
+    }
+
+    if (mounted) {
+      setState(() => _isLoadingTexts = false);
+    }
   }
 
   @override
@@ -351,6 +390,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                         _pronunciationState = 0; 
                         _spokenText = "";
                       });
+                      _fetchTexts();
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -378,47 +418,99 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
             ),
           ),
           
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('reading_texts')
-                  .where('category', isEqualTo: _selectedCategory)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Text(
-                        "Firebase Hatası:\n${snapshot.error}",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 16),
+          const SizedBox(height: 10), // Boşluk
+
+          // --- SEVİYE SEÇİCİ ---
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: _levels.length,
+              itemBuilder: (context, index) {
+                final level = _levels[index];
+                final isSelected = level == _selectedLevel;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedLevel = level;
+                        _pronunciationState = 0; 
+                        _spokenText = "";
+                      });
+                      _fetchTexts();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.cyanAccent.withOpacity(0.2) : const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(15),
+                        border: Border.all(
+                          color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.1),
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          level,
+                          style: TextStyle(
+                            color: isSelected ? Colors.cyanAccent : Colors.white70,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          const SizedBox(height: 10), // Boşluk
+
+          Expanded(
+            child: _isLoadingTexts 
+              ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+              : _categoryTexts.isEmpty
+                ? Center(
                     child: Text(
-                      "Bu kategoride henüz metin yok.\n(Firebase'den ekleyebilirsiniz)",
+                      "Bu kategori ve seviyede henüz metin yok.\n(Firebase'den ekleyebilirsiniz)",
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 16),
                     ),
-                  );
-                }
-
-                final doc = snapshot.data!.docs.first;
-                final data = doc.data() as Map<String, dynamic>;
-                final title = data['title'] ?? 'Başlıksız';
-                final content = data['content'] ?? '';
-                final level = data['level'] ?? 'A1';
-
-                return _buildContentArea(title, content, level);
-              },
-            ),
+                  )
+                : Column(
+                    children: [
+                      Expanded(
+                        child: _buildContentArea(
+                          _categoryTexts[_currentTextIndex]['title'] ?? 'Başlıksız',
+                          _categoryTexts[_currentTextIndex]['content'] ?? '',
+                          _categoryTexts[_currentTextIndex]['level'] ?? 'A1',
+                        ),
+                      ),
+                      if (_categoryTexts.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                _currentTextIndex = (_currentTextIndex + 1) % _categoryTexts.length;
+                                _pronunciationState = 0;
+                                _spokenText = "";
+                              });
+                            },
+                            icon: const Icon(Icons.refresh, color: Colors.white),
+                            label: const Text("Farklı Bir Metin Getir", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurpleAccent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
           ),
         ],
       ),

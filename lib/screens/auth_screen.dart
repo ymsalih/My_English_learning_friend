@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
 import 'landing_screen.dart';
@@ -162,6 +163,14 @@ class _AuthScreenState extends State<AuthScreen>
           }
           setState(() => _isLoading = false);
           return;
+        }
+
+        if (user != null) {
+          try {
+            await Purchases.logIn(user.uid);
+          } catch (e) {
+            debugPrint("RevenueCat LogIn Error: $e");
+          }
         }
 
         if (mounted) {
@@ -558,7 +567,7 @@ class _AuthScreenState extends State<AuthScreen>
                   child: child,
                 );
               },
-              child: Container(
+              child: SizedBox(
                 width: 140,
                 height: 140,
                 child: Image.asset('assets/logo.png', fit: BoxFit.contain),
