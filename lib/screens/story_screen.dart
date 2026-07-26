@@ -64,7 +64,7 @@ class _StoryScreenState extends State<StoryScreen> {
   Future<void> _loadLimits() async {
     final genUsage = await _subService.getActionUsage('storyGenCount');
     final readUsage = await _subService.getActionUsage('storyReadCount');
-    
+
     if (mounted) {
       setState(() {
         _currentGenUsage = genUsage['current'] ?? 0;
@@ -107,14 +107,20 @@ class _StoryScreenState extends State<StoryScreen> {
     if (forceGenerate) {
       if (!await _subService.canGenerateStory()) {
         if (mounted) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const PaywallScreen()),
+          );
         }
         return;
       }
     } else {
       if (!await _subService.canReadStory()) {
         if (mounted) {
-          Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const PaywallScreen()),
+          );
         }
         return;
       }
@@ -139,7 +145,7 @@ class _StoryScreenState extends State<StoryScreen> {
         _selectedLevel,
         forceGenerate: forceGenerate,
       );
-      
+
       // Hikaye başarıyla üretildi veya okundu, ŞİMDİ kotayı düşürüyoruz!
       if (forceGenerate) {
         await _subService.incrementStoryGen();
@@ -155,13 +161,22 @@ class _StoryScreenState extends State<StoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        String errorMsg = 'Beklenmeyen bir hata oluştu. Lütfen birazdan tekrar deneyin.';
+        String errorMsg =
+            'Beklenmeyen bir hata oluştu. Lütfen birazdan tekrar deneyin.';
         final errorString = e.toString().toLowerCase();
-        
-        if (errorString.contains('socket') || errorString.contains('host lookup') || errorString.contains('network') || errorString.contains('clientexception')) {
-           errorMsg = 'İnternet bağlantınız koptu veya çok yavaş. Lütfen kontrol edip tekrar deneyin.';
-        } else if (errorString.contains('503') || errorString.contains('timeout') || errorString.contains('busy') || errorString.contains('quota')) {
-           errorMsg = 'Yapay zeka sunucuları şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin.';
+
+        if (errorString.contains('socket') ||
+            errorString.contains('host lookup') ||
+            errorString.contains('network') ||
+            errorString.contains('clientexception')) {
+          errorMsg =
+              'İnternet bağlantınız koptu veya çok yavaş. Lütfen kontrol edip tekrar deneyin.';
+        } else if (errorString.contains('503') ||
+            errorString.contains('timeout') ||
+            errorString.contains('busy') ||
+            errorString.contains('quota')) {
+          errorMsg =
+              'Yapay zeka sunucuları şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin.';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,15 +185,25 @@ class _StoryScreenState extends State<StoryScreen> {
               children: [
                 const Icon(Icons.error_outline, color: Colors.white),
                 const SizedBox(width: 10),
-                Expanded(child: Text(errorMsg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+                Expanded(
+                  child: Text(
+                    errorMsg,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ],
             ),
             backgroundColor: Colors.redAccent.shade700,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             margin: const EdgeInsets.all(15),
             duration: const Duration(seconds: 4),
-          )
+          ),
         );
       }
     } finally {
@@ -231,14 +256,21 @@ class _StoryScreenState extends State<StoryScreen> {
           builder: (context, setModalState) {
             if (translated == "Çevriliyor...") {
               if (isSingleWord) {
-                FirebaseFirestore.instance.collection('dictionary_cache').doc("en_$queryText").get().then((doc) async {
-                  if (doc.exists) {
-                     setModalState(() => translated = doc.data()!['mainTranslation'] ?? 'Bulunamadı');
-                  } else {
-                     final res = await _fallbackTranslate(queryText);
-                     setModalState(() => translated = res);
-                  }
-                });
+                FirebaseFirestore.instance
+                    .collection('dictionary_cache')
+                    .doc("en_$queryText")
+                    .get()
+                    .then((doc) async {
+                      if (doc.exists) {
+                        setModalState(
+                          () => translated =
+                              doc.data()!['mainTranslation'] ?? 'Bulunamadı',
+                        );
+                      } else {
+                        final res = await _fallbackTranslate(queryText);
+                        setModalState(() => translated = res);
+                      }
+                    });
               } else {
                 _fallbackTranslate(queryText).then((res) {
                   setModalState(() => translated = res);
@@ -252,8 +284,15 @@ class _StoryScreenState extends State<StoryScreen> {
                 padding: const EdgeInsets.all(25),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B).withOpacity(0.95),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-                  border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(30),
+                  ),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1.5,
+                    ),
+                  ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -338,7 +377,10 @@ class _StoryScreenState extends State<StoryScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withOpacity(0.7),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.2),
@@ -399,7 +441,11 @@ class _StoryScreenState extends State<StoryScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
                   boxShadow: [
-                    BoxShadow(color: Colors.blueAccent.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: Colors.blueAccent.withOpacity(0.15),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: OutlinedButton(
@@ -409,14 +455,20 @@ class _StoryScreenState extends State<StoryScreen> {
                     padding: const EdgeInsets.all(18),
                     backgroundColor: const Color(0xFF1E293B).withOpacity(0.8),
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.blueAccent.withOpacity(0.6), width: 1.5),
+                    side: BorderSide(
+                      color: Colors.blueAccent.withOpacity(0.6),
+                      width: 1.5,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
                   ),
                   child: Text(
                     choice['text'],
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -437,7 +489,11 @@ class _StoryScreenState extends State<StoryScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
-                  BoxShadow(color: Colors.purpleAccent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5)),
+                  BoxShadow(
+                    color: Colors.purpleAccent.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
                 ],
               ),
               child: ElevatedButton(
@@ -451,7 +507,11 @@ class _StoryScreenState extends State<StoryScreen> {
                 ),
                 child: const Text(
                   'Okuma Anlama Testini Çöz',
-                  style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -463,7 +523,10 @@ class _StoryScreenState extends State<StoryScreen> {
 
   Widget _buildQuiz() {
     final questions = _storyTree!['questions'] as List<dynamic>? ?? [];
-    if (questions.isEmpty) return const Center(child: Text("Test bulunamadı.", style: TextStyle(color: Colors.white)));
+    if (questions.isEmpty)
+      return const Center(
+        child: Text("Test bulunamadı.", style: TextStyle(color: Colors.white)),
+      );
 
     if (_quizCompleted) {
       return Center(
@@ -490,7 +553,11 @@ class _StoryScreenState extends State<StoryScreen> {
               ),
               child: Text(
                 'Skorun: $_score / ${questions.length}',
-                style: const TextStyle(fontSize: 22, color: Colors.purpleAccent, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  color: Colors.purpleAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 40),
@@ -498,19 +565,32 @@ class _StoryScreenState extends State<StoryScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
-                  BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5)),
+                  BoxShadow(
+                    color: Colors.blueAccent.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
                 ],
               ),
               child: ElevatedButton(
                 onPressed: () => setState(() => _storyTree = null),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF3B82F6),
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 40,
+                    vertical: 15,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
                 ),
                 child: const Text(
                   'Yeni Hikaye Seç',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -522,7 +602,8 @@ class _StoryScreenState extends State<StoryScreen> {
     final currentQ = questions[_currentQuestionIndex];
     final options = currentQ['options'] as List<dynamic>;
 
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -530,7 +611,10 @@ class _StoryScreenState extends State<StoryScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
@@ -552,7 +636,10 @@ class _StoryScreenState extends State<StoryScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withOpacity(0.7),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+                width: 1.5,
+              ),
             ),
             child: Text(
               currentQ['question'],
@@ -589,7 +676,11 @@ class _StoryScreenState extends State<StoryScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   if (isSelected || (showColors && isCorrect))
-                    BoxShadow(color: borderColor.withAlpha(50), blurRadius: 10, offset: const Offset(0, 3)),
+                    BoxShadow(
+                      color: borderColor.withAlpha(50),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
                 ],
               ),
               child: OutlinedButton(
@@ -606,23 +697,37 @@ class _StoryScreenState extends State<StoryScreen> {
                   backgroundColor: bgColor,
                   foregroundColor: Colors.white,
                   disabledForegroundColor: Colors.white,
-                  side: BorderSide(color: borderColor, width: isSelected || (showColors && isCorrect) ? 2.0 : 1.5),
+                  side: BorderSide(
+                    color: borderColor,
+                    width: isSelected || (showColors && isCorrect) ? 2.0 : 1.5,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: Text(entry.value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
-                    if (showColors && isCorrect) const Icon(Icons.check_circle, color: Colors.greenAccent),
-                    if (showColors && isSelected && !isCorrect) const Icon(Icons.cancel, color: Colors.redAccent),
+                    Expanded(
+                      child: Text(
+                        entry.value,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    if (showColors && isCorrect)
+                      const Icon(Icons.check_circle, color: Colors.greenAccent),
+                    if (showColors && isSelected && !isCorrect)
+                      const Icon(Icons.cancel, color: Colors.redAccent),
                   ],
                 ),
               ),
             );
           }),
 
-          if (_selectedAnswerIndex != null && currentQ['explanation'] != null) ...[
+          if (_selectedAnswerIndex != null &&
+              currentQ['explanation'] != null) ...[
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
@@ -639,25 +744,52 @@ class _StoryScreenState extends State<StoryScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.lightbulb_outline, color: Colors.amberAccent),
+                          Icon(
+                            Icons.lightbulb_outline,
+                            color: Colors.amberAccent,
+                          ),
                           SizedBox(width: 8),
-                          Text("Açıklama (Explanation)", style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold)),
+                          Text(
+                            "Açıklama (Explanation)",
+                            style: TextStyle(
+                              color: Colors.amberAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                       IconButton(
                         icon: _isTranslatingExplanation
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent))
-                            : const Icon(Icons.g_translate, color: Colors.cyanAccent),
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.cyanAccent,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.g_translate,
+                                color: Colors.cyanAccent,
+                              ),
                         onPressed: () async {
                           if (_translatedExplanation != null) return;
                           setState(() => _isTranslatingExplanation = true);
                           try {
-                            var trans = await _translator.translate(currentQ['explanation'], from: 'en', to: 'tr');
-                            if (mounted) setState(() => _translatedExplanation = trans.text);
+                            var trans = await _translator.translate(
+                              currentQ['explanation'],
+                              from: 'en',
+                              to: 'tr',
+                            );
+                            if (mounted)
+                              setState(
+                                () => _translatedExplanation = trans.text,
+                              );
                           } catch (e) {
                             debugPrint("Translate error: $e");
                           } finally {
-                            if (mounted) setState(() => _isTranslatingExplanation = false);
+                            if (mounted)
+                              setState(() => _isTranslatingExplanation = false);
                           }
                         },
                       ),
@@ -674,7 +806,11 @@ class _StoryScreenState extends State<StoryScreen> {
                     const SizedBox(height: 10),
                     Text(
                       _translatedExplanation!,
-                      style: const TextStyle(color: Colors.cyanAccent, fontSize: 14, fontStyle: FontStyle.italic),
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ],
                 ],
@@ -699,11 +835,19 @@ class _StoryScreenState extends State<StoryScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.blueAccent,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
               child: Text(
-                _currentQuestionIndex < questions.length - 1 ? 'Sonraki Soru' : 'Sonuçları Gör',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                _currentQuestionIndex < questions.length - 1
+                    ? 'Sonraki Soru'
+                    : 'Sonuçları Gör',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -729,9 +873,16 @@ class _StoryScreenState extends State<StoryScreen> {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(25),
-              border: Border.all(color: Colors.purpleAccent.withOpacity(0.3), width: 1.5),
+              border: Border.all(
+                color: Colors.purpleAccent.withOpacity(0.3),
+                width: 1.5,
+              ),
               boxShadow: [
-                BoxShadow(color: Colors.purpleAccent.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 8)),
+                BoxShadow(
+                  color: Colors.purpleAccent.withOpacity(0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
               ],
             ),
             child: Column(
@@ -742,7 +893,11 @@ class _StoryScreenState extends State<StoryScreen> {
                     color: Colors.white.withOpacity(0.05),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.auto_stories, size: 55, color: Colors.purpleAccent),
+                  child: const Icon(
+                    Icons.auto_stories,
+                    size: 55,
+                    color: Colors.purpleAccent,
+                  ),
                 ),
                 const SizedBox(height: 15),
                 const Text(
@@ -759,16 +914,24 @@ class _StoryScreenState extends State<StoryScreen> {
                 Text(
                   'Bu modülde sıradan bir okuyucu değilsiniz. Her sayfanın sonunda hikayenin gidişatına siz karar verirsiniz.\n\nHem okuma pratiği yapın, hem bilmediğiniz kelimeleri çevirin, hem de maceranızı kendiniz çizin!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 15, color: Colors.white.withOpacity(0.8), height: 1.6),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.white.withOpacity(0.8),
+                    height: 1.6,
+                  ),
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 35),
           const Text(
             '1. Tür ve Seviye Seçimi',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 15),
 
@@ -778,38 +941,65 @@ class _StoryScreenState extends State<StoryScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withOpacity(0.7),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+                width: 1.5,
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedGenre,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF1E293B),
-                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                items: _genres.map((g) => DropdownMenuItem(value: g, child: Text(g))).toList(),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.white70,
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                items: _genres
+                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedGenre = v!),
               ),
             ),
           ),
           const SizedBox(height: 15),
-          
+
           // Level Dropdown
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B).withOpacity(0.7),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+                width: 1.5,
+              ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: _selectedLevel,
                 isExpanded: true,
                 dropdownColor: const Color(0xFF1E293B),
-                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                items: _levels.map((l) => DropdownMenuItem(value: l, child: Text('Seviye: $l'))).toList(),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: Colors.white70,
+                ),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                items: _levels
+                    .map(
+                      (l) =>
+                          DropdownMenuItem(value: l, child: Text('Seviye: $l')),
+                    )
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedLevel = v!),
               ),
             ),
@@ -818,7 +1008,11 @@ class _StoryScreenState extends State<StoryScreen> {
           const SizedBox(height: 35),
           const Text(
             '2. Hikayeye Başla',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(height: 15),
 
@@ -826,7 +1020,11 @@ class _StoryScreenState extends State<StoryScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF8B5CF6).withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5)),
+                BoxShadow(
+                  color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                  blurRadius: 15,
+                  offset: const Offset(0, 5),
+                ),
               ],
             ),
             child: ElevatedButton(
@@ -834,7 +1032,9 @@ class _StoryScreenState extends State<StoryScreen> {
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.all(20),
                 backgroundColor: const Color(0xFF8B5CF6),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
               child: Column(
                 children: [
@@ -843,31 +1043,53 @@ class _StoryScreenState extends State<StoryScreen> {
                     children: const [
                       Icon(Icons.library_books, color: Colors.white),
                       SizedBox(width: 10),
-                      Text('Havuzdan Oku', style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Havuzdan Oku',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Daha önce üretilmiş hikayeleri ücretsiz oku.', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                  Text(
+                    'Daha önce üretilmiş hikayeleri ücretsiz oku.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: 15),
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(15),
               boxShadow: [
-                BoxShadow(color: const Color(0xFF3B82F6).withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4)),
+                BoxShadow(
+                  color: const Color(0xFF3B82F6).withOpacity(0.15),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
               ],
             ),
             child: OutlinedButton(
               onPressed: _isLoading ? null : () => _startStory(true),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.all(20),
-                side: BorderSide(color: const Color(0xFF3B82F6).withOpacity(0.8), width: 2),
+                side: BorderSide(
+                  color: const Color(0xFF3B82F6).withOpacity(0.8),
+                  width: 2,
+                ),
                 backgroundColor: const Color(0xFF1E293B).withOpacity(0.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
               ),
               child: Column(
                 children: [
@@ -876,11 +1098,24 @@ class _StoryScreenState extends State<StoryScreen> {
                     children: const [
                       Icon(Icons.auto_awesome, color: Colors.blueAccent),
                       SizedBox(width: 10),
-                      Text('Sıfırdan Üret', style: TextStyle(fontSize: 18, color: Colors.blueAccent, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Sıfırdan Üret',
+                        style: TextStyle(
+                          fontSize: 18,
+                          color: Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text('Yapay zekaya yeni bir macera yazdır. (Günde 1 kez)', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+                  Text(
+                    'Yapay zekaya yeni bir macera yazdır. (Günde 1 kez)',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -888,12 +1123,19 @@ class _StoryScreenState extends State<StoryScreen> {
 
           if (_isLoading) ...[
             const SizedBox(height: 40),
-            const Center(child: CircularProgressIndicator(color: Colors.purpleAccent)),
+            const Center(
+              child: CircularProgressIndicator(color: Colors.purpleAccent),
+            ),
             const SizedBox(height: 20),
             Text(
               'Yapay zeka hikaye evrenini inşa ediyor...\nLütfen bekleyin.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white.withOpacity(0.9), fontWeight: FontWeight.w600, fontSize: 15, height: 1.5),
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 30),
           ],
@@ -927,19 +1169,19 @@ class _StoryScreenState extends State<StoryScreen> {
             child: Row(
               children: [
                 _buildLimitBadge(
-                  icon: Icons.auto_stories, 
-                  isUnlimited: _isGenUnlimited, 
-                  usage: _currentGenUsage, 
-                  limit: _currentGenLimit, 
-                  color: Colors.amberAccent
+                  icon: Icons.auto_stories,
+                  isUnlimited: _isGenUnlimited,
+                  usage: _currentGenUsage,
+                  limit: _currentGenLimit,
+                  color: Colors.amberAccent,
                 ),
                 const SizedBox(width: 8),
                 _buildLimitBadge(
-                  icon: Icons.library_books, 
-                  isUnlimited: _isReadUnlimited, 
-                  usage: _currentReadUsage, 
-                  limit: _currentReadLimit, 
-                  color: Colors.blueAccent
+                  icon: Icons.library_books,
+                  isUnlimited: _isReadUnlimited,
+                  usage: _currentReadUsage,
+                  limit: _currentReadLimit,
+                  color: Colors.blueAccent,
                 ),
                 const SizedBox(width: 16),
               ],
@@ -953,39 +1195,53 @@ class _StoryScreenState extends State<StoryScreen> {
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
+                colors: [
+                  Color(0xFF0F172A),
+                  Color(0xFF1E1B4B),
+                  Color(0xFF312E81),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
             ),
           ),
           Positioned(
-            top: -100, left: -50,
+            top: -100,
+            left: -50,
             child: Container(
-              width: 300, height: 300,
+              width: 300,
+              height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
+                  colors: [
+                    Colors.blueAccent.withOpacity(0.15),
+                    Colors.transparent,
+                  ],
                   stops: const [0.1, 1.0],
                 ),
               ),
             ),
           ),
           Positioned(
-            bottom: -50, right: -50,
+            bottom: -50,
+            right: -50,
             child: Container(
-              width: 250, height: 250,
+              width: 250,
+              height: 250,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
+                  colors: [
+                    Colors.purpleAccent.withOpacity(0.15),
+                    Colors.transparent,
+                  ],
                   stops: const [0.1, 1.0],
                 ),
               ),
             ),
           ),
-          
+
           SafeArea(
             child: _storyTree == null
                 ? _buildSetupScreen()
@@ -996,7 +1252,13 @@ class _StoryScreenState extends State<StoryScreen> {
     );
   }
 
-  Widget _buildLimitBadge({required IconData icon, required bool isUnlimited, required int usage, required int limit, required Color color}) {
+  Widget _buildLimitBadge({
+    required IconData icon,
+    required bool isUnlimited,
+    required int usage,
+    required int limit,
+    required Color color,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
