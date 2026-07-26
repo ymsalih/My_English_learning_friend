@@ -132,7 +132,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
         });
       },
       localeId: "en_US",
-      pauseFor: const Duration(seconds: 2),
+      listenFor: const Duration(minutes: 3), // 3 dakika boyunca kapanmasın
+      pauseFor: const Duration(seconds: 10), // Kullanıcı 10 saniye susarsa kapansın (2 çok azdı)
       cancelOnError: false,
       partialResults: true,
     );
