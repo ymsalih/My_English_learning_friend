@@ -4,6 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flip_card/flip_card.dart';
 import 'tts_service.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -14,6 +16,7 @@ class TestScreen extends StatefulWidget {
 
 class _TestScreenState extends State<TestScreen> {
   final TtsService _ttsService = TtsService();
+  final SubscriptionService _subService = SubscriptionService();
 
   List<Map<String, dynamic>> _allAvailableWords = [];
   List<Map<String, dynamic>> _words = [];
@@ -22,12 +25,14 @@ class _TestScreenState extends State<TestScreen> {
   bool _isSetupMode = true;
   int _selectedWordCount = 10;
 
+  int _currentUsage = 0;
+  int _currentLimit = 40;
+  bool _isUnlimited = false;
+
   GlobalKey<FlipCardState> cardKey = GlobalKey<FlipCardState>();
   bool _isProcessing = false;
 
-  final ValueNotifier<Offset> _swipePosition = ValueNotifier<Offset>(
-    Offset.zero,
-  );
+  final ValueNotifier<Offset> _swipePosition = ValueNotifier<Offset>(Offset.zero);
   final ValueNotifier<double> _swipeAngle = ValueNotifier<double>(0.0);
   final ValueNotifier<bool> _isDragging = ValueNotifier<bool>(false);
 
@@ -39,7 +44,7 @@ class _TestScreenState extends State<TestScreen> {
   bool _testCompleted = false;
 
   final LinearGradient primaryGradient = const LinearGradient(
-    colors: [Colors.deepPurpleAccent, Colors.purpleAccent],
+    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -48,6 +53,18 @@ class _TestScreenState extends State<TestScreen> {
   void initState() {
     super.initState();
     _checkAvailableWords();
+    _loadLimits();
+  }
+
+  Future<void> _loadLimits() async {
+    final usage = await _subService.getActionUsage('testCount');
+    if (mounted) {
+      setState(() {
+        _currentUsage = usage['current'] ?? 0;
+        _currentLimit = usage['limit'] ?? 40;
+        _isUnlimited = _currentLimit >= 999999;
+      });
+    }
   }
 
   @override
@@ -111,24 +128,34 @@ class _TestScreenState extends State<TestScreen> {
     }
   }
 
-  void _startTest() {
-    _allAvailableWords.sort((a, b) {
-      Timestamp? t1 = a['lastReviewed'] as Timestamp?;
-      Timestamp? t2 = b['lastReviewed'] as Timestamp?;
-
-      int time1 = t1?.millisecondsSinceEpoch ?? 0;
-      int time2 = t2?.millisecondsSinceEpoch ?? 0;
-
-      return time1.compareTo(time2);
-    });
-
-    List<Map<String, dynamic>> selectedSessionWords = _allAvailableWords
-        .take(_selectedWordCount)
-        .toList();
-
-    selectedSessionWords.shuffle(Random());
-
+  void _startTest() async {
+    final int remaining = await _subService.getRemainingTestCount();
+    if (remaining <= 0) {
+      if (mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+      }
+      return;
+    }
+    
+    await _loadLimits();
+    
     setState(() {
+      // Limit the test to remaining limit if needed
+      if (_selectedWordCount > remaining) {
+        _selectedWordCount = remaining;
+      }
+      
+      _allAvailableWords.sort((a, b) {
+        Timestamp? t1 = a['lastReviewed'] as Timestamp?;
+        Timestamp? t2 = b['lastReviewed'] as Timestamp?;
+        int time1 = t1?.millisecondsSinceEpoch ?? 0;
+        int time2 = t2?.millisecondsSinceEpoch ?? 0;
+        return time1.compareTo(time2);
+      });
+
+      List<Map<String, dynamic>> selectedSessionWords = _allAvailableWords.take(_selectedWordCount).toList();
+      selectedSessionWords.shuffle(Random());
+
       _words = selectedSessionWords;
       _totalWordsInSession = selectedSessionWords.length;
       _forgotCount = 0;
@@ -139,18 +166,10 @@ class _TestScreenState extends State<TestScreen> {
     });
   }
 
-  Future<void> _saveTestResultsToFirebase(
-    int correctCount,
-    int wrongCount,
-    int masteredCount,
-  ) async {
+  Future<void> _saveTestResultsToFirebase(int correctCount, int wrongCount, int masteredCount) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    final userRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid);
-
+    final userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
     try {
       await userRef.set({
         'stats': {
@@ -158,14 +177,12 @@ class _TestScreenState extends State<TestScreen> {
           'totalCorrect': FieldValue.increment(correctCount),
           'totalWrong': FieldValue.increment(wrongCount),
           'totalMastered': FieldValue.increment(masteredCount),
+          'totalLearned': FieldValue.increment(masteredCount), // 🚀 O(1) Optimizasyonu
         },
       }, SetOptions(merge: true));
 
       int totalQuestions = correctCount + wrongCount;
-      double successRate = totalQuestions > 0
-          ? (correctCount / totalQuestions) * 100
-          : 0;
-
+      double successRate = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
       await userRef.collection('test_history').add({
         'timestamp': FieldValue.serverTimestamp(),
         'correct': correctCount,
@@ -181,16 +198,12 @@ class _TestScreenState extends State<TestScreen> {
 
   Future<void> _animateAndMove(String action, Offset targetPosition) async {
     if (_isProcessing) return;
+
     _isProcessing = true;
-
     _swipePosition.value = targetPosition;
-    _swipeAngle.value = targetPosition.dx > 0
-        ? 30
-        : (targetPosition.dx < 0 ? -30 : 0);
-
+    _swipeAngle.value = targetPosition.dx > 0 ? 30 : (targetPosition.dx < 0 ? -30 : 0);
     await Future.delayed(const Duration(milliseconds: 300));
     _handleWordResult(action);
-
     _swipePosition.value = Offset.zero;
     _swipeAngle.value = 0.0;
     _isProcessing = false;
@@ -214,6 +227,9 @@ class _TestScreenState extends State<TestScreen> {
       updateData['isLearned'] = true;
     }
 
+    // Increment word limit counter
+    _subService.incrementTest();
+
     if (user != null) {
       FirebaseFirestore.instance
           .collection('users')
@@ -224,17 +240,16 @@ class _TestScreenState extends State<TestScreen> {
     }
 
     setState(() {
+      if (!_isUnlimited) {
+        _currentUsage++;
+      }
       _words.removeAt(0);
       cardKey = GlobalKey<FlipCardState>();
 
       if (_words.isEmpty) {
         _testCompleted = true;
         int correctAnswers = _masteredCount + _rememberedCount;
-        _saveTestResultsToFirebase(
-          correctAnswers,
-          _forgotCount,
-          _masteredCount,
-        );
+        _saveTestResultsToFirebase(correctAnswers, _forgotCount, _masteredCount);
       }
     });
   }
@@ -242,40 +257,74 @@ class _TestScreenState extends State<TestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text(
-          'Kendini Test Et',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        title: Text(
+          _isSetupMode ? 'Kendini Test Et' : 'Öğrenme Zamanı',
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
         ),
         centerTitle: true,
         elevation: 0,
+        backgroundColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(gradient: primaryGradient),
-        ),
-      ),
-      body: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.deepPurple.shade50, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(
-                  color: Colors.deepPurpleAccent,
+        actions: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(right: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.purpleAccent.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
+              ),
+              child: Text(
+                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
+                style: const TextStyle(
+                  color: Colors.purpleAccent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
-              )
-            : _allAvailableWords.isEmpty
-            ? _buildEmptyState()
-            : _isSetupMode
-            ? _buildSetupScreen()
-            : _testCompleted
-            ? _buildResultsScreen()
-            : _buildTestScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          Positioned(
+            top: -100, right: -50,
+            child: Container(
+              width: 300, height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
+                  stops: const [0.1, 1.0],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent))
+                : _allAvailableWords.isEmpty
+                ? _buildEmptyState()
+                : _isSetupMode
+                ? _buildSetupScreen()
+                : _testCompleted
+                ? _buildResultsScreen()
+                : _buildTestScreen(),
+          ),
+        ],
       ),
     );
   }
@@ -287,69 +336,59 @@ class _TestScreenState extends State<TestScreen> {
         child: Container(
           padding: const EdgeInsets.all(25),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFF1E293B).withOpacity(0.8),
             borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
             boxShadow: [
               BoxShadow(
-                color: Colors.deepPurple.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 30,
+                offset: const Offset(0, 15),
               ),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.settings_suggest_rounded,
-                size: 80,
-                color: Colors.deepPurpleAccent,
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.settings_suggest_rounded, size: 60, color: Colors.white),
               ),
-              const SizedBox(height: 15),
+              const SizedBox(height: 20),
               const Text(
                 "Test Ayarları",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.deepPurple,
-                ),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               const SizedBox(height: 10),
               Text(
                 "Havuzda öğrenilmeyi bekleyen toplam\n${_allAvailableWords.length} kelimen var.",
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: Colors.black54),
+                style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6)),
               ),
               const SizedBox(height: 30),
-
               Text(
                 "$_selectedWordCount Kelime",
-                style: const TextStyle(
-                  fontSize: 35,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.deepPurpleAccent,
-                ),
+                style: const TextStyle(fontSize: 35, fontWeight: FontWeight.w900, color: Colors.white),
               ),
               const SizedBox(height: 10),
-
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: Colors.deepPurpleAccent,
-                  inactiveTrackColor: Colors.deepPurple.withOpacity(0.2),
-                  thumbColor: Colors.purpleAccent,
-                  overlayColor: Colors.purpleAccent.withOpacity(0.2),
-                  trackHeight: 8.0,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 12.0,
-                  ),
+                  activeTrackColor: Colors.indigoAccent,
+                  inactiveTrackColor: Colors.white.withOpacity(0.1),
+                  thumbColor: Colors.indigoAccent,
+                  overlayColor: Colors.indigoAccent.withOpacity(0.2),
+                  trackHeight: 6.0,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
                 ),
                 child: Slider(
                   value: _selectedWordCount.toDouble(),
                   min: 1,
                   max: _allAvailableWords.length.toDouble(),
-                  divisions: _allAvailableWords.length > 1
-                      ? _allAvailableWords.length - 1
-                      : 1,
+                  divisions: _allAvailableWords.length > 1 ? _allAvailableWords.length - 1 : 1,
                   onChanged: (double value) {
                     setState(() {
                       _selectedWordCount = value.toInt();
@@ -357,72 +396,60 @@ class _TestScreenState extends State<TestScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 15),
-
+              const SizedBox(height: 20),
               Wrap(
-                spacing: 10,
+                spacing: 12,
                 alignment: WrapAlignment.center,
-                children:
-                    [10, 20, 50].map((count) {
-                      if (count > _allAvailableWords.length)
-                        return const SizedBox.shrink();
-                      return ActionChip(
-                        label: Text("$count"),
-                        labelStyle: TextStyle(
-                          color: _selectedWordCount == count
-                              ? Colors.white
-                              : Colors.deepPurple,
-                          fontWeight: FontWeight.bold,
+                children: [
+                  ...[10, 20, 50].map((count) {
+                    if (count > _allAvailableWords.length) return const SizedBox.shrink();
+                    bool isSelected = _selectedWordCount == count;
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedWordCount = count),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.indigoAccent : Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: isSelected ? Colors.indigoAccent : Colors.transparent),
                         ),
-                        backgroundColor: _selectedWordCount == count
-                            ? Colors.deepPurpleAccent
-                            : Colors.deepPurple.shade50,
-                        onPressed: () {
-                          setState(() {
-                            _selectedWordCount = count;
-                          });
-                        },
-                      );
-                    }).toList()..add(
-                      ActionChip(
-                        label: const Text("Hepsi"),
-                        labelStyle: TextStyle(
-                          color: _selectedWordCount == _allAvailableWords.length
-                              ? Colors.white
-                              : Colors.deepPurple,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        backgroundColor:
-                            _selectedWordCount == _allAvailableWords.length
-                            ? Colors.deepPurpleAccent
-                            : Colors.deepPurple.shade50,
-                        onPressed: () {
-                          setState(() {
-                            _selectedWordCount = _allAvailableWords.length;
-                          });
-                        },
+                        child: Text("$count", style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.white70)),
                       ),
+                    );
+                  }),
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedWordCount = _allAvailableWords.length),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: _selectedWordCount == _allAvailableWords.length ? Colors.indigoAccent : Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _selectedWordCount == _allAvailableWords.length ? Colors.indigoAccent : Colors.transparent),
+                      ),
+                      child: Text("Hepsi", style: TextStyle(fontWeight: FontWeight.bold, color: _selectedWordCount == _allAvailableWords.length ? Colors.white : Colors.white70)),
                     ),
+                  ),
+                ],
               ),
-
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _startTest,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  elevation: 5,
+              const SizedBox(height: 35),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
-                child: const Text(
-                  "Teste Başla",
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                child: ElevatedButton(
+                  onPressed: _startTest,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
+                  child: const Text("Teste Başla", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
                 ),
               ),
             ],
@@ -433,24 +460,23 @@ class _TestScreenState extends State<TestScreen> {
   }
 
   Widget _buildSwipeOverlay(Offset position) {
-    if (position == Offset.zero && !_isProcessing)
-      return const SizedBox.shrink();
+    if (position == Offset.zero && !_isProcessing) return const SizedBox.shrink();
     Color overlayColor = Colors.transparent;
     String actionText = "";
     IconData actionIcon = Icons.help;
     double opacity = 0.0;
     if (position.dy < -50 && position.dy.abs() > position.dx.abs()) {
-      overlayColor = Colors.deepPurpleAccent;
+      overlayColor = Colors.orangeAccent;
       actionText = "Öğrendim";
       actionIcon = Icons.school_rounded;
       opacity = min(1.0, position.dy.abs() / 150);
     } else if (position.dx > 40) {
-      overlayColor = Colors.pinkAccent.shade400;
+      overlayColor = Colors.redAccent;
       actionText = "Unuttum";
       actionIcon = Icons.cancel_rounded;
       opacity = min(1.0, position.dx.abs() / 150);
     } else if (position.dx < -40) {
-      overlayColor = Colors.blueAccent;
+      overlayColor = Colors.greenAccent;
       actionText = "Hatırladım";
       actionIcon = Icons.check_circle_rounded;
       opacity = min(1.0, position.dx.abs() / 150);
@@ -460,10 +486,11 @@ class _TestScreenState extends State<TestScreen> {
     return IgnorePointer(
       child: Container(
         width: 320,
-        height: 220,
+        height: 250,
         decoration: BoxDecoration(
-          color: overlayColor.withOpacity(opacity * 0.85),
-          borderRadius: BorderRadius.circular(25),
+          color: overlayColor.withOpacity(opacity * 0.8),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withOpacity(opacity * 0.5), width: 2),
         ),
         child: Center(
           child: Transform.scale(
@@ -471,16 +498,15 @@ class _TestScreenState extends State<TestScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(actionIcon, color: Colors.white, size: 80),
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), shape: BoxShape.circle),
+                  child: Icon(actionIcon, color: Colors.white, size: 50),
+                ),
                 const SizedBox(height: 10),
                 Text(
                   actionText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                 ),
               ],
             ),
@@ -503,56 +529,48 @@ class _TestScreenState extends State<TestScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
-                      value: _totalWordsInSession == 0
-                          ? 0
-                          : (_totalWordsInSession - _words.length) /
-                                _totalWordsInSession,
+                      value: _totalWordsInSession == 0 ? 0 : (_totalWordsInSession - _words.length) / _totalWordsInSession,
                       minHeight: 8,
-                      backgroundColor: Colors.deepPurple.withOpacity(0.15),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Colors.deepPurpleAccent,
-                      ),
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.purpleAccent),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
                     "Kalan Kelime: ${_words.length} / $_totalWordsInSession",
-                    style: const TextStyle(
-                      color: Colors.deepPurple,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 30),
-
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.08),
+                color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
               ),
-              child: const Text(
-                '👆 Öğrendim\n👈 Hatırladım  |  (Dokun: Çevir)  | Unuttum 👉',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.deepPurple,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  height: 1.6,
-                ),
+              child: Column(
+                children: [
+                  const Text('👆 Öğrendim', style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('👈 Hatırladım', style: TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 15),
+                      Text('(Dokun: Çevir)', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                      const SizedBox(width: 15),
+                      const Text('Unuttum 👉', style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 50),
-
+            const SizedBox(height: 40),
             AnimatedBuilder(
-              animation: Listenable.merge([
-                _swipePosition,
-                _swipeAngle,
-                _isDragging,
-              ]),
+              animation: Listenable.merge([_swipePosition, _swipeAngle, _isDragging]),
               builder: (context, child) {
                 return GestureDetector(
                   onPanStart: (details) {
@@ -562,16 +580,12 @@ class _TestScreenState extends State<TestScreen> {
                   onPanUpdate: (details) {
                     if (_isProcessing) return;
                     _swipePosition.value += details.delta;
-                    _swipeAngle.value =
-                        25 * (_swipePosition.value.dx / constraints.maxWidth);
+                    _swipeAngle.value = 25 * (_swipePosition.value.dx / constraints.maxWidth);
                   },
                   onPanEnd: (details) {
                     if (_isProcessing) return;
                     _isDragging.value = false;
-
-                    if (_swipePosition.value.dy < -80 &&
-                        _swipePosition.value.dy.abs() >
-                            _swipePosition.value.dx.abs()) {
+                    if (_swipePosition.value.dy < -80 && _swipePosition.value.dy.abs() > _swipePosition.value.dx.abs()) {
                       _animateAndMove('mastered', const Offset(0, -600));
                     } else if (_swipePosition.value.dx > 80) {
                       _animateAndMove('forgot', const Offset(500, 0));
@@ -583,15 +597,10 @@ class _TestScreenState extends State<TestScreen> {
                     }
                   },
                   child: AnimatedContainer(
-                    duration: Duration(
-                      milliseconds: _isDragging.value ? 0 : 300,
-                    ),
+                    duration: Duration(milliseconds: _isDragging.value ? 0 : 300),
                     curve: Curves.easeOutCubic,
                     transform: Matrix4.identity()
-                      ..translate(
-                        _swipePosition.value.dx,
-                        _swipePosition.value.dy,
-                      )
+                      ..translate(_swipePosition.value.dx, _swipePosition.value.dy)
                       ..rotateZ(_swipeAngle.value * 3.14159 / 180),
                     alignment: Alignment.center,
                     child: Stack(
@@ -614,8 +623,7 @@ class _TestScreenState extends State<TestScreen> {
                 );
               },
             ),
-
-            const SizedBox(height: 100),
+            const SizedBox(height: 80),
           ],
         );
       },
@@ -624,105 +632,60 @@ class _TestScreenState extends State<TestScreen> {
 
   Widget _buildResultsScreen() {
     int correctAnswers = _masteredCount + _rememberedCount;
-    double successRate = _totalWordsInSession > 0
-        ? (correctAnswers / _totalWordsInSession) * 100
-        : 0;
+    double successRate = _totalWordsInSession > 0 ? (correctAnswers / _totalWordsInSession) * 100 : 0;
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(25.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.workspace_premium_rounded,
-              size: 80,
-              color: Colors.orangeAccent,
+            Container(
+              padding: const EdgeInsets.all(25),
+              decoration: BoxDecoration(
+                color: Colors.orangeAccent.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.workspace_premium_rounded, size: 80, color: Colors.orangeAccent),
             ),
-            const SizedBox(height: 15),
+            const SizedBox(height: 25),
             const Text(
               "Test Tamamlandı!",
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w900,
-                color: Colors.deepPurple,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
             ),
-            const SizedBox(height: 5),
-            const Text(
+            const SizedBox(height: 10),
+            Text(
               "İşte bu çalışmadaki performans analizin:",
-              style: TextStyle(fontSize: 16, color: Colors.black54),
+              style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.6)),
             ),
             const SizedBox(height: 35),
-
             Container(
               padding: const EdgeInsets.all(30),
               decoration: BoxDecoration(
                 gradient: primaryGradient,
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
+                  BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
                 ],
               ),
               child: Column(
                 children: [
-                  const Text(
-                    "BAŞARI ORANI",
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
+                  const Text("BAŞARI ORANI", style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
                   const SizedBox(height: 10),
-                  Text(
-                    "%${successRate.toStringAsFixed(0)}",
-                    style: const TextStyle(
-                      fontSize: 60,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                    ),
-                  ),
+                  Text("%${successRate.toStringAsFixed(0)}", style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w900, color: Colors.white)),
                 ],
               ),
             ),
             const SizedBox(height: 30),
-
             Row(
               children: [
-                Expanded(
-                  child: _buildResultStatCard(
-                    "Hatırlanan",
-                    correctAnswers.toString(),
-                    Icons.check_circle_rounded,
-                    Colors.teal,
-                  ),
-                ),
+                Expanded(child: _buildResultStatCard("Hatırlanan", correctAnswers.toString(), Icons.check_circle_rounded, Colors.greenAccent)),
                 const SizedBox(width: 15),
-                Expanded(
-                  child: _buildResultStatCard(
-                    "Unutulan",
-                    _forgotCount.toString(),
-                    Icons.cancel_rounded,
-                    Colors.redAccent,
-                  ),
-                ),
+                Expanded(child: _buildResultStatCard("Unutulan", _forgotCount.toString(), Icons.cancel_rounded, Colors.redAccent)),
               ],
             ),
             const SizedBox(height: 15),
-            _buildResultStatCard(
-              "Arşive Eklenen (Öğrenilen)",
-              _masteredCount.toString(),
-              Icons.school_rounded,
-              Colors.orange,
-            ),
-
+            _buildResultStatCard("Arşive Eklenen (Öğrenildi)", _masteredCount.toString(), Icons.school_rounded, Colors.orangeAccent),
             const SizedBox(height: 40),
-
             Row(
               children: [
                 Expanded(
@@ -736,23 +699,11 @@ class _TestScreenState extends State<TestScreen> {
                       _checkAvailableWords();
                     },
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      side: const BorderSide(
-                        color: Colors.deepPurple,
-                        width: 2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      side: BorderSide(color: Colors.white.withOpacity(0.2), width: 2),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
-                    child: const Text(
-                      "Tekrar Test Et",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.deepPurple,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: const Text("Tekrar Test Et", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(width: 15),
@@ -760,20 +711,12 @@ class _TestScreenState extends State<TestScreen> {
                   child: ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      backgroundColor: Colors.blueAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 5,
                     ),
-                    child: const Text(
-                      "Ana Sayfa",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: const Text("Ana Sayfa", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -784,49 +727,31 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
-  Widget _buildResultStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildResultStatCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 30),
-          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  ),
-                ),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.black54,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -840,82 +765,52 @@ class _TestScreenState extends State<TestScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ShaderMask(
-            shaderCallback: (bounds) => primaryGradient.createShader(bounds),
-            child: const Icon(Icons.style, size: 100, color: Colors.white),
+          Container(
+            padding: const EdgeInsets.all(30),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), shape: BoxShape.circle),
+            child: const Icon(Icons.style, size: 80, color: Colors.white54),
           ),
-          const SizedBox(height: 20),
-          const Text(
-            'Havuzda Kelime Yok!',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Colors.deepPurple,
-            ),
-          ),
+          const SizedBox(height: 25),
+          const Text("Havuzda Kelime Yok!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
           const SizedBox(height: 10),
-          const Text(
-            'Lütfen test edilecek yeni kelimeler ekle.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.black54),
-          ),
+          Text("Lütfen test edilecek yeni kelimeler ekle.", textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.5))),
         ],
       ),
     );
   }
 
   Widget _buildCard(String text, bool isFront) {
-    // 🚀 DÜZELTME: Metin uzunluğuna göre dinamik font boyutu (Yapay Zeka Mantığı)
-    double dynamicFontSize = text.length > 30
-        ? 22
-        : (text.length > 15 ? 28 : 38);
-
+    double dynamicFontSize = text.length > 30 ? 22 : (text.length > 15 ? 28 : 38);
     return Container(
       width: 320,
-      height: 220,
+      height: 250, // Biraz daha uzun yaparak daha şık bir hissiyat verdik
       decoration: BoxDecoration(
         gradient: isFront
-            ? primaryGradient
-            : const LinearGradient(
-                colors: [Colors.pinkAccent, Color.fromARGB(255, 164, 138, 105)],
-                begin: Alignment.bottomLeft,
-                end: Alignment.topRight,
-              ),
-        borderRadius: BorderRadius.circular(25),
+            ? const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF6366F1)], begin: Alignment.topLeft, end: Alignment.bottomRight)
+            : const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)], begin: Alignment.bottomLeft, end: Alignment.topRight),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: isFront
-                ? Colors.deepPurpleAccent.withOpacity(0.4)
-                : Colors.pinkAccent.withOpacity(0.4),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            color: isFront ? Colors.blueAccent.withOpacity(0.5) : Colors.purpleAccent.withOpacity(0.5),
+            blurRadius: 20,
+            spreadRadius: 2,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Stack(
         children: [
-          // 🚀 DÜZELTME: Taşmayı önlemek için SingleChildScrollView ve Padding eklendi
           Align(
             alignment: Alignment.center,
             child: Padding(
-              padding: const EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 50,
-                bottom: 50,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 50),
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 child: Text(
                   text,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: dynamicFontSize,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.1,
-                    height: 1.3, // Satır aralığı ferahlatıldı
-                  ),
+                  style: TextStyle(fontSize: dynamicFontSize, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2, height: 1.3),
                 ),
               ),
             ),
@@ -925,29 +820,14 @@ class _TestScreenState extends State<TestScreen> {
               top: 15,
               right: 15,
               child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.volume_up_rounded,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                  onPressed: () => _speak(text),
-                  tooltip: 'Dinle',
-                ),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.15), shape: BoxShape.circle),
+                child: IconButton(icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 28), onPressed: () => _speak(text), tooltip: 'Dinle'),
               ),
             ),
           Positioned(
-            bottom: 15,
-            left: 20,
-            child: Icon(
-              isFront ? Icons.language : Icons.translate,
-              color: Colors.white.withOpacity(0.4),
-              size: 30,
-            ),
+            bottom: 20,
+            left: 25,
+            child: Icon(isFront ? Icons.language : Icons.translate, color: Colors.white.withOpacity(0.3), size: 28),
           ),
         ],
       ),

@@ -1,7 +1,7 @@
-import 'package:flutter/foundation.dart'; // WriteBuffer ve donanım araçları için
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
 import '../main.dart'; // Global cameras listesini çekiyoruz
 
 class CameraScannerScreen extends StatefulWidget {
@@ -56,8 +56,9 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
 
   // 🔦 FLAŞ KONTROLÜ (Torch modu)
   Future<void> _toggleFlash() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
 
     try {
       if (_isFlashOn) {
@@ -75,8 +76,9 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
 
   // 📸 FOTOĞRAF ÇEK VE METNİ TARA (Profesyonel Snapshot Yöntemi)
   Future<void> _takePictureAndProcess() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized)
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
+    }
 
     setState(() {
       _isProcessing = true;
@@ -84,35 +86,49 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
     });
 
     try {
-      // 1. Netleme yap
       await _cameraController!.setFocusMode(FocusMode.auto);
-
-      // 2. Fotoğrafı çek
       final XFile picture = await _cameraController!.takePicture();
+      await _processImageFile(picture.path);
+    } catch (e) {
+      debugPrint("OCR Hatası: $e");
+      setState(() => _scannedText = "Hata oluştu.");
+      setState(() => _isProcessing = false);
+    }
+  }
 
-      // 3. Fotoğraf dosyasını ML Kit'e gönder
-      final inputImage = InputImage.fromFilePath(picture.path);
-      final RecognizedText recognizedText = await _textRecognizer.processImage(
-        inputImage,
-      );
+  // 🖼️ GALERİDEN SEÇ VE METNİ TARA
+  Future<void> _pickImageFromGallery() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+      if (image != null) {
+        setState(() {
+          _isProcessing = true;
+          _scannedText = "";
+        });
+        await _processImageFile(image.path);
+      }
+    } catch (e) {
+      debugPrint("Galeri Hatası: $e");
+    }
+  }
+
+  // Ortak OCR İşleme Fonksiyonu
+  Future<void> _processImageFile(String path) async {
+    try {
+      final inputImage = InputImage.fromFilePath(path);
+      final RecognizedText recognizedText = await _textRecognizer.processImage(inputImage);
 
       if (recognizedText.text.trim().isNotEmpty) {
-        // En üstteki/en belirgin metin bloğunu al
-        String foundText = recognizedText.blocks.first.text.trim();
-
-        // Eğer çoklu satır veya boşluk varsa ilk kelimeyi ayıkla (Sözlük formatı)
-        if (foundText.contains(' ') || foundText.contains('\n')) {
-          foundText = foundText.replaceAll('\n', ' ').split(' ').first;
-        }
-
+        // Artık sadece ilk kelimeyi değil, TÜM metni alıyoruz
         setState(() {
-          _scannedText = foundText;
+          _scannedText = recognizedText.text.trim();
         });
       } else {
         setState(() => _scannedText = "Metin tespit edilemedi.");
       }
     } catch (e) {
-      debugPrint("OCR Hatası: $e");
+      debugPrint("OCR İşleme Hatası: $e");
       setState(() => _scannedText = "Hata oluştu.");
     } finally {
       setState(() => _isProcessing = false);
@@ -146,44 +162,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
           CameraPreview(_cameraController!),
 
           // 2. VİZÖR (ODAK KUTUSU) VE KARARTMA
-          ColorFiltered(
-            colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.6),
-              BlendMode.srcOut,
-            ),
-            child: Stack(
-              children: [
-                Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.black,
-                    backgroundBlendMode: BlendMode.dstOut,
-                  ),
-                ),
-                Center(
-                  child: Container(
-                    height: 120,
-                    width: 260,
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // VİZÖR ÇERÇEVESİ
-          Center(
-            child: Container(
-              height: 120,
-              width: 260,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.tealAccent, width: 2.5),
-                borderRadius: BorderRadius.circular(15),
-              ),
-            ),
-          ),
+          // VİZÖR KALDIRILDI (Tam sayfa tarama desteklendiği için)
 
           // 3. ÜST BAR (GERİ VE FLAŞ)
           Positioned(
@@ -234,39 +213,73 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                       children: [
                         Text(
                           _scannedText.isEmpty
-                              ? "Kelimeyi kutuya hizalayın"
+                              ? "Metni ekrana hizalayın veya Galeriden seçin"
                               : _scannedText,
                           style: TextStyle(
-                            color: _scannedText.isEmpty
-                                ? Colors.grey
-                                : Colors.red,
+                            color: _scannedText.isEmpty ? Colors.grey : Colors.red,
+                            fontWeight: FontWeight.bold,
                           ),
+                          textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 15),
-                        GestureDetector(
-                          onTap: _takePictureAndProcess,
-                          child: CircleAvatar(
-                            radius: 35,
-                            backgroundColor: Colors.teal.shade50,
-                            child: const Icon(
-                              Icons.camera_alt,
-                              color: Colors.teal,
-                              size: 35,
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            GestureDetector(
+                              onTap: _pickImageFromGallery,
+                              child: CircleAvatar(
+                                radius: 30,
+                                backgroundColor: Colors.purple.shade50,
+                                child: const Icon(
+                                  Icons.photo_library,
+                                  color: Colors.purple,
+                                  size: 30,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 30),
+                            GestureDetector(
+                              onTap: _takePictureAndProcess,
+                              child: CircleAvatar(
+                                radius: 35,
+                                backgroundColor: Colors.teal.shade50,
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.teal,
+                                  size: 35,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     )
                   else
                     Column(
                       children: [
-                        const Text("Tespit Edilen Kelime:"),
-                        Text(
-                          _scannedText,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.teal,
+                        const Text(
+                          "Tespit Edilen Metin:",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 150),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Text(
+                              _scannedText,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                color: Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -276,7 +289,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                               child: OutlinedButton(
                                 onPressed: () =>
                                     setState(() => _scannedText = ""),
-                                child: const Text("Yeniden Çek"),
+                                child: const Text("İptal"),
                               ),
                             ),
                             const SizedBox(width: 15),

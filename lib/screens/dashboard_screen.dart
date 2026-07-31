@@ -13,7 +13,13 @@ import 'news_screen.dart';
 import 'learned_words_screen.dart';
 import 'progress_report_screen.dart';
 import 'settings_screen.dart';
-
+import 'chat_screen.dart';
+import 'story_screen.dart';
+import 'reading_practice_screen.dart';
+import 'paywall_screen.dart';
+import 'profile_screen.dart';
+import '../services/subscription_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -30,27 +36,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalWrong = 0;
   int _totalLearned = 0;
 
+  String _subscriptionPlan = 'basic';
+  Map<String, Map<String, int>> _limitsSummary = {};
+  int _streak = 0;
+  String _appVersion = "1.0.0";
+
   StreamSubscription<DocumentSnapshot>? _userSubscription;
-  // 🚀 YENİ: Kelimeler alt koleksiyonunu dinleyecek özel abonelik
-  StreamSubscription<QuerySnapshot>? _wordsSubscription;
 
   @override
   void initState() {
     super.initState();
     _setupUserListener();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() {
+        _appVersion = info.version;
+      });
+    }
   }
 
   @override
   void dispose() {
     _userSubscription?.cancel();
-    _wordsSubscription
-        ?.cancel(); // 🚀 Hafıza sızıntısını önlemek için kapatıyoruz
     super.dispose();
   }
 
   void _setupUserListener() {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
+      _fetchLearnedCount(user.uid); // İlk girişte gerçek sayıyı çek
+
       // 1. ANA KULLANICI VE STATS DİNLEYİCİSİ (Doğru/Yanlış oranları için)
       _userSubscription = FirebaseFirestore.instance
           .collection('users')
@@ -79,7 +98,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _totalTests = (stats['totalTests'] ?? 0).toInt();
                       _totalCorrect = (stats['totalCorrect'] ?? 0).toInt();
                       _totalWrong = (stats['totalWrong'] ?? 0).toInt();
+                      // stats['totalLearned'] artık eski verilerde sıfır olabileceği için
+                      // güvenilir olan _fetchLearnedCount ile alıyoruz.
+                      _fetchLearnedCount(user.uid);
                     }
+
+                    _subscriptionPlan = data['subscriptionPlan'] ?? 'basic';
+                    _streak = data['streak'] ?? 0;
+
+                    // Build real-time limits summary from snapshot
+                    final limitsMap =
+                        SubscriptionService.limits[_subscriptionPlan] ??
+                        SubscriptionService.limits['basic']!;
+                    final dailyUsage =
+                        data['dailyUsage'] as Map<String, dynamic>? ?? {};
+                    _limitsSummary = {
+                      'words': {
+                        'current': (data['lifetimeWordsAdded'] ?? 0) as int,
+                        'limit': limitsMap['lifetimeWordsAdded'] as int,
+                      },
+                      'storyGen': {
+                        'current': (dailyUsage['storyGenCount'] ?? 0) as int,
+                        'limit': limitsMap['storyGenCount'] as int,
+                      },
+                      'storyRead': {
+                        'current': (dailyUsage['storyReadCount'] ?? 0) as int,
+                        'limit': limitsMap['storyReadCount'] as int,
+                      },
+                      'chat': {
+                        'current': (dailyUsage['chatMsgCount'] ?? 0) as int,
+                        'limit': limitsMap['chatMsgCount'] as int,
+                      },
+                      'translate': {
+                        'current': (dailyUsage['translateCount'] ?? 0) as int,
+                        'limit': limitsMap['translateCount'] as int,
+                      },
+                      'test': {
+                        'current': (dailyUsage['testCount'] ?? 0) as int,
+                        'limit': limitsMap['testCount'] as int,
+                      },
+                    };
                   });
                 }
               }
@@ -101,27 +159,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
             },
           );
+    }
+  }
 
-      // 2. ÖĞRENİLEN KELİMELERİ (isLearned == true) SAYAN ÖZEL DİNLEYİCİ
-      _wordsSubscription = FirebaseFirestore.instance
+  // 🚀 O(1) Gerçek ve Güvenilir Sayım (Aggregation Query)
+  Future<void> _fetchLearnedCount(String uid) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
+          .doc(uid)
           .collection('words')
-          .where('isLearned', isEqualTo: true) // Sadece öğrenilenleri filtrele
-          .snapshots()
-          .listen(
-            (snapshot) {
-              if (mounted) {
-                setState(() {
-                  _totalLearned =
-                      snapshot.docs.length; // Kaç tane belge bulduğunu say
-                });
-              }
-            },
-            onError: (e) {
-              debugPrint("Kelime sayacı hatası: $e");
-            },
-          );
+          .where('isLearned', isEqualTo: true)
+          .count()
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _totalLearned = snapshot.count ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint("Count error: $e");
     }
   }
 
@@ -167,199 +225,249 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       drawer: _buildPremiumDrawer(user),
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 80.0,
-            floating: true,
-            pinned: true,
-            backgroundColor: const Color(0xFFF8FAFC),
-            elevation: 0,
-            iconTheme: const IconThemeData(color: Color(0xFF1E293B)),
-            centerTitle: true,
-            title: const Text(
-              'İngilizce Arkadaşım',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF1E293B),
-                letterSpacing: -0.5,
-              ),
-            ),
-            actions: const [SizedBox(width: 56)],
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
+        title: const Text(
+          'Owlish',
+          style: TextStyle(
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 1.2,
           ),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        ),
+        actions: [
+          if (_streak > 0)
+            Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: Row(
                 children: [
-                  const SizedBox(height: 10),
-
+                  const Icon(
+                    Icons.local_fire_department_rounded,
+                    color: Colors.orangeAccent,
+                  ),
+                  const SizedBox(width: 4),
                   Text(
-                    "Merhaba, $_userName 👋",
+                    '$_streak',
                     style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    "Bugün öğrenme serüvenine nereden devam edelim?",
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-
-                  // 🚀 YENİ: Context gönderdik çünkü sayfa geçişi (Navigator) yapacak
-                  _buildPremiumStatCard(context),
-
-                  const SizedBox(height: 35),
-
-                  _buildSectionHeader("Ana Modüller", Icons.school_rounded),
-                  const SizedBox(height: 16),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildCleanCard(
-                          context,
-                          title: 'Kelime Havuzu',
-                          subtitle: 'Kendi Sözlüğün',
-                          icon: Icons.auto_awesome_motion_rounded,
-                          iconColor: const Color(0xFF3B82F6),
-                          destination: const HomeScreen(),
-                          height: 180,
-                          isSmall: false,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            _buildCleanCard(
-                              context,
-                              title: 'Kendini Test Et',
-                              subtitle: 'Bilgini Sına',
-                              icon: Icons.psychology_rounded,
-                              iconColor: const Color(0xFF8B5CF6),
-                              destination: const TestScreen(),
-                              height: 82,
-                              isSmall: true,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildCleanCard(
-                              context,
-                              title: 'Öğrendiklerim',
-                              subtitle: 'Arşiv',
-                              icon: Icons.workspace_premium_rounded,
-                              iconColor: const Color(0xFFF59E0B),
-                              destination: const LearnedWordsScreen(),
-                              height: 82,
-                              isSmall: true,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 35),
-
-                  _buildSectionHeader(
-                    "Araçlar & Pratik",
-                    Icons.build_circle_rounded,
-                  ),
-                  const SizedBox(height: 16),
-
-                  Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildCleanCard(
-                              context,
-                              title: 'Akıllı Çeviri',
-                              subtitle: 'Yapay Zeka',
-                              icon: Icons.g_translate_rounded,
-                              iconColor: const Color(0xFF10B981),
-                              destination: const TranslationScreen(),
-                              height: 150,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildCleanCard(
-                              context,
-                              title: 'Paketler',
-                              subtitle: 'Hazır Setler',
-                              icon: Icons.inventory_2_rounded,
-                              iconColor: const Color(0xFFF43F5E),
-                              destination: const WordLearningScreen(),
-                              height: 150,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildCleanCard(
-                              context,
-                              title: 'Video Pratik',
-                              subtitle: 'İzleyerek Öğren',
-                              icon: Icons.play_circle_fill_rounded,
-                              iconColor: const Color(0xFFEF4444),
-                              destination: const VideoPracticeScreen(),
-                              height: 150,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _buildCleanCard(
-                              context,
-                              title: 'Okuma',
-                              subtitle: 'Güncel Haberler',
-                              icon: Icons.menu_book_rounded,
-                              iconColor: const Color(0xFF6366F1),
-                              destination: const NewsScreen(),
-                              height: 150,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 60),
-
-                  Center(
-                    child: Column(
-                      children: [
-                        Text(
-                          "© 2026 Owlish",
-                          style: TextStyle(
-                            color: const Color(0xFF94A3B8).withOpacity(0.6),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 18,
                     ),
                   ),
                 ],
               ),
+            ),
+          IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Premium Gradient Background
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF0F172A),
+                  Color(0xFF1E1B4B),
+                  Color(0xFF312E81),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          // Animated Aura circles
+          Positioned(
+            top: -50,
+            left: -50,
+            child: _buildAura(Colors.purpleAccent.withOpacity(0.3), 300),
+          ),
+          Positioned(
+            top: 200,
+            right: -100,
+            child: _buildAura(Colors.blueAccent.withOpacity(0.2), 400),
+          ),
+
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 10,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Merhaba, $_userName \ud83d\udc4b",
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          "Öğrenme serüvenine nereden devam edelim?",
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                        const SizedBox(height: 30),
+
+                        _buildPremiumStatCard(context),
+
+                        const SizedBox(height: 40),
+
+                        const Text(
+                          "Ana Modüller",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
+                        GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 0.9,
+                          children: [
+                            _buildGlassCard(
+                              context,
+                              'Kelime Havuzu',
+                              'Sözlüğün',
+                              Icons.auto_awesome_motion,
+                              Colors.blueAccent,
+                              const HomeScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Kendini Test Et',
+                              'Bilgini Sına',
+                              Icons.psychology,
+                              Colors.purpleAccent,
+                              const TestScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Hikaye Oku',
+                              'Etkileşimli',
+                              Icons.auto_stories,
+                              Colors.pinkAccent,
+                              const StoryScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Yapay Zeka',
+                              'Sohbet Et',
+                              Icons.forum,
+                              Colors.tealAccent,
+                              const ChatScreen(),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 30),
+                        const Text(
+                          "Pratik & Araçlar",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 15),
+
+                        GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: 1.1,
+                          children: [
+                            _buildGlassCard(
+                              context,
+                              'Çeviri',
+                              'Akıllı',
+                              Icons.g_translate,
+                              Colors.greenAccent,
+                              const TranslationScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Öğrendiklerim',
+                              'Arşiv',
+                              Icons.workspace_premium,
+                              Colors.amberAccent,
+                              const LearnedWordsScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Paketler',
+                              'Hazır Setler',
+                              Icons.inventory_2,
+                              Colors.orangeAccent,
+                              const WordLearningScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Haberler',
+                              'Güncel Okuma',
+                              Icons.menu_book,
+                              Colors.cyanAccent,
+                              const NewsScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Video',
+                              'İzleyerek Öğren',
+                              Icons.play_circle_fill,
+                              Colors.redAccent,
+                              const VideoPracticeScreen(),
+                            ),
+                            _buildGlassCard(
+                              context,
+                              'Telaffuz',
+                              'Oku & Dinle',
+                              Icons.mic_external_on,
+                              Colors.pinkAccent,
+                              const ReadingPracticeScreen(),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 60),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -367,336 +475,237 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- YARDIMCI METODLAR ---
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, size: 20, color: const Color(0xFF475569)),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF1E293B),
-            letterSpacing: -0.3,
-          ),
+  Widget _buildAura(Color color, double size) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withOpacity(0.0)],
+          stops: const [0.2, 1.0],
         ),
-      ],
+      ),
     );
   }
 
-  // 🚀 YENİ: Context parametresi eklendi ve karta tıklanabilirlik özelliği (InkWell) verildi
   Widget _buildPremiumStatCard(BuildContext context) {
     int totalAnswered = _totalCorrect + _totalWrong;
     double successRate = totalAnswered > 0
         ? (_totalCorrect / totalAnswered)
         : 0.0;
 
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.indigo.shade600, Colors.blueAccent.shade700],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.blueAccent.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ProgressReportScreen()),
       ),
-      // 🚀 YENİ: Taşan dokunma efektlerini kesmek için ClipRRect kullanıldı
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(30),
-        child: Material(
-          color: Colors
-              .transparent, // Arka plandaki degradeyi bozmaması için saydam yapıldı
-          child: InkWell(
-            onTap: () {
-              // 🚀 YENİ: Mavi karta tıklanınca Gelişim Raporuna gidilecek
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProgressReportScreen(),
-                ),
-              );
-            },
-            highlightColor: Colors.white.withOpacity(0.1),
-            splashColor: Colors.white.withOpacity(0.2),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(
+            0xFF1E293B,
+          ).withOpacity(0.7), // Blur yerine düz hafif saydam renk
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            "GENEL DURUM",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          totalAnswered > 0
-                              ? "Harika ilerliyorsun!"
-                              : "Hemen başlayalım!",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        if (totalAnswered > 0)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.local_fire_department_rounded,
-                                  color: Colors.orangeAccent,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  "$_totalLearned kelimede ustalaştın. Devam!",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        else
-                          const Text(
-                            "Sözlüğüne kelime ekle ve testlere katıl.",
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                      ],
+                  Text(
+                    "GENEL DURUM",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
                     ),
                   ),
-
-                  const SizedBox(width: 10),
-
+                  const SizedBox(height: 8),
+                  Text(
+                    totalAnswered > 0
+                        ? "Harika İlerliyorsun!"
+                        : "Hemen Başlayalım!",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   if (totalAnswered > 0)
                     Container(
-                      width: 80,
-                      height: 80,
-                      decoration: const BoxDecoration(shape: BoxShape.circle),
-                      child: Stack(
-                        fit: StackFit.expand,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.orangeAccent.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(
-                            value: successRate,
-                            strokeWidth: 8,
-                            backgroundColor: Colors.white.withOpacity(0.15),
-                            strokeCap: StrokeCap.round,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              successRate > 0.7
-                                  ? const Color(0xFF34D399)
-                                  : Colors.orangeAccent,
-                            ),
+                          const Icon(
+                            Icons.local_fire_department,
+                            color: Colors.orangeAccent,
+                            size: 16,
                           ),
-                          Center(
-                            child: Text(
-                              "%${(successRate * 100).toInt()}",
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$_totalLearned'
+                            " kelime tamamlandı",
+                            style: const TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.rocket_launch_rounded,
-                        color: Colors.white,
-                        size: 32,
                       ),
                     ),
                 ],
               ),
             ),
-          ),
+            if (totalAnswered > 0)
+              SizedBox(
+                width: 70,
+                height: 70,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: successRate,
+                      strokeWidth: 8,
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        successRate > 0.7
+                            ? Colors.greenAccent
+                            : Colors.amberAccent,
+                      ),
+                    ),
+                    Center(
+                      child: Text(
+                        "%"
+                        '${(successRate * 100).toInt()}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              const Icon(Icons.rocket_launch, color: Colors.white, size: 40),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildCleanCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    required Widget destination,
-    double height = 150,
-    bool isSmall = false,
-  }) {
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+  Widget _buildGlassCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color iconColor,
+    Widget destination,
+  ) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => destination),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          highlightColor: iconColor.withOpacity(0.05),
-          splashColor: iconColor.withOpacity(0.1),
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => destination),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(isSmall ? 12.0 : 20.0),
-            child: isSmall
-                ? Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: iconColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(
+            0xFF1E293B,
+          ).withOpacity(0.5), // Blur yerine performanslı saydam arka plan
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: iconColor.withOpacity(0.3), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: iconColor.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: Stack(
+            children: [
+              // Arka plan su dalgası efekti (hala var ama bulanık değil)
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(icon, size: 100, color: iconColor.withOpacity(0.1)),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(22.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [iconColor.withOpacity(0.8), iconColor],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        child: Icon(icon, color: iconColor, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                                letterSpacing: -0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: iconColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(icon, color: iconColor, size: 24),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: iconColor.withOpacity(0.3),
+                            blurRadius: 10,
+                            spreadRadius: 1,
                           ),
-                          if (height > 100)
-                            Icon(
-                              Icons.arrow_forward_ios_rounded,
-                              size: 14,
-                              color: const Color(0xFFCBD5E1),
-                            ),
                         ],
                       ),
-                      if (height > 100) const Spacer(),
-                      if (height <= 100) const SizedBox(height: 12),
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF1E293B),
-                          letterSpacing: -0.3,
+                      child: Icon(icon, color: Colors.white, size: 30),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -705,180 +714,206 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildPremiumDrawer(User? user) {
     return Drawer(
-      backgroundColor: const Color(0xFFF8FAFC),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(
-              left: 24,
-              right: 24,
-              bottom: 30,
-              top: 70,
-            ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFF1F5F9), width: 2),
+      backgroundColor: const Color(0xFF0F172A), // Performans için düz koyu renk
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: ClipRRect(
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(
+                  left: 24,
+                  right: 24,
+                  bottom: 30,
+                  top: 70,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 65,
+                      height: 65,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Colors.purpleAccent, Colors.deepPurple],
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.purpleAccent.withOpacity(0.5),
+                            blurRadius: 20,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          _userInitial,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _userName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user?.email ?? "Kullanıcı",
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF3B82F6).withOpacity(0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      _userInitial,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _userName,
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        user?.email ?? "Kullanıcı",
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              physics: const BouncingScrollPhysics(),
-              children: [
-                _buildDrawerTile(
-                  context,
-                  icon: Icons.home_rounded,
-                  title: 'Ana Sayfa',
-                  iconColor: const Color(0xFF3B82F6),
-                  onTap: () => Navigator.pop(context),
-                ),
-                _buildDrawerTile(
-                  context,
-                  icon: Icons.trending_up_rounded,
-                  title: 'Gelişim Raporum',
-                  iconColor: const Color(0xFF8B5CF6),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(20),
+                  physics: const BouncingScrollPhysics(),
+                  children: [
+                    _buildDrawerTile(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProgressReportScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _buildDrawerTile(
-                  context,
-                  icon: Icons.mail_outline_rounded,
-                  title: 'Bize Ulaşın',
-                  iconColor: const Color(0xFF0EA5E9),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _sendEmail(context);
-                  },
-                ),
+                      icon: Icons.home_rounded,
+                      title: 'Ana Sayfa',
+                      iconColor: Colors.blueAccent,
+                      onTap: () => Navigator.pop(context),
+                    ),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
-                  child: Divider(color: Color(0xFFE2E8F0)),
-                ),
-
-                _buildDrawerTile(
-                  context,
-                  icon: Icons.record_voice_over_rounded,
-                  title: 'Ses Ayarları',
-                  iconColor: const Color(0xFF10B981),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
+                    _buildDrawerTile(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
+                      icon: Icons.trending_up_rounded,
+                      title: 'Gelişim Raporum',
+                      iconColor: Colors.purpleAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ProgressReportScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDrawerTile(
+                      context,
+                      icon: Icons.mail_outline_rounded,
+                      title: 'Bize Ulaşın',
+                      iconColor: Colors.cyanAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _sendEmail(context);
+                      },
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      child: Divider(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    _buildDrawerTile(
+                      context,
+                      icon: Icons.auto_awesome,
+                      title: 'Owlish Premium',
+                      iconColor: Colors.amberAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const PaywallScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDrawerTile(
+                      context,
+                      icon: Icons.record_voice_over_rounded,
+                      title: 'Ayarlar',
+                      iconColor: Colors.tealAccent,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const SettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildDrawerTile(
+                      context,
+                      icon: Icons.logout_rounded,
+                      title: 'Çıkış Yap',
+                      iconColor: Colors.redAccent,
+                      isDestructive: true,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _signOut(context);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.verified_rounded,
+                      size: 18,
+                      color: Colors.white.withOpacity(0.3),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Sürüm $_appVersion",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.3),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
-                _buildDrawerTile(
-                  context,
-                  icon: Icons.logout_rounded,
-                  title: 'Çıkış Yap',
-                  iconColor: const Color(0xFFEF4444),
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _signOut(context);
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(
-                  Icons.verified_rounded,
-                  size: 16,
-                  color: Color(0xFF94A3B8),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  "Sürüm 1.0.1",
-                  style: TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -892,36 +927,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDestructive
+            ? Colors.redAccent.withOpacity(0.1)
+            : Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDestructive
+              ? Colors.redAccent.withOpacity(0.2)
+              : Colors.white.withOpacity(0.05),
+        ),
+      ),
       child: ListTile(
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        hoverColor: iconColor.withOpacity(0.05),
-        splashColor: iconColor.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Container(
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isDestructive
-                ? const Color(0xFFFEF2F2)
-                : iconColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            color: iconColor.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(color: iconColor.withOpacity(0.2), blurRadius: 10),
+            ],
           ),
-          child: Icon(
-            icon,
-            color: isDestructive ? const Color(0xFFEF4444) : iconColor,
-            size: 22,
-          ),
+          child: Icon(icon, color: iconColor, size: 24),
         ),
         title: Text(
           title,
           style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
             color: isDestructive
-                ? const Color(0xFFEF4444)
-                : const Color(0xFF1E293B),
+                ? Colors.redAccent
+                : Colors.white.withOpacity(0.9),
             letterSpacing: -0.3,
           ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right_rounded,
+          color: Colors.white.withOpacity(0.2),
         ),
       ),
     );
