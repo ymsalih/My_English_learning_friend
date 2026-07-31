@@ -2,7 +2,7 @@ name: ingilizce_destek_app
 description: "İngilizce Arkadaşım - Mobil Eğitim Uygulaması."
 
 publish_to: 'none'
-version: 1.3.2+10
+version: 1.3.2+13
 
 environment:
   sdk: ^3.11.0
