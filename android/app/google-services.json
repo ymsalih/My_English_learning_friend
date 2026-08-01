@@ -1,4 +1,4 @@
-﻿{
+{
   "project_info": {
     "project_number": "689751965790",
     "project_id": "ingilizce-destek-app",
@@ -22,7 +22,7 @@
           }
         },
         {
-          "client_id": "689751965790-f7kaqk18ef2s5616pl8dd6l9p530r8b8.apps.googleusercontent.com",
+          "client_id": "689751965790-hbtjajp77j7pn985vf44hlroti1mr7qb.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -58,7 +58,31 @@
       },
       "oauth_client": [
         {
-          "client_id": "689751965790-f7kaqk18ef2s5616pl8dd6l9p530r8b8.apps.googleusercontent.com",
+          "client_id": "689751965790-e9kshphemiq22j4pn6s0bhi6jilmp68s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.owlish.app",
+            "certificate_hash": "7aef2ba0fb9c2c5c90099705c76fc5a1e32de5a7"
+          }
+        },
+        {
+          "client_id": "689751965790-rgnq1irbfo3acb2si73381v99f53p7u5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.owlish.app",
+            "certificate_hash": "398c60087a45fecd7101798318c2d2807126d3ff"
+          }
+        },
+        {
+          "client_id": "689751965790-rrjm9j8tnu2e13cgs2duh2659rnl7grt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.owlish.app",
+            "certificate_hash": "8a684f1025f4affba9d130045f054ec5d64cacda"
+          }
+        },
+        {
+          "client_id": "689751965790-hbtjajp77j7pn985vf44hlroti1mr7qb.apps.googleusercontent.com",
           "client_type": 3
         }
       ],

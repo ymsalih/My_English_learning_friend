@@ -20,7 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _userName = "Öğrenci";
   String _userEmail = "";
-  
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +45,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF1E293B),
-        title: const Text("Aboneliği Yönet / İptal Et", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Aboneliği Yönet / İptal Et",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           "Güvenliğiniz için abonelik iptal işlemleri doğrudan uygulama mağazası üzerinden yapılmaktadır. Sizi mağazaya yönlendirmemizi ister misiniz?",
           style: TextStyle(color: Colors.white70),
@@ -53,38 +56,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Vazgeç", style: TextStyle(color: Colors.white54)),
+            child: const Text(
+              "Vazgeç",
+              style: TextStyle(color: Colors.white54),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text("Mağazaya Git", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              "Mağazaya Git",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
     );
 
     if (confirm == true) {
-      final url = Platform.isIOS 
-          ? 'https://apps.apple.com/account/subscriptions' 
+      final url = Platform.isIOS
+          ? 'https://apps.apple.com/account/subscriptions'
           : 'https://play.google.com/store/account/subscriptions';
-      
+
       try {
         await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Mağaza açılamadı. Lütfen telefonunuzun ayarlarından aboneliklerinize gidin.'), backgroundColor: Colors.redAccent),
+            const SnackBar(
+              content: Text(
+                'Mağaza açılamadı. Lütfen telefonunuzun ayarlarından aboneliklerinize gidin.',
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
           );
         }
       }
     }
   }
 
-  Widget _buildGlassContainer({required Widget child, EdgeInsetsGeometry? padding}) {
+  Widget _buildGlassContainer({
+    required Widget child,
+    EdgeInsetsGeometry? padding,
+  }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -128,12 +150,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildStatRow(String label, Map<String, int>? data, IconData icon, Color color) {
+  Widget _buildStatRow(
+    String label,
+    Map<String, int>? data,
+    IconData icon,
+    Color color,
+  ) {
     if (data == null) return const SizedBox.shrink();
     final current = data['current'] ?? 0;
     final limit = data['limit'] ?? 0;
     final isUnlimited = limit >= 999999;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
@@ -169,12 +196,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
-    if (user == null) return const Scaffold(body: Center(child: Text("Giriş yapılmadı.")));
+    if (user == null)
+      return const Scaffold(body: Center(child: Text("Giriş yapılmadı.")));
 
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("Profilim", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          "Profilim",
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -190,21 +221,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance.collection('users').doc(user.uid).snapshots(),
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator(color: Colors.cyanAccent));
+              return const Center(
+                child: CircularProgressIndicator(color: Colors.cyanAccent),
+              );
             }
-            
-            final userData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+
+            final userData =
+                snapshot.data!.data() as Map<String, dynamic>? ?? {};
+            final photoURL = userData['photoURL'] as String? ?? '';
+            final firestoreName =
+                userData['username'] as String? ??
+                userData['displayName'] as String? ??
+                '';
+            final displayUserName = firestoreName.isNotEmpty
+                ? firestoreName
+                : _userName;
             final planKey = userData['subscriptionPlan'] ?? 'basic';
             final planName = _getPlanName(planKey);
             final planColor = _getPlanColor(planKey);
             final isBasic = planKey == 'basic';
 
-            final limitsMap = SubscriptionService.limits[planKey] ?? SubscriptionService.limits['basic']!;
-            final dailyUsage = userData['dailyUsage'] as Map<String, dynamic>? ?? {};
-            
+            final limitsMap =
+                SubscriptionService.limits[planKey] ??
+                SubscriptionService.limits['basic']!;
+            final dailyUsage =
+                userData['dailyUsage'] as Map<String, dynamic>? ?? {};
+
             int safeInt(dynamic val) {
               if (val == null) return 0;
               if (val is num) return val.toInt();
@@ -215,28 +263,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
             final Map<String, Map<String, int>> limitsSummary = {
               'words': {
                 'current': safeInt(userData['lifetimeWordsAdded']),
-                'limit': safeInt(limitsMap['lifetimeWordsAdded'])
+                'limit': safeInt(limitsMap['lifetimeWordsAdded']),
               },
               'storyGen': {
                 'current': safeInt(dailyUsage['storyGenCount']),
-                'limit': safeInt(limitsMap['storyGenCount'])
+                'limit': safeInt(limitsMap['storyGenCount']),
               },
               'storyRead': {
                 'current': safeInt(dailyUsage['storyReadCount']),
-                'limit': safeInt(limitsMap['storyReadCount'])
+                'limit': safeInt(limitsMap['storyReadCount']),
               },
               'chat': {
                 'current': safeInt(dailyUsage['chatMsgCount']),
-                'limit': safeInt(limitsMap['chatMsgCount'])
+                'limit': safeInt(limitsMap['chatMsgCount']),
               },
               'translate': {
                 'current': safeInt(dailyUsage['translateCount']),
-                'limit': safeInt(limitsMap['translateCount'])
+                'limit': safeInt(limitsMap['translateCount']),
               },
               'test': {
                 'current': safeInt(dailyUsage['testCount']),
-                'limit': safeInt(limitsMap['testCount'])
-              }
+                'limit': safeInt(limitsMap['testCount']),
+              },
             };
 
             return SingleChildScrollView(
@@ -250,10 +298,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         CircleAvatar(
                           radius: 40,
                           backgroundColor: planColor.withAlpha(50),
-                          child: Text(
-                            _userName.isNotEmpty ? _userName[0] : "O",
-                            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: planColor),
-                          ),
+                          backgroundImage: photoURL.isNotEmpty
+                              ? NetworkImage(photoURL)
+                              : null,
+                          child: photoURL.isEmpty
+                              ? Text(
+                                  displayUserName.isNotEmpty
+                                      ? displayUserName[0]
+                                      : "O",
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: planColor,
+                                  ),
+                                )
+                              : null,
                         ),
                         const SizedBox(width: 20),
                         Expanded(
@@ -261,13 +320,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                _userName,
-                                style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                                displayUserName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 _userEmail,
-                                style: TextStyle(color: Colors.white.withAlpha(150), fontSize: 14),
+                                style: TextStyle(
+                                  color: Colors.white.withAlpha(150),
+                                  fontSize: 14,
+                                ),
                               ),
                             ],
                           ),
@@ -275,9 +341,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 30),
-                  
+
                   // Subscription Card
                   _buildGlassContainer(
                     child: Column(
@@ -288,10 +354,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             const Text(
                               "Mevcut Planınız",
-                              style: TextStyle(color: Colors.white70, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 16,
+                              ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
                                 color: planColor.withAlpha(40),
                                 borderRadius: BorderRadius.circular(20),
@@ -299,22 +371,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               child: Text(
                                 planName,
-                                style: TextStyle(color: planColor, fontWeight: FontWeight.bold, fontSize: 14),
+                                style: TextStyle(
+                                  color: planColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 20),
-                        
-                        _buildStatRow('Kelime Havuzu', limitsSummary['words'], Icons.book, Colors.blueAccent),
-                        _buildStatRow('Hikaye Üretme', limitsSummary['storyGen'], Icons.edit, Colors.pinkAccent),
-                        _buildStatRow('Hikaye Okuma', limitsSummary['storyRead'], Icons.menu_book, Colors.orangeAccent),
-                        _buildStatRow('Yapay Zeka Chat', limitsSummary['chat'], Icons.chat, Colors.tealAccent),
-                        _buildStatRow('Görsel Çeviri', limitsSummary['translate'], Icons.g_translate, Colors.greenAccent),
-                        _buildStatRow('Kendini Test Et', limitsSummary['test'], Icons.psychology, Colors.purpleAccent),
-                        
+
+                        _buildStatRow(
+                          'Kelime Havuzu',
+                          limitsSummary['words'],
+                          Icons.book,
+                          Colors.blueAccent,
+                        ),
+                        _buildStatRow(
+                          'Hikaye Üretme',
+                          limitsSummary['storyGen'],
+                          Icons.edit,
+                          Colors.pinkAccent,
+                        ),
+                        _buildStatRow(
+                          'Hikaye Okuma',
+                          limitsSummary['storyRead'],
+                          Icons.menu_book,
+                          Colors.orangeAccent,
+                        ),
+                        _buildStatRow(
+                          'Yapay Zeka Chat',
+                          limitsSummary['chat'],
+                          Icons.chat,
+                          Colors.tealAccent,
+                        ),
+                        _buildStatRow(
+                          'Görsel Çeviri',
+                          limitsSummary['translate'],
+                          Icons.g_translate,
+                          Colors.greenAccent,
+                        ),
+                        _buildStatRow(
+                          'Kendini Test Et',
+                          limitsSummary['test'],
+                          Icons.psychology,
+                          Colors.purpleAccent,
+                        ),
+
                         const SizedBox(height: 25),
-                        
+
                         // Management Buttons
                         Row(
                           children: [
@@ -324,9 +430,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   onPressed: _cancelSubscription,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.redAccent,
-                                    side: const BorderSide(color: Colors.redAccent),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    side: const BorderSide(
+                                      color: Colors.redAccent,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
                                   child: const Text("İptal Et"),
                                 ),
@@ -337,16 +449,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               flex: 2,
                               child: ElevatedButton(
                                 onPressed: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const PaywallScreen(),
+                                    ),
+                                  );
                                 },
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: isBasic ? Colors.purpleAccent : Colors.white24,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  backgroundColor: isBasic
+                                      ? Colors.purpleAccent
+                                      : Colors.white24,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                                 child: Text(
                                   isBasic ? "Planları İncele" : "Planı Yükselt",
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                             ),
