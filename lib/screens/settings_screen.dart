@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth_screen.dart';
 import 'tts_service.dart';
@@ -192,10 +193,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
 
         // 2. Oturum tazeyse önce veritabanındaki verileri siliyoruz
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).delete();
+        final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+        
+        // Alt koleksiyonları siliyoruz (words)
+        final wordsSnap = await userDocRef.collection('words').get();
+        for (var doc in wordsSnap.docs) {
+          await doc.reference.delete();
+        }
+
+        // Alt koleksiyonları siliyoruz (test_history)
+        final testHistorySnap = await userDocRef.collection('test_history').get();
+        for (var doc in testHistorySnap.docs) {
+          await doc.reference.delete();
+        }
+
+        // Alt koleksiyonları siliyoruz (chatHistory)
+        final chatHistorySnap = await userDocRef.collection('chatHistory').get();
+        for (var doc in chatHistorySnap.docs) {
+          await doc.reference.delete();
+        }
+
+        // Ana dokümanı siliyoruz
+        await userDocRef.delete();
         
         // 3. Son olarak Auth (Giriş) hesabını tamamen siliyoruz
         await user.delete();
+        await GoogleSignIn().signOut();
         
         if (mounted) {
           Navigator.pushAndRemoveUntil(

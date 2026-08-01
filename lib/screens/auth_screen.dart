@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dashboard_screen.dart';
 import 'landing_screen.dart';
@@ -314,6 +315,97 @@ class _AuthScreenState extends State<AuthScreen>
     }
   }
 
+  // --- GOOGLE İLE GİRİŞ YAP ---
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return; // Kullanıcı girişi iptal etti
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        // Kullanıcı Firestore'da var mı kontrol et
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          // Yeni kullanıcı: Adını Google'dan al ve veritabanını oluştur
+          final displayName = user.displayName ?? "Kullanıcı";
+          final todayStr = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}-${DateTime.now().day.toString().padLeft(2, '0')}";
+          
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'username': displayName,
+            'displayName': displayName,
+            'email': user.email ?? "",
+            'createdAt': FieldValue.serverTimestamp(),
+            'subscriptionPlan': 'basic',
+            'lifetimeWordsAdded': 0,
+            'dailyUsage': {
+              'date': todayStr,
+              'storyGenCount': 0,
+              'storyReadCount': 0,
+              'chatMsgCount': 0,
+              'translateCount': 0,
+              'testCount': 0,
+            },
+            'level': 'A1',
+            'streak': 0,
+            'photoURL': user.photoURL ?? "",
+            'lastActive': FieldValue.serverTimestamp(),
+          });
+        }
+        
+        // RevenueCat Girişi (Satın alımları eşitlemek için)
+        try {
+          await Purchases.logIn(user.uid);
+        } catch (e) {
+          debugPrint("RevenueCat LogIn Error: $e");
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Google ile giriş başarısız oldu: ${e.message}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Giriş iptal edildi veya bir sorun oluştu.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -490,7 +582,24 @@ class _AuthScreenState extends State<AuthScreen>
                                   ? const CircularProgressIndicator(
                                       color: Colors.deepPurple,
                                     )
-                                  : _buildSubmitButton(),
+                                  : Column(
+                                      children: [
+                                        _buildSubmitButton(),
+                                        const SizedBox(height: 15),
+                                        const Row(
+                                          children: [
+                                            Expanded(child: Divider(color: Colors.white24)),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 10),
+                                              child: Text("VEYA", style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold)),
+                                            ),
+                                            Expanded(child: Divider(color: Colors.white24)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 15),
+                                        _buildGoogleSignInButton(),
+                                      ],
+                                    ),
                               const SizedBox(height: 15),
                               TextButton(
                                 onPressed: () {
@@ -706,4 +815,46 @@ class _AuthScreenState extends State<AuthScreen>
       ),
     );
   }
+
+  Widget _buildGoogleSignInButton() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton.icon(
+        onPressed: _signInWithGoogle,
+        icon: Image.network(
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
+          height: 24,
+        ),
+        label: Text(
+          _isLogin ? 'Google ile Devam Et' : 'Google ile Kayıt Ol',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+        ),
+      ),
+    );
+  }
 }
+
