@@ -800,7 +800,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           _buildDurationCard(
                             durationId: 'annual',
                             title: '12 Aylık',
-                            subtitle: 'Aylığa göre %50 tasarruf edin!',
+                            subtitle: 'Aylığa göre %25 tasarruf edin!',
                             priceStr: annualPrice,
                             activeColor: themeColor,
                             isPopular: true,
