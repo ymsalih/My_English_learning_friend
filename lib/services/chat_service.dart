@@ -25,7 +25,7 @@ class ChatService {
     final systemInstruction = _getSystemPrompt(mode, userLevel);
 
     _model = GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.7-flash',
       apiKey: apiKey,
       generationConfig: GenerationConfig(
         responseMimeType: 'application/json',
