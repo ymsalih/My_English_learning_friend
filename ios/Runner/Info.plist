@@ -73,5 +73,24 @@
 			<string>https</string>
 			<string>mailto</string>
 		</array>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Bu uygulama, okuma ve telaffuz testleriniz için sesinizi dinlemek amacıyla mikrofonunuza erişim gerektirir.</string>
+		<key>NSSpeechRecognitionUsageDescription</key>
+		<string>İngilizce telaffuzunuzu analiz etmek ve doğru okuyup okumadığınızı kontrol etmek için konuşma tanıma izni gereklidir.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Görsel çeviri özelliği ile kelimeleri kameranızdan taramak için kameraya erişim gereklidir.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Profil fotoğrafınızı seçmek veya çeviri için galeriden görsel yüklemek amacıyla fotoğraf galerisine erişim gereklidir.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.689751965790-vgb41qb5gnief952tk9puofiusgjq1dq</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>
