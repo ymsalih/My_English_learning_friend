@@ -633,6 +633,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     // Dinamik Fiyat Okuma Mantığı (RevenueCat Yoksa Fallback)
     String monthlyPrice = tabData['fallbackMonthlyPrice'];
     String annualPrice = tabData['fallbackAnnualPrice'];
+    double? rawMonthly;
+    double? rawAnnual;
 
     // RevenueCat'ten paket gelirse burası dolacak:
     // (Şu an ürünler Google Play'e eklenmediği için boş olacaktır)
@@ -642,11 +644,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
         if (id.contains(_selectedTab)) {
           if (id.contains('monthly') || id.contains('aylik')) {
             monthlyPrice = pkg.storeProduct.priceString;
+            rawMonthly = pkg.storeProduct.price;
           } else if (id.contains('annual') || id.contains('yillik')) {
             annualPrice = pkg.storeProduct.priceString;
+            rawAnnual = pkg.storeProduct.price;
           }
         }
       }
+    }
+
+    String discountText = 'Aylığa göre tasarruf edin!';
+    if (rawMonthly != null && rawAnnual != null && rawMonthly > 0) {
+      double expectedAnnual = rawMonthly * 12;
+      if (expectedAnnual > rawAnnual) {
+        double discount = ((expectedAnnual - rawAnnual) / expectedAnnual * 100);
+        String discountStr = discount.toStringAsFixed(1).replaceAll('.0', '').replaceAll('.', ',');
+        discountText = 'Aylığa göre %$discountStr tasarruf edin!';
+      }
+    } else {
+      try {
+        double m = double.parse(monthlyPrice.replaceAll(RegExp(r'[^0-9]'), ''));
+        double a = double.parse(annualPrice.replaceAll(RegExp(r'[^0-9]'), ''));
+        if (m > 0) {
+          double expectedA = m * 12;
+          if (expectedA > a) {
+            double discount = ((expectedA - a) / expectedA * 100);
+            String discountStr = discount.toStringAsFixed(1).replaceAll('.0', '').replaceAll('.', ',');
+            discountText = 'Aylığa göre %$discountStr tasarruf edin!';
+          }
+        }
+      } catch (_) {}
     }
 
     return Scaffold(
@@ -800,7 +827,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           _buildDurationCard(
                             durationId: 'annual',
                             title: '12 Aylık',
-                            subtitle: 'Aylığa göre %50 tasarruf edin!',
+                            subtitle: discountText,
                             priceStr: annualPrice,
                             activeColor: themeColor,
                             isPopular: true,
