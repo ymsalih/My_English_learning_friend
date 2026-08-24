@@ -57,6 +57,7 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/logo.png"
   image_path_ios: "assets/logo_ios.png" # YENİ: iOS için özel, tam dolu kare logo
+  remove_alpha_ios: true
   adaptive_icon_background: "#4527A0"
   adaptive_icon_foreground: "assets/logo_seffaf.png"
 
