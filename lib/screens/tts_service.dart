@@ -50,7 +50,6 @@ class TtsService {
           IosTextToSpeechAudioCategoryOptions.mixWithOthers,
           IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
         ],
-        IosTextToSpeechAudioCategoryMode.defaultMode,
       );
 
       await _forceEnglishVoice();
