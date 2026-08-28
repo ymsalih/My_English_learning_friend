@@ -39,6 +39,20 @@ class TtsService {
       _flutterTts = FlutterTts();
       await _loadSettings(); // Motor ayağa kalkarken kayıtlı ayarları kesin olarak çek
       await _flutterTts!.setLanguage("en-US");
+      
+      // iOS için sessiz modda bile sesin çıkmasını sağlayan hayati ayar
+      await _flutterTts!.setSharedInstance(true);
+      await _flutterTts!.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.allowBluetooth,
+          IosTextToSpeechAudioCategoryOptions.allowBluetoothA2DP,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker
+        ],
+        IosTextToSpeechAudioCategoryMode.defaultMode,
+      );
+
       await _forceEnglishVoice();
       await _flutterTts!.setSpeechRate(_speechRate);
       await _flutterTts!.setPitch(_pitch);
