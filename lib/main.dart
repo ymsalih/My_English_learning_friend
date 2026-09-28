@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 🚀 YENİ
@@ -16,15 +17,15 @@ void main() async {
   // Flutter motorunun doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
 
-  // .env dosyasını yüklüyoruz (Gemini API vb. için)
-  await dotenv.load(fileName: ".env");
-
-  // Firebase'i başlatıyoruz
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // .env (RevenueCat anahtarları) ve Firebase birbirinden bağımsız: paralel yükle.
+  await Future.wait([
+    dotenv.load(fileName: ".env"),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+  ]);
 
   // RevenueCat'i Başlatıyoruz
   try {
-    await Purchases.setLogLevel(LogLevel.debug);
+    await Purchases.setLogLevel(kDebugMode ? LogLevel.debug : LogLevel.warn);
     PurchasesConfiguration? configuration;
     
     if (Platform.isAndroid) {

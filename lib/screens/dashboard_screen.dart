@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'home_screen.dart';
@@ -42,6 +43,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _appVersion = "1.0.0";
 
   StreamSubscription<DocumentSnapshot>? _userSubscription;
+  // Kelime sayısı yalnızca istatistikler değişince yeniden sorgulanır
+  // (günlük sayaç artışları gibi alakasız değişikliklerde değil).
+  Map<String, dynamic>? _lastStats;
 
   @override
   void initState() {
@@ -100,7 +104,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       _totalWrong = (stats['totalWrong'] ?? 0).toInt();
                       // stats['totalLearned'] artık eski verilerde sıfır olabileceği için
                       // güvenilir olan _fetchLearnedCount ile alıyoruz.
-                      _fetchLearnedCount(user.uid);
+                      if (_lastStats != null && !mapEquals(_lastStats, stats)) {
+                        _fetchLearnedCount(user.uid);
+                      }
+                      _lastStats = stats;
                     }
 
                     _subscriptionPlan = data['subscriptionPlan'] ?? 'basic';

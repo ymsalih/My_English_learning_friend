@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -53,6 +54,59 @@ class SubscriptionService {
     return DateTime.now().toIso8601String().substring(0, 10);
   }
 
+  Map<String, dynamic> _emptyDailyUsage(String today) => {
+        'date': today,
+        'storyGenCount': 0,
+        'storyReadCount': 0,
+        'chatMsgCount': 0,
+        'translateCount': 0,
+        'testCount': 0,
+      };
+
+  // --- KULLANICI BELGESİ ÖNBELLEĞİ ---
+  // Tüm SubscriptionService örnekleri tek bir canlı dinleyiciyi paylaşır.
+  // Limit kontrolleri her seferinde Firestore'a gitmek yerine bellekten okunur;
+  // yazmalar (sayaç artışı vb.) dinleyiciye anında yansır.
+
+  static String? _cachedUid;
+  static Map<String, dynamic>? _cachedData;
+  static Completer<void>? _firstSnapshot;
+  static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
+  static StreamSubscription<User?>? _authSub;
+
+  void _ensureListening(String uid) {
+    _authSub ??= _auth.authStateChanges().listen((user) {
+      if (user?.uid != _cachedUid) _stopListening();
+    });
+    if (_cachedUid == uid && _docSub != null) return;
+
+    _stopListening();
+    _cachedUid = uid;
+    final completer = _firstSnapshot = Completer<void>();
+    _docSub = _firestore.collection('users').doc(uid).snapshots().listen(
+      (snap) {
+        _cachedData = snap.data() ?? {};
+        if (!completer.isCompleted) completer.complete();
+      },
+      onError: (Object e) {
+        debugPrint("Kullanıcı belgesi dinleme hatası: $e");
+        if (!completer.isCompleted) completer.complete();
+        _stopListening();
+      },
+    );
+  }
+
+  static void _stopListening() {
+    _docSub?.cancel();
+    _docSub = null;
+    _cachedUid = null;
+    _cachedData = null;
+    _firstSnapshot = null;
+  }
+
+  /// Kullanıcı belgesinin güncel hali (önbellekten; gerekirse tek okuma).
+  Future<Map<String, dynamic>> getUserData() => _getUserData();
+
   // Ensures dailyUsage exists and is for today. If not, resets it.
   Future<Map<String, dynamic>> _getValidDailyUsage(
     Map<String, dynamic> userData,
@@ -61,14 +115,7 @@ class SubscriptionService {
     Map<String, dynamic> dailyUsage = userData['dailyUsage'] ?? {};
 
     if (dailyUsage['date'] != today) {
-      dailyUsage = {
-        'date': today,
-        'storyGenCount': 0,
-        'storyReadCount': 0,
-        'chatMsgCount': 0,
-        'translateCount': 0,
-        'testCount': 0,
-      };
+      dailyUsage = _emptyDailyUsage(today);
 
       final docRef = await _getUserDocRef();
       if (docRef != null) {
@@ -81,10 +128,26 @@ class SubscriptionService {
   Future<Map<String, dynamic>> _getUserData() async {
     final docRef = await _getUserDocRef();
     if (docRef == null) return {};
-    final doc = await docRef.get();
-    if (!doc.exists) return {};
 
-    final data = doc.data() as Map<String, dynamic>;
+    _ensureListening(docRef.id);
+    if (_cachedData == null) {
+      // Yalnızca dinleyicinin ilk cevabı henüz gelmediyse beklenir.
+      try {
+        await _firstSnapshot?.future.timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+
+    Map<String, dynamic>? cached = _cachedData;
+    if (cached == null) {
+      // Dinleyici kullanılamıyorsa eski yönteme (tek okuma) dön.
+      final doc = await docRef.get();
+      if (!doc.exists) return {};
+      cached = doc.data() as Map<String, dynamic>;
+    }
+    if (cached.isEmpty) return {};
+
+    // Önbelleği korumak için kopya üzerinde çalış.
+    final data = Map<String, dynamic>.from(cached);
 
     // Migration for older users
     bool changed = false;
@@ -210,21 +273,39 @@ class SubscriptionService {
 
   // --- INCREMENT METHODS ---
 
+  // Sayaç yazmaları sunucu onayı beklenmeden başlatılır: yerel önbellek ve
+  // dinleyiciler değişikliği anında görür, Firestore yazmayı arka planda
+  // (çevrimdışıysa bağlantı gelince) tamamlar. Ekranlar ağ gecikmesi yaşamaz.
+  void _writeInBackground(Future<void> write) {
+    write.catchError((Object e) => debugPrint("Sayaç yazma hatası: $e"));
+  }
+
   Future<void> incrementWordCount() async {
     final docRef = await _getUserDocRef();
     if (docRef != null) {
-      await docRef.update({'lifetimeWordsAdded': FieldValue.increment(1)});
+      _writeInBackground(
+        docRef.update({'lifetimeWordsAdded': FieldValue.increment(1)}),
+      );
     }
   }
 
   Future<void> _incrementAction(String actionKey) async {
     final docRef = await _getUserDocRef();
     if (docRef != null) {
-      // First ensure the day hasn't changed before incrementing
       final data = await _getUserData();
-      await _getValidDailyUsage(data);
+      final today = _getTodayString();
+      final dailyUsage = data['dailyUsage'] as Map<String, dynamic>? ?? {};
 
-      await docRef.update({'dailyUsage.$actionKey': FieldValue.increment(1)});
+      if (dailyUsage['date'] != today) {
+        // Yeni gün: sıfırlama ve artırma tek yazmada.
+        _writeInBackground(docRef.update({
+          'dailyUsage': {..._emptyDailyUsage(today), actionKey: 1},
+        }));
+      } else {
+        _writeInBackground(
+          docRef.update({'dailyUsage.$actionKey': FieldValue.increment(1)}),
+        );
+      }
     }
   }
 

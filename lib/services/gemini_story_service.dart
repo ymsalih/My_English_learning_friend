@@ -1,48 +1,68 @@
+import 'dart:async';
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'ai_client.dart';
 
 class GeminiStoryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  GenerativeModel? _model;
+  // Yapıyı garanti eder: bozuk JSON yüzünden başarısız üretim (ve boşa
+  // harcanan istek) olmaz.
+  static final Map<String, Object?> _storySchema = AiClient.objectSchema({
+    'title': AiClient.stringSchema(),
+    'nodes': AiClient.arraySchema(AiClient.objectSchema({
+      'id': AiClient.stringSchema(),
+      'text': AiClient.stringSchema(),
+      'choices': AiClient.arraySchema(AiClient.objectSchema({
+        'text': AiClient.stringSchema(),
+        'next_id': AiClient.stringSchema(),
+      })),
+      'is_ending': AiClient.booleanSchema(),
+    })),
+    'questions': AiClient.arraySchema(AiClient.objectSchema({
+      'question': AiClient.stringSchema(),
+      'options': AiClient.arraySchema(AiClient.stringSchema()),
+      'correctIndex': AiClient.integerSchema(),
+      'explanation': AiClient.stringSchema(),
+    })),
+  });
 
-  GeminiStoryService() {
-    _initModel();
-  }
-
-  void _initModel() {
-    final apiKey = dotenv.env['GEMINI_API_KEY'];
-    if (apiKey == null || apiKey.isEmpty) {
-      throw Exception('GEMINI_API_KEY bulunamadı. Lütfen .env dosyasını kontrol edin.');
-    }
-
-    _model = GenerativeModel(
-      model: 'gemini-3.7-flash',
-      apiKey: apiKey,
-      generationConfig: GenerationConfig(
-        temperature: 0.7,
-        responseMimeType: "application/json",
-      ),
-    );
-  }
+  static final Map<String, Object?> _generationConfig = {
+    'temperature': 0.7,
+    'responseMimeType': 'application/json',
+    'responseSchema': _storySchema,
+    'thinkingConfig': AiClient.storyThinking,
+  };
 
   /// Firestore 'global_stories' havuzunu kontrol eder, varsa oradan çeker, yoksa Gemini'dan üretip havuza kaydeder.
   Future<Map<String, dynamic>> fetchOrGenerateStoryTree(String genre, String level, {bool forceGenerate = false}) async {
     try {
       if (!forceGenerate) {
         // 1. Önce Firestore havuzunda var mı diye bak (Sıfır API maliyeti için)
-        final poolSnapshot = await _firestore
+        final query = _firestore
             .collection('global_stories')
             .where('genre', isEqualTo: genre)
             .where('level', isEqualTo: level)
-            .limit(10) 
-            .get();
+            .limit(10);
+
+        // Cihazda önbellek varsa hikaye anında açılır; havuz arka planda
+        // sunucudan tazelenir ve bir sonraki açılışta yeni hikayeler gelir.
+        QuerySnapshot<Map<String, dynamic>>? poolSnapshot;
+        try {
+          poolSnapshot = await query.get(const GetOptions(source: Source.cache));
+        } catch (_) {}
+
+        if (poolSnapshot != null && poolSnapshot.docs.isNotEmpty) {
+          unawaited(query.get(const GetOptions(source: Source.server)).then(
+                (_) {},
+                onError: (Object e) => debugPrint("Havuz tazeleme hatası: $e"),
+              ));
+        } else {
+          poolSnapshot = await query.get();
+        }
 
         if (poolSnapshot.docs.isNotEmpty) {
-          final docs = poolSnapshot.docs;
-          docs.shuffle();
+          final docs = [...poolSnapshot.docs]..shuffle();
           debugPrint("Hikaye havuzdan çekildi (Sıfır Maliyet!)");
           return docs.first.data();
         }
@@ -54,13 +74,20 @@ class GeminiStoryService {
 
       // 3. Üretilen veriyi diğer kullanıcılar için havuza kaydet
       if (generatedData != null) {
-        generatedData['genre'] = genre;
-        generatedData['level'] = level;
-        generatedData['createdAt'] = FieldValue.serverTimestamp();
-        await _firestore.collection('global_stories').add(generatedData);
-        return generatedData;
+        final poolEntry = {
+          ...generatedData,
+          'genre': genre,
+          'level': level,
+          'createdAt': FieldValue.serverTimestamp(),
+        };
+        // Kullanıcı havuz yazmasının sunucu onayını beklemez.
+        unawaited(_firestore.collection('global_stories').add(poolEntry).then(
+              (_) {},
+              onError: (Object e) => debugPrint("Havuza kaydetme hatası: $e"),
+            ));
+        return {...generatedData, 'genre': genre, 'level': level};
       }
-      
+
       throw Exception('Hikaye üretilemedi.');
     } catch (e) {
       debugPrint("Hikaye servisi hatası: $e");
@@ -69,8 +96,6 @@ class GeminiStoryService {
   }
 
   Future<Map<String, dynamic>?> _generateFromGemini(String genre, String level) async {
-    if (_model == null) return null;
-
     final prompt = '''
 You are a master storyteller for English language learners.
 Generate an interactive "Choose your own adventure" story tree in English.
@@ -109,14 +134,24 @@ Strict Rules:
 5. Create exactly 3 "questions" about the general plot or vocabulary of the story.
 ''';
 
-    try {
-      final response = await _model!.generateContent([Content.text(prompt)]);
-      final text = response.text;
-      if (text != null && text.isNotEmpty) {
-        return jsonDecode(text) as Map<String, dynamic>;
+    for (var attempt = 0; attempt < AiClient.maxAttempts; attempt++) {
+      try {
+        final text = await AiClient.generateText(
+          model: AiClient.storyModel,
+          contents: [AiClient.userContent(prompt)],
+          generationConfig: _generationConfig,
+        );
+        if (text.isNotEmpty) {
+          return jsonDecode(text) as Map<String, dynamic>;
+        }
+        return null;
+      } catch (e) {
+        debugPrint("Gemini Üretim Hatası: $e");
+        if (!AiClient.isRetryable(e) || attempt + 1 >= AiClient.maxAttempts) {
+          return null;
+        }
+        await Future.delayed(AiClient.backoff(attempt));
       }
-    } catch (e) {
-      debugPrint("Gemini Üretim Hatası: $e");
     }
     return null;
   }

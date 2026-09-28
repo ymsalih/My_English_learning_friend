@@ -1,7 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import '../services/ai_client.dart';
 import '../services/chat_service.dart';
 import 'tts_service.dart';
 import '../services/subscription_service.dart';
@@ -41,9 +40,10 @@ class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
 
   final List<ChatMessage> _messages = [];
-  final List<Content> _history = [];
+  final List<Map<String, Object?>> _history = [];
 
   bool _isLoading = false;
+  bool _isStreaming = false;
   int _chatMsgCount = 0;
   String _userLevel = 'A1';
 
@@ -60,6 +60,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _chatService.warmUp();
     _loadUserData();
     _loadLimits();
 
@@ -85,18 +86,13 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _loadUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      if (doc.exists && mounted) {
-        setState(() {
-          _chatMsgCount = doc.data()?['dailyUsage']?['chatMsgCount'] ?? 0;
-          _userLevel = doc.data()?['level'] ?? 'A1';
-        });
-      }
+    // Kullanıcı belgesi SubscriptionService önbelleğinden gelir (ek okuma yok).
+    final data = await _subService.getUserData();
+    if (data.isNotEmpty && mounted) {
+      setState(() {
+        _chatMsgCount = data['dailyUsage']?['chatMsgCount'] ?? 0;
+        _userLevel = data['level'] ?? 'A1';
+      });
     }
   }
 
@@ -114,8 +110,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
 
+    // Limit kontrolü önbellekten yapılır, ağ beklemesi yok.
     if (!await _subService.canChat()) {
       _showLimitDialog();
       return;
@@ -124,10 +121,14 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.add(ChatMessage(text: text, isUser: true));
       _isLoading = true;
+      _isStreaming = false;
     });
 
     _messageController.clear();
     _scrollToBottom();
+
+    // Akış başlayınca yapay zeka balonu bu indekste güncellenir.
+    int? aiIndex;
 
     try {
       final aiResponse = await _chatService.sendMessage(
@@ -135,49 +136,75 @@ class _ChatScreenState extends State<ChatScreen> {
         _selectedMode,
         _userLevel,
         _history,
+        onPartial: (partial) {
+          if (!mounted) return;
+          setState(() {
+            _isStreaming = true;
+            final bubble = ChatMessage(text: partial, isUser: false);
+            if (aiIndex == null) {
+              _messages.add(bubble);
+              aiIndex = _messages.length - 1;
+            } else {
+              _messages[aiIndex!] = bubble;
+            }
+          });
+          _scrollToBottom();
+        },
       );
 
       // Update history for Gemini
-      _history.add(Content.text(text));
-      _history.add(Content.model([TextPart(aiResponse['reply'] ?? '')]));
-
-      // Update daily limit in Firestore and reload limits UI
-      await _subService.incrementChat();
-      await _loadLimits();
-
-      // Save to Firestore
-      await _chatService.saveMessageToHistory(_selectedMode, text, aiResponse);
+      _history.add(AiClient.userContent(text));
+      _history.add(AiClient.modelContent(aiResponse['reply'] ?? ''));
 
       if (mounted) {
         setState(() {
-          _messages.add(
-            ChatMessage(
-              text: aiResponse['reply'] ?? '',
-              isUser: false,
-              correction: aiResponse['correction'],
-            ),
+          final finalMessage = ChatMessage(
+            text: aiResponse['reply'] ?? '',
+            isUser: false,
+            correction: aiResponse['correction'],
           );
+          if (aiIndex == null) {
+            _messages.add(finalMessage);
+          } else {
+            _messages[aiIndex!] = finalMessage;
+          }
           _isLoading = false;
+          _isStreaming = false;
+          if (!_isUnlimited) _currentUsage++;
         });
         _scrollToBottom();
 
         // Auto-play TTS (Optional, you can comment this out if user prefers manual play)
         // _ttsService.speak(aiResponse['reply'] ?? '');
       }
+
+      // Sayaç ve geçmiş kaydı cevabı bekletmeden, paralel olarak arka planda.
+      unawaited(_recordMessage(text, aiResponse));
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoading = false);
-        String errorMessage = e.toString();
-        if (errorMessage.contains('503') || errorMessage.contains('UNAVAILABLE')) {
-          errorMessage = 'Yapay zeka sunucuları şu an çok yoğun. Lütfen birkaç dakika sonra tekrar deneyin.';
-        }
+        setState(() {
+          if (aiIndex != null) _messages.removeAt(aiIndex!);
+          _isLoading = false;
+          _isStreaming = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(errorMessage),
+            content: Text(AiClient.userMessage(e)),
             backgroundColor: Colors.redAccent,
           ),
         );
       }
+    }
+  }
+
+  Future<void> _recordMessage(String text, Map<String, dynamic> aiResponse) async {
+    try {
+      await Future.wait([
+        _subService.incrementChat(),
+        _chatService.saveMessageToHistory(_selectedMode, text, aiResponse),
+      ]);
+    } catch (e) {
+      debugPrint("Chat kayıt hatası: $e");
     }
   }
 
@@ -322,7 +349,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 },
               ),
             ),
-            if (_isLoading)
+            if (_isLoading && !_isStreaming)
               const Padding(
                 padding: EdgeInsets.all(8.0),
                 child: CircularProgressIndicator(color: Colors.cyanAccent),

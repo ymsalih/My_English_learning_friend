@@ -29,7 +29,6 @@ dependencies:
   google_mlkit_text_recognition: ^0.13.0
   youtube_player_iframe: ^5.2.2
   cached_network_image: ^3.4.1
-  google_generative_ai: ^0.4.7
   shared_preferences: ^2.5.5
   translator: ^1.0.4+1
   youtube_player_flutter: ^9.1.3

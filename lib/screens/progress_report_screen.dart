@@ -15,6 +15,10 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
   String _sortBy = 'timestamp';
   bool _descending = true;
 
+  // Kelime sayıları count() ile alınır ve ekran açıkken önbellekte tutulur.
+  Future<List<int>>? _wordStatsFuture;
+  String? _wordStatsUid;
+
   // --- KRİTİK FONKSİYON: TESTİ VE VERİLERİNİ SİL (stats. alanı nokta ile güncellenir) ---
   Future<void> _deleteTest(
     String uid,
@@ -495,22 +499,33 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     );
   }
 
+  // Tüm kelime koleksiyonunu indirmek yerine sunucu tarafında sayım
+  // (her 1000 kayıt için yalnızca 1 okuma ücreti).
+  Future<List<int>> _fetchWordStats(String uid) async {
+    final words = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('words');
+    final results = await Future.wait([
+      words.where('isLearned', isEqualTo: true).count().get(),
+      words.count().get(),
+    ]);
+    final learned = results[0].count ?? 0;
+    final total = results[1].count ?? 0;
+    return [learned, total - learned];
+  }
+
   Widget _buildWordStats(String uid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .collection('words')
-          .snapshots(),
+    if (_wordStatsFuture == null || _wordStatsUid != uid) {
+      _wordStatsUid = uid;
+      _wordStatsFuture = _fetchWordStats(uid);
+    }
+    return FutureBuilder<List<int>>(
+      future: _wordStatsFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-        final docs = snapshot.data!.docs;
-        int learned = docs
-            .where((d) => (d.data() as Map)['isLearned'] == true)
-            .length;
-        int inPool = docs
-            .where((d) => (d.data() as Map)['isLearned'] != true)
-            .length;
+        final int learned = snapshot.data![0];
+        final int inPool = snapshot.data![1];
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

@@ -85,17 +85,12 @@ class _StoryScreenState extends State<StoryScreen> {
   }
 
   Future<void> _loadUserLevel() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      if (doc.exists && doc.data()?['level'] != null && mounted) {
-        setState(() {
-          _selectedLevel = doc.data()!['level'];
-        });
-      }
+    // Kullanıcı belgesi SubscriptionService önbelleğinden gelir (ek okuma yok).
+    final data = await _subService.getUserData();
+    if (data['level'] != null && mounted) {
+      setState(() {
+        _selectedLevel = data['level'];
+      });
     }
   }
 
