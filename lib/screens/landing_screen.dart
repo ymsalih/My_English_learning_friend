@@ -39,15 +39,16 @@ class LandingScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.school,
-                color: Colors.deepPurple,
-                size: 24,
+              child: Image.asset(
+                'assets/logo_transparent.png',
+                width: 28,
+                height: 28,
+                fit: BoxFit.contain,
               ),
             ),
             const SizedBox(width: 10),
             const Text(
-              'Owlish',
+              'Octopus English',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 color: Colors.white,

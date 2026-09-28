@@ -233,7 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         centerTitle: true,
         title: const Text(
-          'Owlish',
+          'Octopus English',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             color: Colors.white,
@@ -848,7 +848,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildDrawerTile(
                       context,
                       icon: Icons.auto_awesome,
-                      title: 'Owlish Premium',
+                      title: 'Octopus Premium',
                       iconColor: Colors.amberAccent,
                       onTap: () {
                         Navigator.pop(context);

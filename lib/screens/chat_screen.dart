@@ -211,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         title: const Text(
-          'OwlishAI',
+          'Octopus AI',
           style: TextStyle(
             fontWeight: FontWeight.w900,
             color: Colors.white,

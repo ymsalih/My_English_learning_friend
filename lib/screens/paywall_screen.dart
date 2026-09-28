@@ -314,7 +314,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     if (tab == 'plus') {
       return {
-        'name': 'Owlish Plus',
+        'name': 'Octopus Plus',
         'color': const Color(0xFF3B82F6),
         'accent': const Color(0xFF60A5FA),
         'icon': Icons.star_border,
@@ -336,7 +336,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
           _buildFeatureRow(
             Icons.chat,
-            'Günde ${formatLimit(plusL['chatMsgCount']!)} OwlishAI Sohbet Mesajı',
+            'Günde ${formatLimit(plusL['chatMsgCount']!)} Octopus AI Sohbet Mesajı',
             Colors.blueAccent,
           ),
           _buildFeatureRow(
@@ -355,7 +355,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       };
     } else if (tab == 'pro') {
       return {
-        'name': 'Owlish Pro',
+        'name': 'Octopus Pro',
         'color': const Color(0xFF8B5CF6),
         'accent': const Color(0xFFC084FC),
         'icon': Icons.star,
@@ -377,7 +377,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
           _buildFeatureRow(
             Icons.chat,
-            'Günde ${formatLimit(proL['chatMsgCount']!)} OwlishAI Sohbet Mesajı',
+            'Günde ${formatLimit(proL['chatMsgCount']!)} Octopus AI Sohbet Mesajı',
             Colors.purpleAccent,
           ),
           _buildFeatureRow(
@@ -396,7 +396,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       };
     } else {
       return {
-        'name': 'Owlish Max',
+        'name': 'Octopus Max',
         'color': const Color(0xFFF59E0B),
         'accent': const Color(0xFFFCD34D),
         'icon': Icons.workspace_premium,
@@ -418,7 +418,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ),
           _buildFeatureRow(
             Icons.chat,
-            '${maxL['chatMsgCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['chatMsgCount']}'} OwlishAI Sohbet Mesajı',
+            '${maxL['chatMsgCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['chatMsgCount']}'} Octopus AI Sohbet Mesajı',
             Colors.amberAccent,
           ),
           _buildFeatureRow(
