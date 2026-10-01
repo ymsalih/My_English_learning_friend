@@ -7,6 +7,7 @@ import 'auth_screen.dart';
 import 'tts_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../theme/theme_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -94,9 +95,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
-              Icon(Icons.check_circle_outline, color: Colors.white),
+              Icon(Icons.check_circle_outline, color: AppColors.textPrimary),
               SizedBox(width: 10),
               Text("Ses ayarları başarıyla kaydedildi! ✨", style: TextStyle(fontWeight: FontWeight.bold)),
             ],
@@ -134,12 +135,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text("Hesabı Sil", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: Text("Hesabı Sil", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               "Hesabınızı ve tüm kelime havuzu/istatistik verilerinizi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
               style: TextStyle(color: AppColors.textSecondary),
             ),
@@ -151,7 +152,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppColors.danger.withOpacity(0.3)),
               ),
-              child: const Text(
+              child: Text(
                 "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini cihazınızın App Store veya Google Play ayarlarından yapmanız gerekmektedir.",
                 style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold),
               ),
@@ -161,7 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
+            child: Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.dangerFill),
@@ -197,22 +198,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // 2. Oturum tazeyse önce veritabanındaki verileri siliyoruz
         final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
         
-        // Alt koleksiyonları siliyoruz (words)
-        final wordsSnap = await userDocRef.collection('words').get();
-        for (var doc in wordsSnap.docs) {
-          await doc.reference.delete();
-        }
-
-        // Alt koleksiyonları siliyoruz (test_history)
-        final testHistorySnap = await userDocRef.collection('test_history').get();
-        for (var doc in testHistorySnap.docs) {
-          await doc.reference.delete();
-        }
-
-        // Alt koleksiyonları siliyoruz (chatHistory)
-        final chatHistorySnap = await userDocRef.collection('chatHistory').get();
-        for (var doc in chatHistorySnap.docs) {
-          await doc.reference.delete();
+        // Alt koleksiyonlar toplu silinir (sayfa başına tek istek).
+        for (final sub in const ['words', 'test_history', 'chatHistory']) {
+          await _deleteCollection(userDocRef.collection(sub));
         }
 
         // Ana dokümanı siliyoruz
@@ -243,6 +231,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Koleksiyonu 400'lük sayfalar hâlinde, her sayfayı tek toplu yazmayla
+  /// siler (yüzlerce sıralı istek ve tüm koleksiyonu belleğe alma yerine).
+  Future<void> _deleteCollection(CollectionReference<Map<String, dynamic>> collection) async {
+    while (true) {
+      final page = await collection.limit(400).get();
+      if (page.docs.isEmpty) return;
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in page.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+      if (page.docs.length < 400) return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -254,7 +257,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -287,7 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             color: AppColors.primaryLight.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.record_voice_over_rounded,
                             size: 28,
                             color: AppColors.primaryLight,
@@ -310,17 +313,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 35),
 
+                  // --- GÖRÜNÜM (AÇIK / KOYU MOD) ---
+                  Text("Görünüm", style: AppText.heading(size: 18)),
+                  const SizedBox(height: 12),
+                  ValueListenableBuilder<ThemeMode>(
+                    valueListenable: ThemeController.instance,
+                    builder: (context, mode, _) => SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<ThemeMode>(
+                        showSelectedIcon: false,
+                        segments: const [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            icon: Icon(Icons.brightness_auto_rounded, size: 18),
+                            label: Text('Sistem'),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            icon: Icon(Icons.light_mode_rounded, size: 18),
+                            label: Text('Açık'),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            icon: Icon(Icons.dark_mode_rounded, size: 18),
+                            label: Text('Koyu'),
+                          ),
+                        ],
+                        selected: {mode},
+                        onSelectionChanged: (s) => ThemeController.instance.setMode(s.first),
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.resolveWith(
+                            (st) => st.contains(WidgetState.selected) ? AppColors.primary : AppColors.surface,
+                          ),
+                          foregroundColor: WidgetStateProperty.resolveWith(
+                            (st) => st.contains(WidgetState.selected) ? Colors.white : AppColors.textSecondary,
+                          ),
+                          side: WidgetStatePropertyAll(BorderSide(color: AppColors.border)),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Sistem seçiliyken uygulama telefonunun açık/koyu ayarını takip eder.",
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 40),
+
                   // --- İNGİLİZCE SEVİYESİ ---
                   if (!_isLoadingUser) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           "İngilizce Seviyesi",
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -334,9 +384,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedLevel,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.secondary),
+                              icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.secondary),
                               dropdownColor: AppColors.surface,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.secondary,
@@ -375,12 +425,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         "Okuma Hızı",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -392,7 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Text(
                           _currentRate.toStringAsFixed(2),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: AppColors.secondary,
@@ -406,7 +456,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: AppColors.secondary,
                       inactiveTrackColor: AppColors.secondary.withOpacity(0.2),
-                      thumbColor: Colors.white,
+                      thumbColor: AppColors.textPrimary,
                       overlayColor: AppColors.secondary.withOpacity(0.2),
                       trackHeight: 6.0,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
@@ -445,12 +495,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         "Ses Tonu (Kalınlık)",
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -462,7 +512,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Text(
                           _currentPitch.toStringAsFixed(2),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: AppColors.primaryLight,
@@ -476,7 +526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: AppColors.primaryLight,
                       inactiveTrackColor: AppColors.primaryLight.withOpacity(0.2),
-                      thumbColor: Colors.white,
+                      thumbColor: AppColors.textPrimary,
                       overlayColor: AppColors.primaryLight.withOpacity(0.2),
                       trackHeight: 6.0,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
@@ -514,7 +564,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // --- TEST ALANI ---
                   TextField(
                     controller: _testTextController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: AppColors.textPrimary),
                     decoration: InputDecoration(
                       labelText: "İngilizce Test Metni",
                       labelStyle: TextStyle(color: AppColors.textSecondary),
@@ -524,13 +574,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+                        borderSide: BorderSide(color: AppColors.secondary, width: 2),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
-                        borderSide: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5),
+                        borderSide: BorderSide(color: AppColors.textPrimary.withOpacity(0.1), width: 1.5),
                       ),
-                      prefixIcon: const Icon(Icons.text_fields_rounded, color: AppColors.secondary),
+                      prefixIcon: Icon(Icons.text_fields_rounded, color: AppColors.secondary),
                       filled: true,
                       fillColor: AppColors.surface.withOpacity(0.7),
                     ),
@@ -564,9 +614,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         child: ElevatedButton.icon(
                           onPressed: _saveSettings,
                           icon: const Icon(Icons.save_rounded),
-                          label: const Text(
+                          label: Text(
                             "Kaydet",
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                           ),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 18),
@@ -584,12 +634,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 40),
 
                   // --- HESAP VE YASAL BİLGİLER (MAĞAZA ZORUNLULUĞU) ---
-                  const Text(
+                  Text(
                     "Hesap ve Yasal Bilgiler",
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -603,28 +653,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: Column(
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.secondary),
-                          title: const Text("Gizlilik Politikası", style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
+                          leading: Icon(Icons.privacy_tip_outlined, color: AppColors.secondary),
+                          title: Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textPrimary)),
+                          trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
                           onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
                         ),
-                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.description_outlined, color: AppColors.primaryLight),
-                          title: const Text("Kullanım Şartları", style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
+                          leading: Icon(Icons.description_outlined, color: AppColors.primaryLight),
+                          title: Text("Kullanım Şartları", style: TextStyle(color: AppColors.textPrimary)),
+                          trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
                           onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
                         ),
-                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.logout_rounded, color: AppColors.textSecondary),
-                          title: const Text("Çıkış Yap", style: TextStyle(color: AppColors.textSecondary)),
+                          leading: Icon(Icons.logout_rounded, color: AppColors.textSecondary),
+                          title: Text("Çıkış Yap", style: TextStyle(color: AppColors.textSecondary)),
                           onTap: _signOut,
                         ),
-                        Divider(color: Colors.white.withOpacity(0.1), height: 1),
+                        Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.delete_forever_rounded, color: AppColors.danger),
-                          title: const Text("Hesabımı Sil", style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+                          leading: Icon(Icons.delete_forever_rounded, color: AppColors.danger),
+                          title: Text("Hesabımı Sil", style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
                           onTap: _confirmDeleteAccount,
                         ),
                       ],

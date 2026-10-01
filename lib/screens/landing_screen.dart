@@ -29,7 +29,7 @@ class LandingScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 shape: BoxShape.circle,
               ),
               child: Image.asset(
@@ -40,14 +40,14 @@ class LandingScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Flexible(
+            Flexible(
               child: Text(
                 'Octopus English',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   letterSpacing: 0.5,
                   fontSize: 18,
                 ),
@@ -61,16 +61,16 @@ class LandingScreen extends StatelessWidget {
             child: TextButton(
               onPressed: () => _navigateToAuth(context, true),
               style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.15),
+                backgroundColor: AppColors.textPrimary.withOpacity(0.15),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
               ),
-              child: const Text(
+              child: Text(
                 'Giriş Yap',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -106,7 +106,7 @@ class LandingScreen extends StatelessWidget {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: AppColors.textPrimary.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(AppRadius.xl),
                               border: Border.all(color: AppColors.border,
                               ),
@@ -114,7 +114,7 @@ class LandingScreen extends StatelessWidget {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.auto_awesome,
                                   color: AppColors.gold,
                                   size: 16,
@@ -123,7 +123,7 @@ class LandingScreen extends StatelessWidget {
                                 Text(
                                   "Yapay Zeka Destekli Öğrenim",
                                   style: TextStyle(
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: AppColors.textPrimary.withOpacity(0.9),
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -132,14 +132,14 @@ class LandingScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 30),
-                          const Text(
+                          Text(
                             "İngilizceyi Yaşayarak\nÖğrenin",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 42,
                               height: 1.1,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               letterSpacing: -1.5,
                             ),
                           ),
@@ -166,7 +166,7 @@ class LandingScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white.withOpacity(0.9),
+                          color: AppColors.textPrimary.withOpacity(0.9),
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -282,7 +282,7 @@ class LandingScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white.withOpacity(0.9),
+                          color: AppColors.textPrimary.withOpacity(0.9),
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -349,24 +349,24 @@ class LandingScreen extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.rocket_launch_rounded,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             size: 50,
                           ),
                           const SizedBox(height: 20),
-                          const Text(
+                          Text(
                             "Yeni Macerana Hazır Mısın?",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               letterSpacing: -0.5,
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
+                          Text(
                             "Binlerce kelime, interaktif hikayeler ve AI öğretmeniniz sizi bekliyor. Ücretsiz hesabınızı saniyeler içinde oluşturun.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
@@ -486,8 +486,8 @@ class LandingScreen extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                             ),
@@ -545,8 +545,8 @@ class LandingScreen extends StatelessWidget {
                 const Spacer(),
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -590,11 +590,11 @@ class LandingScreen extends StatelessWidget {
                 Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: Colors.white.withOpacity(0.1),
+                      backgroundColor: AppColors.textPrimary.withOpacity(0.1),
                       child: Text(
                         name[0],
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -605,8 +605,8 @@ class LandingScreen extends StatelessWidget {
                       children: [
                         Text(
                           name,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -621,9 +621,9 @@ class LandingScreen extends StatelessWidget {
                       ],
                     ),
                     const Spacer(),
-                    const Icon(
+                    Icon(
                       Icons.format_quote_rounded,
-                      color: Colors.white24,
+                      color: AppColors.textPrimary.withValues(alpha: 0.24),
                       size: 40,
                     ),
                   ],
@@ -642,7 +642,7 @@ class LandingScreen extends StatelessWidget {
                 Row(
                   children: List.generate(
                     5,
-                    (index) => const Icon(
+                    (index) => Icon(
                       Icons.star_rounded,
                       color: AppColors.gold,
                       size: 18,

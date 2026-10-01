@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../widgets/cached_stream_builder.dart';
 // For BackdropFilter if needed
 
 class ProgressReportScreen extends StatefulWidget {
@@ -88,12 +89,12 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                 pinned: true,
                 elevation: 0,
                 backgroundColor: Colors.transparent,
-                flexibleSpace: const FlexibleSpaceBar(
+                flexibleSpace: FlexibleSpaceBar(
                   centerTitle: true,
                   title: Text(
                     "Gelişim Raporu",
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w900,
                       fontSize: 20,
                       letterSpacing: 0.5,
@@ -114,12 +115,12 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         "Test Yolculuğun",
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       _buildFilterMenu(),
@@ -147,7 +148,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Icon(Icons.tune_rounded, color: AppColors.primaryLight, size: 20),
+        child: Icon(Icons.tune_rounded, color: AppColors.primaryLight, size: 20),
       ),
       color: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -166,33 +167,33 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
         });
       },
       itemBuilder: (ctx) => [
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'new',
           child: Row(
             children: [
               Icon(Icons.history, size: 20, color: AppColors.textSecondary),
               SizedBox(width: 8),
-              Text("En Yeni", style: TextStyle(color: Colors.white)),
+              Text("En Yeni", style: TextStyle(color: AppColors.textPrimary)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'old',
           child: Row(
             children: [
               Icon(Icons.first_page, size: 20, color: AppColors.textSecondary),
               SizedBox(width: 8),
-              Text("En Eski", style: TextStyle(color: Colors.white)),
+              Text("En Eski", style: TextStyle(color: AppColors.textPrimary)),
             ],
           ),
         ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: 'top',
           child: Row(
             children: [
               Icon(Icons.star_rounded, size: 20, color: AppColors.gold),
               SizedBox(width: 8),
-              Text("En Başarılı", style: TextStyle(color: Colors.white)),
+              Text("En Başarılı", style: TextStyle(color: AppColors.textPrimary)),
             ],
           ),
         ),
@@ -202,16 +203,19 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
 
   // --- TEST GEÇMİŞİ LİSTESİ ---
   Widget _buildTestHistoryList(String uid) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+    return CachedStreamBuilder<QuerySnapshot>(
+      queryKey: (uid, _sortBy, _descending),
+      // Test geçmişi sınırsız büyüyebilir: seçili sıralamaya göre ilk 100 kayıt.
+      create: () => FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .collection('test_history')
           .orderBy(_sortBy, descending: _descending)
+          .limit(100)
           .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const SliverToBoxAdapter(
+          return SliverToBoxAdapter(
             child: Center(child: CircularProgressIndicator(color: AppColors.primaryLight)),
           );
         }
@@ -246,9 +250,9 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                       backgroundColor: AppColors.surface,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
-                        side: BorderSide(color: Colors.white.withOpacity(0.1)),
+                        side: BorderSide(color: AppColors.textPrimary.withOpacity(0.1)),
                       ),
-                      title: const Text("Testi Sil?", style: TextStyle(color: Colors.white)),
+                      title: Text("Testi Sil?", style: TextStyle(color: AppColors.textPrimary)),
                       content: Text(
                         "Bu test silinecek ve genel puanlarınızdan düşülecek. Emin misiniz?",
                         style: TextStyle(color: AppColors.textSecondary),
@@ -260,7 +264,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                         ),
                         TextButton(
                           onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text(
+                          child: Text(
                             "Sil",
                             style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold),
                           ),
@@ -341,10 +345,10 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
                         children: [
                           Text(
                             "Test Görevi #$testNo",
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 17,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -466,8 +470,8 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           const SizedBox(height: 15),
           Text(
             val,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.textPrimary,
               fontSize: 32,
               fontWeight: FontWeight.w900,
             ),
@@ -475,7 +479,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
           Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
+              color: AppColors.textPrimary.withOpacity(0.9),
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -545,14 +549,14 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: AppColors.textPrimary.withOpacity(0.1),
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.border),
       ),
       child: IconButton(
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_back_ios_new,
-          color: Colors.white,
+          color: AppColors.textPrimary,
           size: 18,
         ),
         onPressed: () => Navigator.pop(context),

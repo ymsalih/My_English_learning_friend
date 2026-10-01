@@ -10,7 +10,7 @@ class AppBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
+      decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
       child: child,
     );
   }
@@ -24,8 +24,9 @@ class AppCard extends StatelessWidget {
     this.onTap,
     this.padding = const EdgeInsets.all(AppSpacing.lg),
     this.gradient,
-    this.color = AppColors.surface,
-    this.borderColor = AppColors.border,
+    this.color,
+    this.borderColor,
+    this.showBorder = true,
     this.radius = AppRadius.lg,
   });
 
@@ -33,8 +34,9 @@ class AppCard extends StatelessWidget {
   final VoidCallback? onTap;
   final EdgeInsetsGeometry padding;
   final Gradient? gradient;
-  final Color color;
-  final Color? borderColor;
+  final Color? color; // varsayılan: AppColors.surface
+  final Color? borderColor; // varsayılan: AppColors.border
+  final bool showBorder;
   final double radius;
 
   @override
@@ -44,10 +46,10 @@ class AppCard extends StatelessWidget {
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          color: gradient == null ? color : null,
+          color: gradient == null ? (color ?? AppColors.surface) : null,
           gradient: gradient,
           borderRadius: shape,
-          border: borderColor == null ? null : Border.all(color: borderColor!),
+          border: showBorder ? Border.all(color: borderColor ?? AppColors.border) : null,
         ),
         child: InkWell(
           onTap: onTap,
@@ -66,16 +68,17 @@ class IconBadge extends StatelessWidget {
   const IconBadge({
     super.key,
     required this.icon,
-    this.color = AppColors.primaryLight,
+    this.color,
     this.size = 44,
   });
 
   final IconData icon;
-  final Color color;
+  final Color? color; // varsayılan: AppColors.primaryLight
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? AppColors.primaryLight;
     return Container(
       width: size,
       height: size,
@@ -114,15 +117,16 @@ class InfoPill extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
-    this.color = AppColors.secondary,
+    this.color,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+  final Color? color; // varsayılan: AppColors.secondary
 
   @override
   Widget build(BuildContext context) {
+    final color = this.color ?? AppColors.secondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

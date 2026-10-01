@@ -74,6 +74,11 @@ class SubscriptionService {
   static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _docSub;
   static StreamSubscription<User?>? _authSub;
 
+  /// Kullanıcı belgesi her değiştiğinde (plan yükseltme, sayaç artışı, gün
+  /// değişimi) artar. Limit gösteren ekranlar bunu dinleyip kendini günceller;
+  /// böylece açık kalan sekmeler de eski planın limitini göstermez.
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
+
   void _ensureListening(String uid) {
     _authSub ??= _auth.authStateChanges().listen((user) {
       if (user?.uid != _cachedUid) _stopListening();
@@ -87,6 +92,7 @@ class SubscriptionService {
       (snap) {
         _cachedData = snap.data() ?? {};
         if (!completer.isCompleted) completer.complete();
+        changes.value++;
       },
       onError: (Object e) {
         debugPrint("Kullanıcı belgesi dinleme hatası: $e");
@@ -347,7 +353,7 @@ class SubscriptionService {
     }
   }
 
-  Future<void> _incrementAction(String actionKey) async {
+  Future<void> _incrementAction(String actionKey, [int by = 1]) async {
     final docRef = await _getUserDocRef();
     if (docRef != null) {
       final data = await _getUserData();
@@ -359,13 +365,13 @@ class SubscriptionService {
       if (dailyUsage['date'] != today) {
         // Yeni gün: sıfırlama ve artırma tek yazmada.
         _writeInBackground(docRef.update({
-          'dailyUsage': {..._emptyDailyUsage(today), actionKey: 1},
+          'dailyUsage': {..._emptyDailyUsage(today), actionKey: by},
           ...streak,
         }));
       } else {
         _writeInBackground(
           docRef.update({
-            'dailyUsage.$actionKey': FieldValue.increment(1),
+            'dailyUsage.$actionKey': FieldValue.increment(by),
             ...streak,
           }),
         );
@@ -378,6 +384,10 @@ class SubscriptionService {
   Future<void> incrementChat() => _incrementAction('chatMsgCount');
   Future<void> incrementTranslate() => _incrementAction('translateCount');
   Future<void> incrementTest() => _incrementAction('testCount');
+
+  /// Test sırasında biriken soru sayısını tek yazmayla ekler.
+  Future<void> incrementTestBy(int count) =>
+      count > 0 ? _incrementAction('testCount', count) : Future.value();
 
   // --- REVENUECAT SYNC ---
 
@@ -407,13 +417,31 @@ class SubscriptionService {
       if (docRef != null) {
         final data = await _getUserData();
         if (data['subscriptionPlan'] != activePlan) {
-          await docRef.set({
-            'subscriptionPlan': activePlan,
-          }, SetOptions(merge: true));
+          await _writeVerifiedPlan(docRef, activePlan);
         }
       }
     } catch (e) {
       debugPrint("RevenueCat sync error: $e");
+    }
+  }
+
+  /// Planı yazar. Güvenlik kuralları planın, RevenueCat eklentisinin hesaba
+  /// koyduğu "revenueCatEntitlements" etiketiyle uyuşmasını ister. Satın alma
+  /// sonrası RevenueCat → Firebase bildirimi birkaç saniye sürebildiği için
+  /// etiket (ID token) yenilenerek birkaç kez denenir.
+  Future<void> _writeVerifiedPlan(DocumentReference docRef, String plan) async {
+    const delays = [0, 2, 4, 8, 16]; // saniye
+    for (var i = 0; i < delays.length; i++) {
+      if (delays[i] > 0) await Future.delayed(Duration(seconds: delays[i]));
+      try {
+        // Güncel etiketlerin isteğe eklenmesi için token zorla yenilenir.
+        await _auth.currentUser?.getIdToken(true);
+        await docRef.set({'subscriptionPlan': plan}, SetOptions(merge: true));
+        return;
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied' || i == delays.length - 1) rethrow;
+        debugPrint("Plan henüz doğrulanmadı, tekrar denenecek (${i + 1})");
+      }
     }
   }
 

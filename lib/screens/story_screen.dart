@@ -60,6 +60,8 @@ class _StoryScreenState extends State<StoryScreen> {
     super.initState();
     _loadUserLevel();
     _loadLimits();
+    // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
+    SubscriptionService.changes.addListener(_loadLimits);
   }
 
   Future<void> _loadLimits() async {
@@ -81,6 +83,7 @@ class _StoryScreenState extends State<StoryScreen> {
 
   @override
   void dispose() {
+    SubscriptionService.changes.removeListener(_loadLimits);
     _ttsService.stop();
     super.dispose();
   }
@@ -302,7 +305,7 @@ class _StoryScreenState extends State<StoryScreen> {
                     const SizedBox(height: 20),
                     Text(
                       cleanWord.length > 30 ? "Metin Çevirisi" : cleanWord,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppColors.primaryLight,
@@ -313,9 +316,9 @@ class _StoryScreenState extends State<StoryScreen> {
                       child: SingleChildScrollView(
                         child: Text(
                           translated,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 20,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -341,7 +344,7 @@ class _StoryScreenState extends State<StoryScreen> {
           onTap: () => _showWordTranslation(word),
           child: Text(
             word,
-            style: const TextStyle(fontSize: 18, height: 1.65, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 18, height: 1.65, color: AppColors.textPrimary),
           ),
         );
       }).toList(),
@@ -392,16 +395,16 @@ class _StoryScreenState extends State<StoryScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text("Bilmediğin kelimeye dokun", style: AppText.caption),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.translate_rounded, color: AppColors.secondary),
+                    icon: Icon(Icons.translate_rounded, color: AppColors.secondary),
                     tooltip: 'Tümünü Çevir',
                     onPressed: () => _showWordTranslation(text),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
+                    icon: Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
                     tooltip: 'Seslendir (İngilizce)',
                     onPressed: () => _ttsService.speak(text),
                   ),
@@ -419,7 +422,7 @@ class _StoryScreenState extends State<StoryScreen> {
         if (!isEnding) ...[
           Text('Ne yapmak istersin?', style: AppText.heading(size: 18)),
           const SizedBox(height: AppSpacing.xs),
-          const Text('Çevirisi için seçeneğe uzun bas', style: AppText.caption),
+          Text('Çevirisi için seçeneğe uzun bas', style: AppText.caption),
           const SizedBox(height: AppSpacing.md),
           ...choices.asMap().entries.map(
                 (entry) => Padding(
@@ -444,7 +447,7 @@ class _StoryScreenState extends State<StoryScreen> {
                             Expanded(
                               child: Text(
                                 entry.value['text'],
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
@@ -452,7 +455,7 @@ class _StoryScreenState extends State<StoryScreen> {
                                 ),
                               ),
                             ),
-                            const Icon(Icons.arrow_forward_rounded, color: AppColors.textMuted, size: 20),
+                            Icon(Icons.arrow_forward_rounded, color: AppColors.textMuted, size: 20),
                           ],
                         ),
                       ),
@@ -466,11 +469,11 @@ class _StoryScreenState extends State<StoryScreen> {
             padding: const EdgeInsets.all(AppSpacing.xxl),
             child: Column(
               children: [
-                const IconBadge(icon: Icons.flag_rounded, color: AppColors.gold, size: 56),
+                IconBadge(icon: Icons.flag_rounded, color: AppColors.gold, size: 56),
                 const SizedBox(height: AppSpacing.md),
                 Text('Hikaye Sonu 🎉', style: AppText.heading(size: 22)),
                 const SizedBox(height: AppSpacing.xs),
-                const Text(
+                Text(
                   'Şimdi ne kadar anladığını test et.',
                   textAlign: TextAlign.center,
                   style: AppText.body,
@@ -492,7 +495,8 @@ class _StoryScreenState extends State<StoryScreen> {
     );
   }
 
-  Widget _letterBadge(String letter, {Color color = AppColors.primaryLight, Color? fill}) {
+  Widget _letterBadge(String letter, {Color? color, Color? fill}) {
+    color ??= AppColors.primaryLight;
     return Container(
       width: 32,
       height: 32,
@@ -508,7 +512,7 @@ class _StoryScreenState extends State<StoryScreen> {
   Widget _buildQuiz() {
     final questions = _storyTree!['questions'] as List<dynamic>? ?? [];
     if (questions.isEmpty) {
-      return const Center(child: Text("Test bulunamadı.", style: AppText.body));
+      return Center(child: Text("Test bulunamadı.", style: AppText.body));
     }
 
     if (_quizCompleted) {
@@ -528,7 +532,7 @@ class _StoryScreenState extends State<StoryScreen> {
                       value: ratio,
                       strokeWidth: 12,
                       strokeCap: StrokeCap.round,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.success),
+                      valueColor: AlwaysStoppedAnimation(AppColors.success),
                     ),
                     Center(child: Text('$_score/${questions.length}', style: AppText.display(size: 34))),
                   ],
@@ -537,7 +541,7 @@ class _StoryScreenState extends State<StoryScreen> {
               const SizedBox(height: AppSpacing.xxl),
               Text('Tebrikler!', style: AppText.display(size: 28)),
               const SizedBox(height: AppSpacing.xs),
-              const Text('Hikayeyi ve testi tamamladın.', style: AppText.body),
+              Text('Hikayeyi ve testi tamamladın.', style: AppText.body),
               const SizedBox(height: AppSpacing.section),
               SizedBox(
                 width: double.infinity,
@@ -628,11 +632,11 @@ class _StoryScreenState extends State<StoryScreen> {
                       Expanded(
                         child: Text(
                           entry.value,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      if (showColors && isCorrect) const Icon(Icons.check_circle_rounded, color: AppColors.success),
-                      if (showColors && isSelected && !isCorrect) const Icon(Icons.cancel_rounded, color: AppColors.danger),
+                      if (showColors && isCorrect) Icon(Icons.check_circle_rounded, color: AppColors.success),
+                      if (showColors && isSelected && !isCorrect) Icon(Icons.cancel_rounded, color: AppColors.danger),
                     ],
                   ),
                 ),
@@ -649,9 +653,9 @@ class _StoryScreenState extends State<StoryScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.lightbulb_outline_rounded, color: AppColors.secondary, size: 18),
+                    Icon(Icons.lightbulb_outline_rounded, color: AppColors.secondary, size: 18),
                     const SizedBox(width: 8),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "AÇIKLAMA",
                         style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.2),
@@ -661,7 +665,7 @@ class _StoryScreenState extends State<StoryScreen> {
                       visualDensity: VisualDensity.compact,
                       icon: _isTranslatingExplanation
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.translate_rounded, color: AppColors.secondary, size: 20),
+                          : Icon(Icons.translate_rounded, color: AppColors.secondary, size: 20),
                       onPressed: () async {
                         if (_translatedExplanation != null) return;
                         setState(() => _isTranslatingExplanation = true);
@@ -683,13 +687,13 @@ class _StoryScreenState extends State<StoryScreen> {
                 ),
                 Text(
                   currentQ['explanation'],
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.45),
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 14, height: 1.45),
                 ),
                 if (_translatedExplanation != null) ...[
                   const Padding(padding: EdgeInsets.symmetric(vertical: AppSpacing.md), child: Divider()),
                   Text(
                     _translatedExplanation!,
-                    style: const TextStyle(color: AppColors.secondary, fontSize: 14, height: 1.45),
+                    style: TextStyle(color: AppColors.secondary, fontSize: 14, height: 1.45),
                   ),
                 ],
               ],
@@ -734,7 +738,7 @@ class _StoryScreenState extends State<StoryScreen> {
       children: [
         Text('Kendi hikayenin\nkahramanı ol', style: AppText.display(size: 26)),
         const SizedBox(height: AppSpacing.sm),
-        const Text(
+        Text(
           'Her bölümün sonunda hikayenin gidişatına sen karar verirsin. Bilmediğin kelimeye dokun, anında çevirisini gör.',
           style: AppText.body,
         ),
@@ -813,7 +817,7 @@ class _StoryScreenState extends State<StoryScreen> {
         const SizedBox(height: AppSpacing.section),
         AppCard(
           gradient: AppColors.primaryGradient,
-          borderColor: null,
+          showBorder: false,
           onTap: _isLoading ? null : () => _startStory(false),
           child: Row(
             children: [
@@ -864,7 +868,7 @@ class _StoryScreenState extends State<StoryScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_rounded, color: AppColors.textMuted),
+              Icon(Icons.arrow_forward_rounded, color: AppColors.textMuted),
             ],
           ),
         ),
@@ -872,7 +876,7 @@ class _StoryScreenState extends State<StoryScreen> {
           const SizedBox(height: AppSpacing.section),
           const Center(child: CircularProgressIndicator()),
           const SizedBox(height: AppSpacing.lg),
-          const Text(
+          Text(
             'Hikaye evrenin hazırlanıyor...',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600),

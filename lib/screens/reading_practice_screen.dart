@@ -246,12 +246,12 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     "Tüm Metnin Çevirisi",
                     style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.textMuted),
+                    icon: Icon(Icons.close, color: AppColors.textMuted),
                     onPressed: () => Navigator.pop(context),
                   )
                 ],
@@ -260,12 +260,12 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               Flexible(
                 child: SingleChildScrollView(
                   child: snapshot.connectionState == ConnectionState.waiting
-                      ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
+                      ? Center(child: CircularProgressIndicator(color: AppColors.secondary))
                       : snapshot.hasError
-                          ? const Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
+                          ? Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
                           : Text(
                               snapshot.data!.text,
-                              style: const TextStyle(color: AppColors.secondary, fontSize: 18, height: 1.5, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: AppColors.secondary, fontSize: 18, height: 1.5, fontWeight: FontWeight.w500),
                             ),
                 ),
               ),
@@ -292,8 +292,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
             children: [
               Text(
                 englishWord,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                 ),
@@ -302,11 +302,11 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               if (snapshot.connectionState == ConnectionState.waiting)
                 const CircularProgressIndicator(color: AppColors.primary)
               else if (snapshot.hasError)
-                const Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
+                Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
               else
                 Text(
                   snapshot.data!.text,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.secondary,
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
@@ -315,8 +315,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               const SizedBox(height: 30),
               ElevatedButton.icon(
                 onPressed: () => _addWordToPool(englishWord, snapshot.data?.text ?? "Çeviri Yok", context),
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text("Havuza Ekle", style: TextStyle(color: Colors.white)),
+                icon: Icon(Icons.add, color: AppColors.textPrimary),
+                label: Text("Havuza Ekle", style: TextStyle(color: AppColors.textPrimary)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   minimumSize: const Size(double.infinity, 50),
@@ -475,7 +475,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
 
           Expanded(
             child: _isLoadingTexts 
-              ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
+              ? Center(child: CircularProgressIndicator(color: AppColors.secondary))
               : _categoryTexts.isEmpty
                 ? Center(
                     child: Text(
@@ -504,8 +504,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                                 _spokenText = "";
                               });
                             },
-                            icon: const Icon(Icons.refresh, color: Colors.white),
-                            label: const Text("Farklı Bir Metin Getir", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            icon: Icon(Icons.refresh, color: AppColors.textPrimary),
+                            label: Text("Farklı Bir Metin Getir", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -600,14 +600,14 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               ),
               IconButton(
                 onPressed: () => _showFullTranslationSheet(content),
-                icon: const Icon(Icons.g_translate, color: AppColors.secondary),
+                icon: Icon(Icons.g_translate, color: AppColors.secondary),
                 tooltip: "Tüm Metni Çevir",
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                child: Text(level, style: const TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)),
+                child: Text(level, style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)),
               )
             ],
           ),
@@ -690,7 +690,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                   const SizedBox(height: 10),
                   Text(
                     _spokenText.isEmpty ? "Konuşmaya başlayın..." : _spokenText,
-                    style: const TextStyle(color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                    style: TextStyle(color: AppColors.textSecondary, fontStyle: FontStyle.italic),
                   ),
                 ],
               ),
@@ -701,8 +701,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () => _playFullText(content),
-                  icon: const Icon(Icons.volume_up, color: Colors.white),
-                  label: const Text('Metni Dinle', style: TextStyle(color: Colors.white)),
+                  icon: Icon(Icons.volume_up, color: AppColors.textPrimary),
+                  label: Text('Metni Dinle', style: TextStyle(color: AppColors.textPrimary)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary.withOpacity(0.3),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -720,8 +720,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                       _startListening();
                     }
                   },
-                  icon: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
-                  label: Text(_isListening ? 'Bitir' : 'Okuyacağım', style: const TextStyle(color: Colors.white)),
+                  icon: Icon(_isListening ? Icons.stop : Icons.mic, color: AppColors.textPrimary),
+                  label: Text(_isListening ? 'Bitir' : 'Okuyacağım', style: TextStyle(color: AppColors.textPrimary)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _isListening ? AppColors.dangerFill : AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -744,8 +744,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                     _spokenText = "";
                   });
                 },
-                icon: const Icon(Icons.refresh, color: AppColors.textMuted),
-                label: const Text("Sıfırla", style: TextStyle(color: AppColors.textMuted)),
+                icon: Icon(Icons.refresh, color: AppColors.textMuted),
+                label: Text("Sıfırla", style: TextStyle(color: AppColors.textMuted)),
               ),
             )
           ]

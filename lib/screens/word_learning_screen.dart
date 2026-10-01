@@ -31,7 +31,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   int _currentLimit = 20;
   bool _isFetchingMore = false;
 
-  final LinearGradient darkPrimaryGradient = const LinearGradient(
+  final LinearGradient darkPrimaryGradient = LinearGradient(
     colors: [AppColors.primary, AppColors.secondary], // Purple to Blue
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -91,7 +91,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Veri çekilirken bir hata oluştu.', style: TextStyle(color: Colors.white)),
+            content: Text('Veri çekilirken bir hata oluştu.', style: TextStyle(color: AppColors.textPrimary)),
             backgroundColor: AppColors.dangerFill.withOpacity(0.9),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -148,9 +148,9 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.success),
+                Icon(Icons.check_circle_rounded, color: AppColors.success),
                 const SizedBox(width: 10),
-                Expanded(child: Text('"$eng" başarıyla havuza eklendi!', style: const TextStyle(color: Colors.white))),
+                Expanded(child: Text('"$eng" başarıyla havuza eklendi!', style: TextStyle(color: AppColors.textPrimary))),
               ],
             ),
             backgroundColor: AppColors.surface.withOpacity(0.95), // Dark Theme SnackBar
@@ -248,7 +248,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                 // --- 2. KELİME LİSTESİ ---
                 Expanded(
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
                             color: AppColors.primaryLight,
                           ),
@@ -261,7 +261,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                               Icon(
                                 Icons.cloud_off_rounded,
                                 size: 80,
-                                color: Colors.white.withOpacity(0.2),
+                                color: AppColors.textPrimary.withOpacity(0.2),
                               ),
                               const SizedBox(height: 15),
                               Text(
@@ -288,7 +288,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                               _displayedWords.length + (_isFetchingMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == _displayedWords.length) {
-                              return const Center(
+                              return Center(
                                 child: Padding(
                                   padding: EdgeInsets.all(15.0),
                                   child: CircularProgressIndicator(
@@ -344,10 +344,10 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                                           children: [
                                             Text(
                                               word['eng'],
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontWeight: FontWeight.w900,
                                                 fontSize: 22,
-                                                color: Colors.white,
+                                                color: AppColors.textPrimary,
                                                 letterSpacing: -0.5,
                                               ),
                                             ),

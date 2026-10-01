@@ -6,6 +6,7 @@ import 'dart:io';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cached_stream_builder.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.embedded = false});
@@ -48,18 +49,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text(
+        title: Text(
           "Aboneliği Yönet / İptal Et",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
+        content: Text(
           "Güvenliğiniz için abonelik iptal işlemleri doğrudan uygulama mağazası üzerinden yapılmaktadır. Sizi mağazaya yönlendirmemizi ister misiniz?",
           style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
+            child: Text(
               "Vazgeç",
               style: TextStyle(color: AppColors.textMuted),
             ),
@@ -117,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: BoxDecoration(
             color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withAlpha(30)),
+            border: Border.all(color: AppColors.textPrimary.withAlpha(30)),
           ),
           child: child,
         ),
@@ -177,7 +178,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
             ),
           ),
           Text(
@@ -210,15 +211,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
-        child: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
+        decoration: BoxDecoration(gradient: AppColors.backgroundGradient),
+        child: CachedStreamBuilder<DocumentSnapshot>(
+          queryKey: user.uid,
+          create: () => FirebaseFirestore.instance
               .collection('users')
               .doc(user.uid)
               .snapshots(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(
+              return Center(
                 child: CircularProgressIndicator(color: AppColors.secondary),
               );
             }
@@ -312,8 +314,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               Text(
                                 displayUserName,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
                                   fontSize: 24,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -322,7 +324,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               Text(
                                 _userEmail,
                                 style: TextStyle(
-                                  color: Colors.white.withAlpha(150),
+                                  color: AppColors.textPrimary.withAlpha(150),
                                   fontSize: 14,
                                 ),
                               ),
@@ -343,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               "Mevcut Planınız",
                               style: TextStyle(
                                 color: AppColors.textSecondary,
@@ -421,7 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   onPressed: _cancelSubscription,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.danger,
-                                    side: const BorderSide(
+                                    side: BorderSide(
                                       color: AppColors.danger,
                                     ),
                                     padding: const EdgeInsets.symmetric(
@@ -451,7 +453,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isBasic
                                       ? AppColors.primaryLight
-                                      : Colors.white24,
+                                      : AppColors.textPrimary.withValues(alpha: 0.24),
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 16,
                                   ),
@@ -461,9 +463,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 child: Text(
                                   isBasic ? "Planları İncele" : "Planı Yükselt",
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                               ),

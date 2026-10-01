@@ -1,15 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:translator/translator.dart';
 import 'ai_client.dart';
 
 class ChatService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
   // Mod ve seviyeye göre hazırlanan istek ayarları.
   Map<String, Object?>? _generationConfig;
   String? _systemInstruction;
@@ -189,20 +184,6 @@ class ChatService {
       i += 2;
     }
     return out.toString();
-  }
-
-  // Mesaj geçmişini Firestore'a kaydetme
-  Future<void> saveMessageToHistory(String mode, String userText, Map<String, dynamic> aiResponse) async {
-    final user = _auth.currentUser;
-    if (user != null) {
-      await _firestore.collection('users').doc(user.uid).collection('chatHistory').add({
-        'mode': mode,
-        'userText': userText,
-        'aiReply': aiResponse['reply'] ?? '',
-        'correction': aiResponse['correction'] ?? {},
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    }
   }
 
   // Anlık Çeviri Fonksiyonu (Ücretsiz, API maliyeti yaratmaz)

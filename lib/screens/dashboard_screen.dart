@@ -235,11 +235,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (screen is HomeScreen) return _selectTab(1);
     if (screen is TestScreen) return _selectTab(2);
     if (screen is ReadingPracticeScreen) return _selectTab(3);
-    if (screen is ProfileScreen) return _selectTab(4);
+    if (screen is ChatScreen) return _selectTab(4);
     Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
   }
 
-  // Alt navigasyon: 0 Ana Sayfa, 1 Kelime Havuzu, 2 Test, 3 Telaffuz, 4 Profil.
+  // Alt navigasyon: 0 Ana Sayfa, 1 Kelime Havuzu, 2 Test, 3 Telaffuz, 4 Sohbet.
+  // Profil yan menüden açılır.
   int _tabIndex = 0;
   // Sekmeler ilk ziyarette oluşturulur (açılışta gereksiz Firestore sorgusu yok).
   final Set<int> _visitedTabs = {0};
@@ -287,11 +288,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _visitedTabs.contains(1) ? const HomeScreen() : const SizedBox.shrink(),
           _visitedTabs.contains(2) ? TestScreen(key: ValueKey(_testTabGeneration)) : const SizedBox.shrink(),
           _visitedTabs.contains(3) ? const ReadingPracticeScreen() : const SizedBox.shrink(),
-          _visitedTabs.contains(4) ? const ProfileScreen(embedded: true) : const SizedBox.shrink(),
+          // Sohbet sekmesi geçişlerde konuşmayı korur.
+          _visitedTabs.contains(4) ? const ChatScreen() : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: NavigationBar(
@@ -309,7 +311,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: s.contains(WidgetState.selected) ? AppColors.textPrimary : AppColors.textMuted,
             ),
           ),
-          destinations: const [
+          destinations: [
             NavigationDestination(
               icon: Icon(Icons.home_outlined, color: AppColors.textMuted),
               selectedIcon: Icon(Icons.home_rounded, color: AppColors.primaryLight),
@@ -331,9 +333,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Telaffuz',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.person_rounded, color: AppColors.primaryLight),
-              label: 'Profil',
+              icon: Icon(Icons.forum_outlined, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.forum_rounded, color: AppColors.primaryLight),
+              label: 'Sohbet',
             ),
           ],
         ),
@@ -348,7 +350,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
+              // Kullanıcı alanına dokununca profil açılır.
+              InkWell(
+                onTap: () {
+                  Navigator.pop(context);
+                  _open(const ProfileScreen());
+                },
+                child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                 child: Row(
                   children: [
@@ -367,15 +375,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 2),
                           Text(
                             user?.email ?? "Kullanıcı",
-                            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
+                            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
                   ],
                 ),
+              ),
               ),
               const Divider(),
               Expanded(
@@ -383,27 +393,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   children: [
                     _buildDrawerTile(
+                      icon: Icons.person_rounded,
+                      title: 'Profilim',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _open(const ProfileScreen());
+                      },
+                    ),
+                    _buildDrawerTile(
                       icon: Icons.home_rounded,
                       title: 'Ana Sayfa',
                       onTap: () {
                         Navigator.pop(context);
                         _selectTab(0);
-                      },
-                    ),
-                    _buildDrawerTile(
-                      icon: Icons.person_rounded,
-                      title: 'Profilim',
-                      onTap: () {
-                        Navigator.pop(context);
-                        _selectTab(4);
-                      },
-                    ),
-                    _buildDrawerTile(
-                      icon: Icons.forum_rounded,
-                      title: 'Yapay Zeka Sohbet',
-                      onTap: () {
-                        Navigator.pop(context);
-                        _open(const ChatScreen());
                       },
                     ),
                     _buildDrawerTile(
@@ -470,8 +472,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required IconData icon,
     required String title,
     required VoidCallback onTap,
-    Color color = AppColors.textSecondary,
+    Color? color,
   }) {
+    color ??= AppColors.textSecondary;
     return ListTile(
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
@@ -531,7 +534,7 @@ class DashboardHomeView extends StatelessWidget {
           const SizedBox(height: AppSpacing.xxl),
           Text("Merhaba, $userName 👋", style: AppText.display(size: 28)),
           const SizedBox(height: AppSpacing.xs),
-          const Text("Bugün ne öğrenmek istersin?", style: AppText.body),
+          Text("Bugün ne öğrenmek istersin?", style: AppText.body),
           const SizedBox(height: AppSpacing.xxl),
           _buildTutorCard(),
           const SizedBox(height: AppSpacing.lg),
@@ -582,7 +585,7 @@ class DashboardHomeView extends StatelessWidget {
 
     return AppCard(
       gradient: AppColors.primaryGradient,
-      borderColor: null,
+      showBorder: false,
       radius: AppRadius.xl,
       padding: EdgeInsets.zero,
       onTap: () => onOpen(const TestScreen()),
@@ -673,7 +676,7 @@ class DashboardHomeView extends StatelessWidget {
                       strokeWidth: 7,
                       strokeCap: StrokeCap.round,
                       backgroundColor: AppColors.surfaceHigh,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.success),
+                      valueColor: AlwaysStoppedAnimation(AppColors.success),
                     ),
                     Center(
                       child: Text(
@@ -689,18 +692,18 @@ class DashboardHomeView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text("GENEL DURUM", style: AppText.overline),
+                    Text("GENEL DURUM", style: AppText.overline),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       answered > 0 ? "Harika ilerliyorsun!" : "Hemen başlayalım!",
                       style: AppText.heading(size: 18),
                     ),
                     const SizedBox(height: 2),
-                    const Text("Başarı oranın ve istatistiklerin", style: AppText.caption),
+                    Text("Başarı oranın ve istatistiklerin", style: AppText.caption),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+              Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -751,7 +754,7 @@ class DashboardHomeView extends StatelessWidget {
                   children: [
                     Text(
                       m.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -790,10 +793,10 @@ class DashboardHomeView extends StatelessWidget {
               leading: IconBadge(icon: items[i].icon, color: AppColors.secondary, size: 40),
               title: Text(
                 items[i].title,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
               ),
               subtitle: Text(items[i].subtitle, style: AppText.caption),
-              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+              trailing: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
             ),
           ],
         ],
@@ -814,7 +817,7 @@ class DashboardHomeView extends StatelessWidget {
               gradient: AppColors.goldGradient,
               borderRadius: BorderRadius.circular(13),
             ),
-            child: const Icon(Icons.workspace_premium_rounded, color: AppColors.bg, size: 24),
+            child: Icon(Icons.workspace_premium_rounded, color: AppColors.bg, size: 24),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
@@ -823,11 +826,11 @@ class DashboardHomeView extends StatelessWidget {
               children: [
                 Text("Octopus Premium", style: AppText.heading(size: 16, color: AppColors.gold)),
                 const SizedBox(height: 2),
-                const Text("Daha fazla sohbet, hikaye ve çeviri hakkı", style: AppText.caption),
+                Text("Daha fazla sohbet, hikaye ve çeviri hakkı", style: AppText.caption),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.gold),
+          Icon(Icons.chevron_right_rounded, color: AppColors.gold),
         ],
       ),
     );
@@ -896,7 +899,7 @@ class _RoundIconButton extends StatelessWidget {
       message: tooltip,
       child: Material(
         color: AppColors.surface,
-        shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+        shape: CircleBorder(side: BorderSide(color: AppColors.border)),
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onTap,

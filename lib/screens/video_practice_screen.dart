@@ -5,12 +5,13 @@ import 'package:youtube_player_flutter/youtube_player_flutter.dart' as native;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart' as web;
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../widgets/cached_stream_builder.dart';
 import 'dart:ui'; // For BackdropFilter
 
 class VideoPracticeScreen extends StatelessWidget {
   const VideoPracticeScreen({super.key});
 
-  final LinearGradient primaryGradient = const LinearGradient(
+  LinearGradient get primaryGradient => LinearGradient(
     colors: [AppColors.primary, AppColors.secondary], // Mor ve Mavi Uzay Geçişi
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -31,13 +32,16 @@ class VideoPracticeScreen extends StatelessWidget {
         children: [
           const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           SafeArea(
-            child: StreamBuilder(
-              stream: FirebaseFirestore.instance
+            child: CachedStreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              queryKey: 'practice_videos',
+              // Üst sınır: koleksiyon büyüdükçe her açılışta tamamı okunmasın.
+              create: () => FirebaseFirestore.instance
                   .collection('practice_videos')
+                  .limit(100)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(color: AppColors.primaryLight),
                   );
                 }
@@ -106,19 +110,19 @@ class VideoPracticeScreen extends StatelessWidget {
               color: AppColors.surface,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.ondemand_video_rounded,
               size: 90,
               color: AppColors.primaryLight,
             ),
           ),
           const SizedBox(height: 30),
-          const Text(
+          Text(
             'Şu an hiç video yok.',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 15),
@@ -193,13 +197,13 @@ class VideoPracticeScreen extends StatelessWidget {
           child: Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
+                color: AppColors.textPrimary.withOpacity(0.15),
                 shape: BoxShape.circle,
                 border: Border.all(color: AppColors.textMuted, width: 1.5),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.play_arrow_rounded,
-                color: Colors.white,
+                color: AppColors.textPrimary,
                 size: 50,
               ),
             ),
@@ -218,10 +222,10 @@ class VideoPracticeScreen extends StatelessWidget {
             title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: AppColors.textPrimary,
               letterSpacing: 0.5,
             ),
           ),

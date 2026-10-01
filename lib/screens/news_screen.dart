@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../widgets/cached_stream_builder.dart';
 import 'news_details_screen.dart'; // Yeni detay sayfasını import ediyoruz
 
 class NewsScreen extends StatelessWidget {
@@ -18,9 +19,9 @@ class NewsScreen extends StatelessWidget {
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Colors.white,
+            color: AppColors.textPrimary,
           ),
           onPressed: () => Navigator.pop(context),
         ),
@@ -29,16 +30,18 @@ class NewsScreen extends StatelessWidget {
         children: [
           const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           SafeArea(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('news_links').snapshots(),
+            child: CachedStreamBuilder<QuerySnapshot>(
+              queryKey: 'news_links',
+              // Üst sınır: koleksiyon büyüdükçe her açılışta tamamı okunmasın.
+              create: () => FirebaseFirestore.instance.collection('news_links').limit(100).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
+                  return Center(
                     child: CircularProgressIndicator(color: AppColors.primaryLight),
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
                       "Henüz haber eklenmemiş.",
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
@@ -104,7 +107,7 @@ class NewsScreen extends StatelessWidget {
       cardColor = Color(int.parse(cleanHex, radix: 16));
     } catch (e) {
       // 🔥 HATA DURUMUNDA ÇÖKMEK YERİNE YEDEK RENKLERİ KULLAN (Neon Space Temasına Uygun)
-      List<Color> fallbackColors = const [
+      List<Color> fallbackColors = [
         AppColors.primaryLight,
         AppColors.secondary,
         AppColors.primaryLight,
@@ -170,10 +173,10 @@ class NewsScreen extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           letterSpacing: 0.5,
                         ),
                       ),

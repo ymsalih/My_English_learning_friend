@@ -1,35 +1,106 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+/// Bir tema modunun renk paleti.
+class AppPalette {
+  const AppPalette({
+    required this.brightness,
+    required this.bgTop,
+    required this.bg,
+    required this.bgBottom,
+    required this.surface,
+    required this.surfaceHigh,
+    required this.border,
+    required this.primaryLight,
+    required this.secondary,
+    required this.gold,
+    required this.success,
+    required this.danger,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textMuted,
+  });
+
+  final Brightness brightness;
+  final Color bgTop, bg, bgBottom, surface, surfaceHigh, border;
+  final Color primaryLight, secondary, gold, success, danger;
+  final Color textPrimary, textSecondary, textMuted;
+
+  /// Koyu mod: açılış ekranının gece mavisi.
+  static const dark = AppPalette(
+    brightness: Brightness.dark,
+    bgTop: Color(0xFF17245C),
+    bg: Color(0xFF0B1540),
+    bgBottom: Color(0xFF050920),
+    surface: Color(0xFF131E54),
+    surfaceHigh: Color(0xFF1B2868),
+    border: Color(0xFF26357A),
+    primaryLight: Color(0xFFA996FF),
+    secondary: Color(0xFF9FB2FF),
+    gold: Color(0xFFF0B847),
+    success: Color(0xFF4FD1A5),
+    danger: Color(0xFFFF6B81),
+    textPrimary: Color(0xFFF4F1FF),
+    textSecondary: Color(0xFFB8C0EA),
+    textMuted: Color(0xFF7D87BD),
+  );
+
+  /// Açık mod: lavanta tonlu zemin, beyaz kartlar. Vurgu renkleri açık
+  /// zeminde okunabilir koyu tonlardadır.
+  static const light = AppPalette(
+    brightness: Brightness.light,
+    bgTop: Color(0xFFF1EEFF),
+    bg: Color(0xFFF7F6FD),
+    bgBottom: Color(0xFFEFF1FB),
+    surface: Color(0xFFFFFFFF),
+    surfaceHigh: Color(0xFFEFECFB),
+    border: Color(0xFFE1DEF2),
+    primaryLight: Color(0xFF5F43E0),
+    secondary: Color(0xFF4660D4),
+    gold: Color(0xFFB7790E),
+    success: Color(0xFF0F8A62),
+    danger: Color(0xFFD0364F),
+    textPrimary: Color(0xFF17133A),
+    textSecondary: Color(0xFF4B4870),
+    textMuted: Color(0xFF85839F),
+  );
+}
+
 /// Octopus English renk sistemi.
 ///
 /// Palet logodan ve açılış ekranından türetilmiştir: gece mavisi zemin
 /// (açılış gradyanı), ahtapot moru (ana renk), "ENGLISH" yazısının lila-mavisi
 /// (ikincil renk) ve göz irisinin altını (yalnızca ödül / premium vurgusu).
 /// Renk süs için değil anlam için kullanılır.
+///
+/// Moda bağlı renkler o anki paletten okunur ([palette], ThemeController
+/// tarafından ayarlanır); her iki modda aynı olan marka dolguları sabittir.
 class AppColors {
   AppColors._();
 
-  // Zemin — açılış ekranı gradyanıyla aynı.
-  static const Color bgTop = Color(0xFF17245C);
-  static const Color bg = Color(0xFF0B1540);
-  static const Color bgBottom = Color(0xFF050920);
+  static AppPalette palette = AppPalette.dark;
+  static bool get isDark => palette.brightness == Brightness.dark;
+
+  // Zemin.
+  static Color get bgTop => palette.bgTop;
+  static Color get bg => palette.bg;
+  static Color get bgBottom => palette.bgBottom;
 
   // Yüzeyler (kartlar, diyaloglar, giriş alanları).
-  static const Color surface = Color(0xFF131E54);
-  static const Color surfaceHigh = Color(0xFF1B2868);
-  static const Color border = Color(0xFF26357A);
+  static Color get surface => palette.surface;
+  static Color get surfaceHigh => palette.surfaceHigh;
+  static Color get border => palette.border;
 
   // Marka.
   static const Color primary = Color(0xFF7C5CF5); // ahtapot moru (dolgu)
-  static const Color primaryLight = Color(0xFFA996FF); // koyu zeminde ikon/metin
-  static const Color secondary = Color(0xFF9FB2FF); // "ENGLISH" lila-mavisi
-  static const Color gold = Color(0xFFF0B847); // iris altını: seri, premium
+  static Color get primaryLight => palette.primaryLight; // ikon/metin vurgusu
+  static Color get secondary => palette.secondary; // "ENGLISH" lila-mavisi
+  static Color get gold => palette.gold; // iris altını: seri, premium
   static const Color goldSoft = Color(0xFFFFF0B8);
 
   // Anlamsal.
-  static const Color success = Color(0xFF4FD1A5);
-  static const Color danger = Color(0xFFFF6B81);
+  static Color get success => palette.success;
+  static Color get danger => palette.danger;
 
   // Beyaz yazı taşıyan dolgular (buton, bildirim) için koyu tonlar.
   static const Color successFill = Color(0xFF15815F);
@@ -37,16 +108,16 @@ class AppColors {
   static const Color dangerFill = Color(0xFFD93F58);
 
   // Metin.
-  static const Color textPrimary = Color(0xFFF4F1FF);
-  static const Color textSecondary = Color(0xFFB8C0EA);
-  static const Color textMuted = Color(0xFF7D87BD);
+  static Color get textPrimary => palette.textPrimary;
+  static Color get textSecondary => palette.textSecondary;
+  static Color get textMuted => palette.textMuted;
 
-  static const LinearGradient backgroundGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [bgTop, bg, bgBottom],
-    stops: [0, 0.45, 1],
-  );
+  static LinearGradient get backgroundGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [bgTop, bg, bgBottom],
+        stops: const [0, 0.45, 1],
+      );
 
   /// Ana eylem gradyanı: ahtapot moru → "ENGLISH" lila-mavisi.
   static const LinearGradient primaryGradient = LinearGradient(
@@ -58,7 +129,7 @@ class AppColors {
   static const LinearGradient goldGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFD983), gold],
+    colors: [Color(0xFFFFD983), Color(0xFFF0B847)],
   );
 }
 
@@ -89,22 +160,22 @@ class AppRadius {
 class AppText {
   AppText._();
 
-  static TextStyle display({double size = 28, Color color = AppColors.textPrimary}) =>
-      GoogleFonts.fredoka(fontSize: size, fontWeight: FontWeight.w700, color: color, height: 1.15);
+  static TextStyle display({double size = 28, Color? color}) =>
+      GoogleFonts.fredoka(fontSize: size, fontWeight: FontWeight.w700, color: color ?? AppColors.textPrimary, height: 1.15);
 
-  static TextStyle heading({double size = 20, Color color = AppColors.textPrimary}) =>
-      GoogleFonts.fredoka(fontSize: size, fontWeight: FontWeight.w600, color: color, height: 1.2);
+  static TextStyle heading({double size = 20, Color? color}) =>
+      GoogleFonts.fredoka(fontSize: size, fontWeight: FontWeight.w600, color: color ?? AppColors.textPrimary, height: 1.2);
 
-  static const TextStyle body = TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4);
+  static TextStyle get body => TextStyle(fontSize: 15, color: AppColors.textSecondary, height: 1.4);
 
-  static const TextStyle caption = TextStyle(
+  static TextStyle get caption => TextStyle(
     fontSize: 12,
     color: AppColors.textMuted,
     fontWeight: FontWeight.w600,
     letterSpacing: 0.4,
   );
 
-  static const TextStyle overline = TextStyle(
+  static TextStyle get overline => TextStyle(
     fontSize: 11,
     color: AppColors.textMuted,
     fontWeight: FontWeight.w700,
@@ -115,14 +186,31 @@ class AppText {
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get dark {
-    const scheme = ColorScheme.dark(
+  static ThemeData get dark => build(AppPalette.dark);
+  static ThemeData get light => build(AppPalette.light);
+
+  /// [palette] için tema. Çağrılmadan önce AppColors.palette da ayarlanmış
+  /// olmalıdır (bileşen temaları AppColors'tan okur).
+  static ThemeData build(AppPalette palette) {
+    final previous = AppColors.palette;
+    AppColors.palette = palette;
+    try {
+      return _build(palette);
+    } finally {
+      AppColors.palette = previous;
+    }
+  }
+
+  static ThemeData _build(AppPalette palette) {
+    final isDark = palette.brightness == Brightness.dark;
+    final scheme = ColorScheme(
+      brightness: palette.brightness,
       primary: AppColors.primary,
       onPrimary: Colors.white,
       secondary: AppColors.secondary,
-      onSecondary: AppColors.bg,
+      onSecondary: isDark ? AppColors.bg : Colors.white,
       tertiary: AppColors.gold,
-      onTertiary: AppColors.bg,
+      onTertiary: isDark ? AppColors.bg : Colors.white,
       surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
       surfaceContainerHighest: AppColors.surfaceHigh,
@@ -131,7 +219,7 @@ class AppTheme {
       onError: Colors.white,
     );
 
-    final base = ThemeData(useMaterial3: true, brightness: Brightness.dark, colorScheme: scheme);
+    final base = ThemeData(useMaterial3: true, brightness: palette.brightness, colorScheme: scheme);
     final rounded = RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.md));
 
     return base.copyWith(
@@ -149,10 +237,10 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         foregroundColor: AppColors.textPrimary,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: IconThemeData(color: AppColors.textPrimary),
         titleTextStyle: AppText.heading(size: 19),
       ),
-      iconTheme: const IconThemeData(color: AppColors.textSecondary),
+      iconTheme: IconThemeData(color: AppColors.textSecondary),
       cardTheme: CardThemeData(
         color: AppColors.surface,
         surfaceTintColor: Colors.transparent,
@@ -160,7 +248,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.lg),
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: AppColors.border),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
@@ -186,7 +274,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           minimumSize: const Size(64, 52),
-          side: const BorderSide(color: AppColors.border, width: 1.5),
+          side: BorderSide(color: AppColors.border, width: 1.5),
           shape: rounded,
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
@@ -200,26 +288,26 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        hintStyle: const TextStyle(color: AppColors.textMuted),
-        labelStyle: const TextStyle(color: AppColors.textSecondary),
+        hintStyle: TextStyle(color: AppColors.textMuted),
+        labelStyle: TextStyle(color: AppColors.textSecondary),
         prefixIconColor: AppColors.textMuted,
         suffixIconColor: AppColors.textMuted,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+          borderSide: BorderSide(color: AppColors.primaryLight, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
-          borderSide: const BorderSide(color: AppColors.danger),
+          borderSide: BorderSide(color: AppColors.danger),
         ),
       ),
       dialogTheme: DialogThemeData(
@@ -229,7 +317,7 @@ class AppTheme {
         titleTextStyle: AppText.heading(size: 20),
         contentTextStyle: AppText.body,
       ),
-      bottomSheetTheme: const BottomSheetThemeData(
+      bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         showDragHandle: false,
@@ -240,19 +328,19 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.surfaceHigh,
-        contentTextStyle: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+        contentTextStyle: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
       ),
-      drawerTheme: const DrawerThemeData(
+      drawerTheme: DrawerThemeData(
         backgroundColor: AppColors.bg,
         surfaceTintColor: Colors.transparent,
       ),
-      dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
-      listTileTheme: const ListTileThemeData(
+      dividerTheme: DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
+      listTileTheme: ListTileThemeData(
         iconColor: AppColors.textSecondary,
         textColor: AppColors.textPrimary,
       ),
-      progressIndicatorTheme: const ProgressIndicatorThemeData(
+      progressIndicatorTheme: ProgressIndicatorThemeData(
         color: AppColors.primaryLight,
         linearTrackColor: AppColors.surfaceHigh,
         circularTrackColor: AppColors.surfaceHigh,
@@ -260,8 +348,8 @@ class AppTheme {
       chipTheme: base.chipTheme.copyWith(
         backgroundColor: AppColors.surface,
         selectedColor: AppColors.primary,
-        side: const BorderSide(color: AppColors.border),
-        labelStyle: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+        side: BorderSide(color: AppColors.border),
+        labelStyle: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
       ),
       switchTheme: SwitchThemeData(
@@ -278,7 +366,7 @@ class AppTheme {
         thumbColor: Colors.white,
         overlayColor: AppColors.primary.withValues(alpha: 0.2),
       ),
-      tabBarTheme: const TabBarThemeData(
+      tabBarTheme: TabBarThemeData(
         labelColor: AppColors.textPrimary,
         unselectedLabelColor: AppColors.textMuted,
         indicatorColor: AppColors.primaryLight,

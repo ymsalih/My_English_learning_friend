@@ -144,6 +144,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
     super.initState();
     _speechToText = stt.SpeechToText();
     _loadLimits();
+    // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
+    SubscriptionService.changes.addListener(_loadLimits);
   }
 
   Future<void> _loadLimits() async {
@@ -159,6 +161,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   @override
   void dispose() {
+    SubscriptionService.changes.removeListener(_loadLimits);
     if (_isListening) {
       _speechToText?.stop();
     }
@@ -482,7 +485,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
         // 🚀 GLOBAL CACHE'E KAYDET
         if (!textToTranslate.contains(' ')) {
            String cacheDocId = "${_isEnToTr ? 'en' : 'tr'}_$textToTranslate";
-           await FirebaseFirestore.instance.collection('dictionary_cache').doc(cacheDocId).set(cacheItem.toJson());
+           // Arka planda ve hatası çeviriyi etkilemeden: kayıt başka bir
+           // kullanıcı tarafından zaten eklenmişse kurallar yazmayı reddeder.
+           FirebaseFirestore.instance
+               .collection('dictionary_cache')
+               .doc(cacheDocId)
+               .set(cacheItem.toJson())
+               .catchError((Object e) => debugPrint("Global önbellek yazılamadı: $e"));
         }
       }
     } catch (e) {
@@ -775,7 +784,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
               ),
               child: Text(
                 _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.success,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
@@ -826,10 +835,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
         children: [
           Text(
             _isEnToTr ? '🇬🇧 EN' : '🇹🇷 TR',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.swap_horizontal_circle,
               size: 35,
               color: AppColors.secondary,
@@ -848,7 +857,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ),
           Text(
             _isEnToTr ? '🇹🇷 TR' : '🇬🇧 EN',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
           ),
         ],
       ),
@@ -875,7 +884,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
             textCapitalization: TextCapitalization.sentences,
-            style: const TextStyle(fontSize: 18, color: Colors.white),
+            style: TextStyle(fontSize: 18, color: AppColors.textPrimary),
             cursorColor: AppColors.secondary,
             inputFormatters: _isEnToTr
                 ? [FilteringTextInputFormatter.deny(RegExp(r'[çÇğĞıİöÖşŞüÜ]'))]
@@ -904,13 +913,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
               children: [
                 if (_isEnToTr)
                   IconButton(
-                    icon: const Icon(Icons.volume_up, color: AppColors.secondary),
+                    icon: Icon(Icons.volume_up, color: AppColors.secondary),
                     tooltip: "Dinle",
                     onPressed: () => _speak(_textController.text),
                   ),
                 if (!kIsWeb)
                   IconButton(
-                    icon: const Icon(Icons.camera_alt, color: AppColors.primaryLight),
+                    icon: Icon(Icons.camera_alt, color: AppColors.primaryLight),
                     tooltip: "Kamera ile Okut",
                     onPressed: _openCameraScanner,
                   ),
@@ -924,7 +933,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   onPressed: _listen,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.clear, color: AppColors.textMuted),
+                  icon: Icon(Icons.clear, color: AppColors.textMuted),
                   tooltip: "Temizle",
                   onPressed: () => setState(() {
                     _textController.clear();
@@ -946,7 +955,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.secondary, AppColors.primary],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -962,11 +971,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),
         child: _isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Text(
+            ? CircularProgressIndicator(color: AppColors.textPrimary)
+            : Text(
                 'Akıllı Çeviri ✨',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -1007,7 +1016,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                         height: 200,
                         width: double.infinity,
                         color: AppColors.surface,
-                        child: const Center(
+                        child: Center(
                           child: CircularProgressIndicator(color: AppColors.primaryLight),
                         ),
                       ),
@@ -1015,7 +1024,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                         height: 200,
                         width: double.infinity,
                         color: AppColors.surface,
-                        child: const Icon(
+                        child: Icon(
                           Icons.broken_image_rounded,
                           color: AppColors.textMuted,
                           size: 50,
@@ -1032,7 +1041,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       _isEnToTr
                           ? _textController.text.trim().toLowerCase()
                           : _mainTranslation.toLowerCase(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.secondary,
                         fontSize: 22,
@@ -1042,7 +1051,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   Container(
                     decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
                     child: IconButton(
-                      icon: const Icon(Icons.volume_up, color: AppColors.secondary),
+                      icon: Icon(Icons.volume_up, color: AppColors.secondary),
                       onPressed: () => _speak(
                         _isEnToTr ? _textController.text.trim() : _mainTranslation,
                       ),
@@ -1050,14 +1059,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   ),
                 ],
               ),
-              const Divider(color: Colors.white24, height: 30),
+              Divider(color: AppColors.textPrimary.withValues(alpha: 0.24), height: 30),
 
               Text(
                 _isEnToTr ? _mainTranslation : _textController.text.trim(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                 ),
               ),
 
@@ -1083,7 +1092,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             ),
                             TextSpan(
                               text: group.shortMeanings.join(', '),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
@@ -1104,7 +1113,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
             padding: const EdgeInsets.only(top: 25.0, bottom: 10.0),
             child: Row(
               children: [
-                const Icon(Icons.lightbulb_outline_rounded, color: AppColors.gold, size: 22),
+                Icon(Icons.lightbulb_outline_rounded, color: AppColors.gold, size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1140,7 +1149,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                     children: [
                       Text(
                         group.partOfSpeech.toLowerCase(),
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.primaryLight,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -1154,7 +1163,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
                         return Container(
                           margin: const EdgeInsets.only(bottom: 15),
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             border: Border(left: BorderSide(color: AppColors.secondary, width: 3)),
                           ),
                           padding: const EdgeInsets.only(left: 12),
@@ -1163,10 +1172,10 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             children: [
                               Text(
                                 engWord,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
-                                  color: Colors.white,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -1179,7 +1188,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                         );
                       }),
                       if (group != _groupedMeanings.last)
-                        const Divider(height: 10, thickness: 1, color: Colors.white12),
+                        Divider(height: 10, thickness: 1, color: AppColors.textPrimary.withValues(alpha: 0.12)),
                     ],
                   ),
                 );
@@ -1202,13 +1211,13 @@ class _TranslationScreenState extends State<TranslationScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.format_quote_rounded, color: AppColors.secondary, size: 24),
+                    Icon(Icons.format_quote_rounded, color: AppColors.secondary, size: 24),
                     const SizedBox(width: 8),
                     Text(
                       "Örnekler: Bağlam içi kullanım",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.white.withOpacity(0.9),
+                        color: AppColors.textPrimary.withOpacity(0.9),
                         fontSize: 16,
                       ),
                     ),
@@ -1226,7 +1235,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             padding: const EdgeInsets.only(bottom: 8.0, top: 10.0),
                             child: Text(
                               "[${_getShortPartSpeech(group.partOfSpeech)}]",
-                              style: const TextStyle(color: AppColors.primaryLight, fontSize: 14, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: AppColors.primaryLight, fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                           ),
 
@@ -1248,7 +1257,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           ),
 
                           if (group != _groupedMeanings.last)
-                            const Divider(height: 10, thickness: 1, color: Colors.white12),
+                            Divider(height: 10, thickness: 1, color: AppColors.textPrimary.withValues(alpha: 0.12)),
                         ],
                       );
                     }),

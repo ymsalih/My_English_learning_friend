@@ -8,6 +8,7 @@ import 'dart:io';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
+import 'theme/theme_controller.dart';
 import 'services/subscription_service.dart';
 
 // Uygulamanın her yerinden erişebileceğimiz global kamera listesi
@@ -52,6 +53,9 @@ void main() async {
   
   SubscriptionService().setupRevenueCatListener();
 
+  // Kayıtlı tema modu (açık / koyu / sistem) ilk kareden önce uygulanır.
+  await ThemeController.instance.load();
+
   runApp(const IngilizceDestekApp());
 }
 
@@ -60,12 +64,18 @@ class IngilizceDestekApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Octopus English',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeController.instance,
+      builder: (context, mode, _) => MaterialApp(
+        title: 'Octopus English',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: mode,
+        // Renkler anında değişsin (tema geçiş animasyonu ile palet uyumsuz kalmasın).
+        themeAnimationDuration: Duration.zero,
+        home: const SplashScreen(),
+      ),
     );
   }
 }

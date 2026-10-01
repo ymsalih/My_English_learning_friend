@@ -64,13 +64,13 @@ class _AuthScreenState extends State<AuthScreen>
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface, // Koyu arka plan
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25), side: BorderSide(color: Colors.white.withOpacity(0.1))),
-        title: const Text("Şifre Sıfırlama", style: TextStyle(color: Colors.white)),
+        title: Text("Şifre Sıfırlama", style: TextStyle(color: AppColors.textPrimary)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               "Kayıtlı e-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.",
-              style: TextStyle(fontSize: 14, color: Colors.white70),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             _buildTextField(
@@ -84,7 +84,7 @@ class _AuthScreenState extends State<AuthScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("İptal", style: TextStyle(color: AppColors.textMuted)),
+            child: Text("İptal", style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -445,15 +445,15 @@ class _AuthScreenState extends State<AuthScreen>
                       alignment: Alignment.centerLeft,
                       child: TextButton.icon(
                         onPressed: _backToLanding,
-                        icon: const Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.textMuted),
-                        label: const Text('Tanıtım', style: TextStyle(color: AppColors.textMuted)),
+                        icon: Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.textMuted),
+                        label: Text('Tanıtım', style: TextStyle(color: AppColors.textMuted)),
                       ),
                     ),
                     _buildHeroLogo(),
                     const SizedBox(height: AppSpacing.lg),
                     Text('Octopus English', textAlign: TextAlign.center, style: AppText.display(size: 30)),
                     const SizedBox(height: AppSpacing.xs),
-                    const Text(
+                    Text(
                       'Kelimelerin dünyasına yolculuk başlasın.',
                       textAlign: TextAlign.center,
                       style: AppText.body,
@@ -503,7 +503,7 @@ class _AuthScreenState extends State<AuthScreen>
                         },
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      const Text(
+                      Text(
                         "Kayıttan sonra e-postana gelen onay linkine tıklayarak giriş yapabilirsin.",
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12, color: AppColors.textMuted, height: 1.4),
@@ -515,7 +515,7 @@ class _AuthScreenState extends State<AuthScreen>
                     else ...[
                       _buildSubmitButton(),
                       const SizedBox(height: AppSpacing.lg),
-                      const Row(
+                      Row(
                         children: [
                           Expanded(child: Divider()),
                           Padding(
@@ -534,19 +534,19 @@ class _AuthScreenState extends State<AuthScreen>
                       Wrap(
                         alignment: WrapAlignment.center,
                         children: [
-                          const Text("Kayıt olarak ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                          Text("Kayıt olarak ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                           GestureDetector(
                             onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa')),
-                            child: const Text("Kullanım Şartları",
+                            child: Text("Kullanım Şartları",
                                 style: TextStyle(color: AppColors.primaryLight, fontSize: 11, decoration: TextDecoration.underline)),
                           ),
-                          const Text(" ve ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                          Text(" ve ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                           GestureDetector(
                             onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa')),
-                            child: const Text("Gizlilik Politikasını",
+                            child: Text("Gizlilik Politikasını",
                                 style: TextStyle(color: AppColors.primaryLight, fontSize: 11, decoration: TextDecoration.underline)),
                           ),
-                          const Text(" kabul etmiş olursunuz.", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                          Text(" kabul etmiş olursunuz.", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                         ],
                       ),
                     ],
@@ -620,7 +620,7 @@ class _AuthScreenState extends State<AuthScreen>
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: AppColors.textPrimary),
+      style: TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon)),
     );
   }
@@ -634,7 +634,7 @@ class _AuthScreenState extends State<AuthScreen>
     return TextField(
       controller: controller,
       obscureText: !isVisible,
-      style: const TextStyle(color: AppColors.textPrimary),
+      style: TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: const Icon(Icons.lock_outline_rounded),

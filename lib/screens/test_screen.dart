@@ -45,7 +45,7 @@ class _TestScreenState extends State<TestScreen> {
   int _masteredCount = 0;
   bool _testCompleted = false;
 
-  final LinearGradient primaryGradient = const LinearGradient(
+  final LinearGradient primaryGradient = LinearGradient(
     colors: [AppColors.secondary, AppColors.primary],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -56,6 +56,8 @@ class _TestScreenState extends State<TestScreen> {
     super.initState();
     _checkAvailableWords();
     _loadLimits();
+    // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
+    SubscriptionService.changes.addListener(_loadLimits);
   }
 
   Future<void> _loadLimits() async {
@@ -71,6 +73,8 @@ class _TestScreenState extends State<TestScreen> {
 
   @override
   void dispose() {
+    _flushTestCount(); // yarıda bırakılan testin sorularını da say
+    SubscriptionService.changes.removeListener(_loadLimits);
     _swipePosition.dispose();
     _swipeAngle.dispose();
     _isDragging.dispose();
@@ -81,31 +85,34 @@ class _TestScreenState extends State<TestScreen> {
     await _ttsService.speak(text);
   }
 
+  static const int _maxPoolFetch = 1000;
+
+  int _pendingTestCount = 0;
+  static const int _testFlushEvery = 10;
+
+  void _flushTestCount() {
+    if (_pendingTestCount == 0) return;
+    final count = _pendingTestCount;
+    _pendingTestCount = 0;
+    _subService.incrementTestBy(count);
+  }
+
   Future<void> _checkAvailableWords() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        QuerySnapshot snapshot;
-        try {
-          snapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('words')
-              .get(const GetOptions(source: Source.cache));
-          if (snapshot.docs.isEmpty) {
-            snapshot = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .collection('words')
-                .get(const GetOptions(source: Source.server));
-          }
-        } catch (e) {
-          snapshot = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .collection('words')
-              .get(const GetOptions(source: Source.server));
-        }
+        // Yalnızca havuzdaki (öğrenilmemiş) kelimeler, sunucudan eksiksiz.
+        // Varsayılan get() çevrimdışıyken otomatik olarak önbelleğe düşer.
+        // (Önceden önbellek-önce okunuyordu: önbellekte havuzun yalnızca bir
+        // kısmı varsa test hatasız ama eksik kelimeyle başlıyordu.)
+        // Üst sınır, sınırsız planda belleği ve okuma maliyetini korur.
+        final QuerySnapshot snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('words')
+            .where('isLearned', isEqualTo: false)
+            .limit(_maxPoolFetch)
+            .get();
 
         final wordsList = snapshot.docs
             .map((doc) {
@@ -229,8 +236,10 @@ class _TestScreenState extends State<TestScreen> {
       updateData['isLearned'] = true;
     }
 
-    // Increment word limit counter
-    _subService.incrementTest();
+    // Kullanım sayacı biriktirilir; kullanıcı belgesine her kaydırmada değil
+    // toplu yazılır (belge başına yazma sıklığı ve dinleyici tetiklenmesi azalır).
+    _pendingTestCount++;
+    if (_pendingTestCount >= _testFlushEvery) _flushTestCount();
 
     if (user != null) {
       FirebaseFirestore.instance
@@ -250,6 +259,7 @@ class _TestScreenState extends State<TestScreen> {
 
       if (_words.isEmpty) {
         _testCompleted = true;
+        _flushTestCount();
         int correctAnswers = _masteredCount + _rememberedCount;
         _saveTestResultsToFirebase(correctAnswers, _forgotCount, _masteredCount);
       }
@@ -331,7 +341,7 @@ class _TestScreenState extends State<TestScreen> {
               ),
               const SizedBox(height: AppSpacing.xxl),
               Text("$_selectedWordCount", style: AppText.display(size: 48)),
-              const Text("KELİME", style: AppText.overline),
+              Text("KELİME", style: AppText.overline),
               const SizedBox(height: AppSpacing.md),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
@@ -476,7 +486,7 @@ class _TestScreenState extends State<TestScreen> {
                   const SizedBox(width: AppSpacing.md),
                   Text(
                     "${_totalWordsInSession - _words.length}/$_totalWordsInSession",
-                    style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
@@ -537,7 +547,7 @@ class _TestScreenState extends State<TestScreen> {
               },
             ),
             const SizedBox(height: AppSpacing.lg),
-            const Text(
+            Text(
               "Karta dokun: çevir  ·  Kaydır veya butonları kullan",
               style: AppText.caption,
             ),
@@ -579,14 +589,14 @@ class _TestScreenState extends State<TestScreen> {
                     value: successRate / 100,
                     strokeWidth: 12,
                     strokeCap: StrokeCap.round,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.success),
+                    valueColor: AlwaysStoppedAnimation(AppColors.success),
                   ),
                   Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text("%${successRate.toStringAsFixed(0)}", style: AppText.display(size: 40)),
-                        const Text("BAŞARI", style: AppText.overline),
+                        Text("BAŞARI", style: AppText.overline),
                       ],
                     ),
                   ),
@@ -596,7 +606,7 @@ class _TestScreenState extends State<TestScreen> {
             const SizedBox(height: AppSpacing.xxl),
             Text("Test Tamamlandı!", style: AppText.display(size: 26)),
             const SizedBox(height: AppSpacing.xs),
-            const Text("İşte bu çalışmadaki performans analizin", style: AppText.body),
+            Text("İşte bu çalışmadaki performans analizin", style: AppText.body),
             const SizedBox(height: AppSpacing.xxl),
             Row(
               children: [
@@ -677,11 +687,11 @@ class _TestScreenState extends State<TestScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const IconBadge(icon: Icons.style_rounded, size: 88, color: AppColors.textMuted),
+            IconBadge(icon: Icons.style_rounded, size: 88, color: AppColors.textMuted),
             const SizedBox(height: AppSpacing.xxl),
             Text("Havuzda Kelime Yok!", style: AppText.heading(size: 22)),
             const SizedBox(height: AppSpacing.sm),
-            const Text(
+            Text(
               "Lütfen test edilecek yeni kelimeler ekle.",
               textAlign: TextAlign.center,
               style: AppText.body,
@@ -731,7 +741,7 @@ class _TestScreenState extends State<TestScreen> {
                 child: Text(
                   text,
                   textAlign: TextAlign.center,
-                  style: AppText.display(size: dynamicFontSize, color: Colors.white),
+                  style: AppText.display(size: dynamicFontSize, color: isFront ? Colors.white : AppColors.textPrimary),
                 ),
               ),
             ),
@@ -750,7 +760,8 @@ class _TestScreenState extends State<TestScreen> {
             bottom: 16,
             left: 0,
             right: 0,
-            child: Icon(Icons.touch_app_rounded, color: Colors.white.withValues(alpha: 0.35), size: 22),
+            child: Icon(Icons.touch_app_rounded,
+                color: (isFront ? Colors.white : AppColors.textMuted).withValues(alpha: isFront ? 0.35 : 0.7), size: 22),
           ),
         ],
       ),

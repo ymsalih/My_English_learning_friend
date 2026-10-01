@@ -65,6 +65,8 @@ class _ChatScreenState extends State<ChatScreen> {
     _chatService.warmUp();
     _loadUserData();
     _loadLimits();
+    // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
+    SubscriptionService.changes.addListener(_loadLimits);
 
     // Add initial welcome message
     _messages.add(
@@ -74,6 +76,14 @@ class _ChatScreenState extends State<ChatScreen> {
         isUser: false,
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    SubscriptionService.changes.removeListener(_loadLimits);
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLimits() async {
@@ -200,11 +210,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _recordMessage(String text, Map<String, dynamic> aiResponse) async {
+    // Yalnızca kullanım sayacı. Mesaj geçmişi Firestore'a yazılmıyor: uygulamada
+    // okunmadığı için her mesajda gereksiz yazma ve depolama maliyetiydi.
     try {
-      await Future.wait([
-        _subService.incrementChat(),
-        _chatService.saveMessageToHistory(_selectedMode, text, aiResponse),
-      ]);
+      await _subService.incrementChat();
     } catch (e) {
       debugPrint("Chat kayıt hatası: $e");
     }
@@ -275,7 +284,7 @@ class _ChatScreenState extends State<ChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Octopus AI', style: AppText.heading(size: 17)),
-                const Row(
+                Row(
                   children: [
                     CircleAvatar(radius: 4, backgroundColor: AppColors.success),
                     SizedBox(width: 6),
@@ -326,7 +335,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildModeChips() {
     return Container(
       height: 52,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.bgTop,
         border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
@@ -374,8 +383,8 @@ class _ChatScreenState extends State<ChatScreen> {
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
         itemBuilder: (context, i) => ActionChip(
           label: Text(_starters[i]),
-          labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-          avatar: const Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primaryLight),
+          labelStyle: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+          avatar: Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primaryLight),
           onPressed: () => _sendStarter(_starters[i]),
         ),
       ),
@@ -443,7 +452,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       children: [
                         Text(
                           message.text,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.45),
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.45),
                         ),
                         if (message.isTranslating)
                           const Padding(
@@ -461,7 +470,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                           Text(
                             message.translation!,
-                            style: const TextStyle(color: AppColors.secondary, fontSize: 14, height: 1.4),
+                            style: TextStyle(color: AppColors.secondary, fontSize: 14, height: 1.4),
                           ),
                         ],
                       ],
@@ -504,7 +513,7 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.auto_fix_high_rounded, color: AppColors.secondary, size: 16),
               SizedBox(width: 6),
@@ -522,7 +531,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(height: 10),
             Text(
               correction['explanation'].toString(),
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
           ],
         ],
@@ -560,7 +569,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageInput() {
     return Container(
       padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.bgBottom,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
@@ -571,7 +580,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: TextField(
                 controller: _messageController,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
                 minLines: 1,
                 maxLines: 4,
                 decoration: InputDecoration(
@@ -579,15 +588,15 @@ class _ChatScreenState extends State<ChatScreen> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: const BorderSide(color: AppColors.border),
+                    borderSide: BorderSide(color: AppColors.border),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.xl),
-                    borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+                    borderSide: BorderSide(color: AppColors.primaryLight, width: 1.5),
                   ),
                 ),
                 textCapitalization: TextCapitalization.sentences,
@@ -653,7 +662,7 @@ class _BubbleAction extends StatelessWidget {
           children: [
             Icon(icon, size: 15, color: AppColors.textMuted),
             const SizedBox(width: 4),
-            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(label, style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

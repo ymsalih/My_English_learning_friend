@@ -81,7 +81,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.open_in_browser_rounded, color: AppColors.secondary),
+            icon: Icon(Icons.open_in_browser_rounded, color: AppColors.secondary),
             onPressed: _launchInBrowser,
           ),
         ],
@@ -92,7 +92,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
               children: [
                 WebViewWidget(controller: _controller),
                 if (_isLoading)
-                  const Center(
+                  Center(
                     child: CircularProgressIndicator(color: AppColors.secondary),
                   ),
                 if (_hasError) _buildWebFallback(),

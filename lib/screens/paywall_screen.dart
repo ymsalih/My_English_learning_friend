@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -152,7 +153,22 @@ class _PaywallScreenState extends State<PaywallScreen> {
         }
       }
 
-      // 2. Fallback Mock (If API keys not yet set or products missing)
+      // 2. Paketler yüklenemedi. Yayın sürümünde ASLA ödemesiz yükseltme
+      // yapılmaz (bağlantı/billing sorununda plan bedavaya açılıyordu).
+      if (!kDebugMode) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Ödeme sistemi şu an kullanılamıyor. Lütfen internet bağlantını kontrol edip tekrar dene.'),
+              backgroundColor: AppColors.dangerFill,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Yalnızca geliştirme sürümü: ürünler mağazada yokken test yükseltmesi.
       await Future.delayed(const Duration(seconds: 1));
       await _subService.upgradeSubscription(_selectedTab);
 
@@ -449,10 +465,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
-          const Icon(Icons.check_rounded, color: AppColors.success, size: 18),
+          Icon(Icons.check_rounded, color: AppColors.success, size: 18),
         ],
       ),
     );
@@ -494,7 +510,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       ),
                       if (id == 'pro') ...[
                         const SizedBox(width: 6),
-                        const Icon(Icons.local_fire_department_rounded, size: 14, color: AppColors.gold),
+                        Icon(Icons.local_fire_department_rounded, size: 14, color: AppColors.gold),
                       ],
                     ],
                   ),
@@ -544,7 +560,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+                        style: TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       if (isPopular) ...[
                         const SizedBox(width: AppSpacing.sm),
@@ -554,7 +570,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                             gradient: AppColors.goldGradient,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
+                          child: Text(
                             'EN AVANTAJLI',
                             style: TextStyle(color: AppColors.bg, fontSize: 10, fontWeight: FontWeight.w900),
                           ),
@@ -692,7 +708,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: AppSpacing.lg),
               Text('Octopus Premium', textAlign: TextAlign.center, style: AppText.display(size: 28)),
               const SizedBox(height: AppSpacing.xs),
-              const Text(
+              Text(
                 'Daha fazla pratik, daha hızlı ilerleme.\nİstediğin zaman iptal edebilirsin.',
                 textAlign: TextAlign.center,
                 style: AppText.body,
@@ -743,7 +759,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   child: const Text("Satın Alımları Geri Yükle"),
                 ),
               ),
-              const Text(
+              Text(
                 "Önceden aktif bir aboneliğiniz varsa veya hesabınızı silip yeniden kayıt olduysanız paketinizi buradan geri çağırabilirsiniz.",
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
@@ -756,12 +772,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
-                    child: const Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    child: Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   ),
-                  const Text("|", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text("|", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   GestureDetector(
                     onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
-                    child: const Text("Kullanım Şartları", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    child: Text("Kullanım Şartları", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   ),
                 ],
               ),
@@ -772,7 +788,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       // Satın alma butonu her zaman görünür.
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.md, AppSpacing.page, AppSpacing.md),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: AppColors.bgBottom,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
@@ -822,7 +838,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
+              Text(
                 'Google Play / App Store ile güvenli ödeme',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11),
               ),

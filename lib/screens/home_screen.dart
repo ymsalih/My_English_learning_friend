@@ -10,6 +10,7 @@ import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../widgets/cached_stream_builder.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +41,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadLimits();
+    // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
+    SubscriptionService.changes.addListener(_loadLimits);
 
     _searchController.addListener(() {
       setState(() {
@@ -80,6 +83,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    SubscriptionService.changes.removeListener(_loadLimits);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -148,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
               child: Container(
                 padding: const EdgeInsets.fromLTRB(AppSpacing.xxl, AppSpacing.md, AppSpacing.xxl, AppSpacing.xxl),
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
                   border: Border(top: BorderSide(color: AppColors.border)),
@@ -169,13 +173,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: AppSpacing.xl),
                       Text('Yeni Kelime Ekle', style: AppText.heading(size: 21)),
                       const SizedBox(height: AppSpacing.xs),
-                      const Text('İngilizcesini yaz, Türkçesi otomatik gelsin.', style: AppText.caption),
+                      Text('İngilizcesini yaz, Türkçesi otomatik gelsin.', style: AppText.caption),
                       const SizedBox(height: AppSpacing.xl),
                       TextField(
                         controller: engController,
                         onChanged: onEngTextChanged,
                         autofocus: true,
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(color: AppColors.textPrimary),
                         decoration: InputDecoration(
                           labelText: 'İngilizce',
                           prefixIcon: const Icon(Icons.language_rounded),
@@ -190,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: AppSpacing.md),
                       TextField(
                         controller: trController,
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(color: AppColors.textPrimary),
                         decoration: const InputDecoration(
                           labelText: 'Türkçe',
                           prefixIcon: Icon(Icons.translate_rounded),
@@ -253,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.md, AppSpacing.page, AppSpacing.sm),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: AppColors.textPrimary),
                 decoration: const InputDecoration(
                   hintText: 'Kelime ara...',
                   prefixIcon: Icon(Icons.search_rounded),
@@ -261,8 +265,11 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
+              // Dinleyici yalnızca sorgu değişince (arama açılıp kapanınca veya
+              // sayfa büyüyünce) yeniden kurulur; her harfte değil.
+              child: CachedStreamBuilder<QuerySnapshot>(
+                queryKey: (user?.uid, _searchQuery.isNotEmpty ? 1000 : _documentLimit),
+                create: () => FirebaseFirestore.instance
                     .collection('users')
                     .doc(user?.uid)
                     .collection('words')
@@ -277,7 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   if (snapshot.hasError) {
                     debugPrint("Firestore Hatası: ${snapshot.error}");
-                    return const Center(
+                    return Center(
                       child: Padding(
                         padding: EdgeInsets.all(AppSpacing.xl),
                         child: Text(
@@ -365,18 +372,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                     children: [
                                       Text(
                                         data['eng'],
-                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary),
+                                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary),
                                       ),
                                       const SizedBox(height: 3),
                                       Text(
                                         data['tr'],
-                                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                                       ),
                                     ],
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight, size: 22),
+                                  icon: Icon(Icons.volume_up_rounded, color: AppColors.primaryLight, size: 22),
                                   onPressed: () => _speak(data['eng']),
                                   tooltip: 'Dinle',
                                 ),

@@ -146,7 +146,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
   @override
   Widget build(BuildContext context) {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.secondary),
@@ -196,7 +196,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
             right: 0,
             child: Container(
               padding: const EdgeInsets.all(30),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.surface,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
                 border: Border(top: BorderSide(color: AppColors.border)),
@@ -205,7 +205,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isProcessing)
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
                       child: CircularProgressIndicator(color: AppColors.secondary),
                     )
@@ -259,7 +259,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                   else
                     Column(
                       children: [
-                        const Text(
+                        Text(
                           "Tespit Edilen Metin:",
                           style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
@@ -276,7 +276,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                             physics: const BouncingScrollPhysics(),
                             child: Text(
                               _scannedText,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 color: AppColors.textPrimary,
                               ),
