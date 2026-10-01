@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'tts_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class LearnedWordsScreen extends StatefulWidget {
   const LearnedWordsScreen({super.key});
@@ -21,7 +23,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
 
   // 💎 CANLI VE FERAH TEMA: Royal İndigo'dan Turkuaz'a Geçiş
   final LinearGradient primaryGradient = const LinearGradient(
-    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)], // Indigo to Purple
+    colors: [AppColors.secondary, AppColors.primary], // Indigo to Purple
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -89,7 +91,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                 Text("Kelime tekrar test havuzuna eklendi!", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
-            backgroundColor: const Color(0xFF3B82F6), // Indigo/Blue
+            backgroundColor: AppColors.primary, // Indigo/Blue
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
@@ -120,7 +122,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                 Text("Kelime kalıcı olarak silindi.", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
               ],
             ),
-            backgroundColor: Colors.redAccent, // Canlı kırmızı
+            backgroundColor: AppColors.dangerFill, // Canlı kırmızı
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
@@ -136,60 +138,18 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.bg,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'Öğrendiklerim',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
+          'Öğrendiklerim'
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
           // Uzay Arka Plan (Glow Effects)
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          Positioned(
-            top: -100, right: -50,
-            child: Container(
-              width: 300, height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50, left: -50,
-            child: Container(
-              width: 250, height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           
           user == null
               ? const Center(child: Text("Oturum açılmamış.", style: TextStyle(color: Colors.white)))
@@ -206,7 +166,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                         snapshot.data == null) {
                       return const Center(
                         child: CircularProgressIndicator(
-                          color: Colors.purpleAccent,
+                          color: AppColors.primaryLight,
                         ),
                       );
                     }
@@ -234,7 +194,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                               child: Padding(
                                 padding: EdgeInsets.all(15.0),
                                 child: CircularProgressIndicator(
-                                  color: Colors.blueAccent,
+                                  color: AppColors.secondary,
                                   strokeWidth: 3,
                                 ),
                               ),
@@ -269,7 +229,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
             SlidableAction(
               onPressed: (context) =>
                   _showRestoreDialog(word['eng'], word['docId']),
-              backgroundColor: const Color(0xFF3B82F6).withOpacity(0.9), // Blue
+              backgroundColor: AppColors.primary.withOpacity(0.9), // Blue
               foregroundColor: Colors.white,
               icon: Icons.settings_backup_restore_rounded,
               label: 'Havuza Al',
@@ -277,7 +237,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
             SlidableAction(
               onPressed: (context) =>
                   _showDeleteDialog(word['eng'], word['docId']),
-              backgroundColor: Colors.redAccent.withOpacity(0.9), // Kırmızı
+              backgroundColor: AppColors.dangerFill.withOpacity(0.9), // Kırmızı
               foregroundColor: Colors.white,
               icon: Icons.delete_outline_rounded,
               label: 'Sil',
@@ -290,16 +250,9 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.7),
+            color: AppColors.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: Border.all(color: AppColors.surface, width: 1.5),
           ),
           child: Material(
             color: Colors.transparent,
@@ -312,13 +265,13 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                     width: 54,
                     height: 54,
                     decoration: BoxDecoration(
-                      color: Colors.orangeAccent.withOpacity(0.15),
+                      color: AppColors.gold.withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
                     child: const Center(
                       child: Icon(
                         Icons.school_rounded,
-                        color: Colors.orangeAccent,
+                        color: AppColors.gold,
                         size: 28,
                       ),
                     ),
@@ -345,7 +298,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.purpleAccent, 
+                            color: AppColors.primaryLight, 
                           ),
                         ),
                       ],
@@ -357,7 +310,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: AppColors.surface,
                       shape: BoxShape.circle,
                     ),
                     child: Material(
@@ -365,7 +318,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(24),
                         onTap: () => _speak(word['eng']),
-                        splashColor: Colors.blueAccent.withOpacity(0.2),
+                        splashColor: AppColors.secondary.withOpacity(0.2),
                         child: const Icon(
                           Icons.volume_up_rounded,
                           color: Colors.white,
@@ -388,7 +341,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5)
@@ -397,19 +350,19 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           "Havuza Geri Ekle",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.blueAccent, 
+            color: AppColors.secondary, 
           ),
         ),
         content: Text(
           "'$engWord' kelimesini tekrar öğrenmek üzere test havuzuna geri almak istiyor musun?",
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 15),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text(
               "İptal",
-              style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.bold),
             ),
           ),
           ElevatedButton(
@@ -418,7 +371,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
               _restoreToPool(docId);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
+              backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -440,7 +393,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5)
@@ -449,19 +402,19 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
           "Kalıcı Olarak Sil",
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: Colors.redAccent,
+            color: AppColors.danger,
           ),
         ),
         content: Text(
           "'$engWord' kelimesini hesabından tamamen silmek istediğine emin misin? Bu işlem geri alınamaz.",
-          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 15),
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text(
               "İptal",
-              style: TextStyle(color: Colors.white54, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppColors.textMuted, fontWeight: FontWeight.bold),
             ),
           ),
           ElevatedButton(
@@ -470,7 +423,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
               _deleteWord(docId);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppColors.dangerFill,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -495,11 +448,11 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
             child: const Icon(
               Icons.workspace_premium_rounded,
               size: 80,
-              color: Colors.white54,
+              color: AppColors.textMuted,
             ),
           ),
           const SizedBox(height: 25),
@@ -517,7 +470,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: Colors.white.withOpacity(0.6),
+              color: AppColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),

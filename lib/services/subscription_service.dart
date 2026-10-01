@@ -280,11 +280,69 @@ class SubscriptionService {
     write.catchError((Object e) => debugPrint("Sayaç yazma hatası: $e"));
   }
 
+  // --- GÜNLÜK SERİ (STREAK) ---
+  // Seri, kullanıcının gün içinde en az bir çalışma yaptığı ardışık gün
+  // sayısıdır. Kullanıcı belgesinde tutulur:
+  //   streak         : güncel seri
+  //   longestStreak  : rekor
+  //   lastActiveDate : son çalışma günü ('YYYY-AA-GG', cihazın yerel tarihi)
+  //   lastActive     : son çalışmanın zaman damgası (bildirimler için)
+
+  static String _dateString(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static String _yesterdayString() {
+    final now = DateTime.now();
+    // Gün çıkarma takvim üzerinden yapılır (yaz saati geçişlerinde kaymaz).
+    return _dateString(DateTime(now.year, now.month, now.day - 1));
+  }
+
+  /// Ekranda gösterilecek seri. Kullanıcı dün de bugün de çalışmadıysa seri
+  /// bozulmuştur: veritabanındaki eski değer yerine 0 gösterilir.
+  static int effectiveStreak(Map<String, dynamic> userData) {
+    final last = userData['lastActiveDate'];
+    final streak = (userData['streak'] as num?)?.toInt() ?? 0;
+    if (last == _dateString(DateTime.now()) || last == _yesterdayString()) {
+      return streak;
+    }
+    return 0;
+  }
+
+  /// Bugünün ilk çalışmasında seriyi güncelleyen alanlar; bugün zaten
+  /// sayıldıysa boş döner.
+  Map<String, dynamic> _streakUpdate(Map<String, dynamic> data) {
+    final today = _getTodayString();
+    final last = data['lastActiveDate'];
+    if (last == today) return {};
+
+    final current = (data['streak'] as num?)?.toInt() ?? 0;
+    final next = last == _yesterdayString() ? current + 1 : 1;
+    final longest = (data['longestStreak'] as num?)?.toInt() ?? 0;
+    return {
+      'streak': next,
+      'longestStreak': next > longest ? next : longest,
+      'lastActiveDate': today,
+      'lastActive': FieldValue.serverTimestamp(),
+    };
+  }
+
+  /// Kendi sayacı olmayan çalışmalar (ör. telaffuz) için: bugünü aktif say.
+  Future<void> recordActivity() async {
+    final docRef = await _getUserDocRef();
+    if (docRef == null) return;
+    final update = _streakUpdate(await _getUserData());
+    if (update.isNotEmpty) _writeInBackground(docRef.update(update));
+  }
+
   Future<void> incrementWordCount() async {
     final docRef = await _getUserDocRef();
     if (docRef != null) {
+      final data = await _getUserData();
       _writeInBackground(
-        docRef.update({'lifetimeWordsAdded': FieldValue.increment(1)}),
+        docRef.update({
+          'lifetimeWordsAdded': FieldValue.increment(1),
+          ..._streakUpdate(data),
+        }),
       );
     }
   }
@@ -295,15 +353,21 @@ class SubscriptionService {
       final data = await _getUserData();
       final today = _getTodayString();
       final dailyUsage = data['dailyUsage'] as Map<String, dynamic>? ?? {};
+      // Seri, sayaçla aynı yazmada güncellenir (ek yazma yok).
+      final streak = _streakUpdate(data);
 
       if (dailyUsage['date'] != today) {
         // Yeni gün: sıfırlama ve artırma tek yazmada.
         _writeInBackground(docRef.update({
           'dailyUsage': {..._emptyDailyUsage(today), actionKey: 1},
+          ...streak,
         }));
       } else {
         _writeInBackground(
-          docRef.update({'dailyUsage.$actionKey': FieldValue.increment(1)}),
+          docRef.update({
+            'dailyUsage.$actionKey': FieldValue.increment(1),
+            ...streak,
+          }),
         );
       }
     }

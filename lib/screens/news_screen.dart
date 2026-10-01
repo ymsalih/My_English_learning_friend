@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 import 'news_details_screen.dart'; // Yeni detay sayfasını import ediyoruz
 
 class NewsScreen extends StatelessWidget {
@@ -8,20 +10,12 @@ class NewsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
+      backgroundColor: AppColors.bg, // Dark Space Background
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          "Okuma Pratiği",
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            fontSize: 20,
-            letterSpacing: 0.5,
-          ),
+          "Okuma Pratiği"
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(
@@ -33,51 +27,21 @@ class NewsScreen extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // Background Glows
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           SafeArea(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('news_links').snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(color: Colors.purpleAccent),
+                    child: CircularProgressIndicator(color: AppColors.primaryLight),
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
                     child: Text(
                       "Henüz haber eklenmemiş.",
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
                     ),
                   );
                 }
@@ -141,11 +105,11 @@ class NewsScreen extends StatelessWidget {
     } catch (e) {
       // 🔥 HATA DURUMUNDA ÇÖKMEK YERİNE YEDEK RENKLERİ KULLAN (Neon Space Temasına Uygun)
       List<Color> fallbackColors = const [
-        Colors.purpleAccent,
-        Colors.blueAccent,
-        Colors.pinkAccent,
-        Colors.cyanAccent,
-        Colors.greenAccent,
+        AppColors.primaryLight,
+        AppColors.secondary,
+        AppColors.primaryLight,
+        AppColors.secondary,
+        AppColors.success,
       ];
       // Haber sırasına (index) göre yedek bir renk seç (hep aynı renk olmasın diye)
       cardColor = fallbackColors[index % fallbackColors.length];
@@ -158,7 +122,7 @@ class NewsScreen extends StatelessWidget {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text("Bu haberin bağlantısı bulunmuyor."),
-              backgroundColor: Colors.redAccent.withOpacity(0.9),
+              backgroundColor: AppColors.dangerFill.withOpacity(0.9),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
@@ -177,19 +141,12 @@ class NewsScreen extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B).withOpacity(0.7), // Glass panel
+          color: AppColors.surface.withOpacity(0.7), // Glass panel
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: Colors.white.withOpacity(0.08),
+            color: AppColors.surface,
             width: 1.5,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: cardColor.withOpacity(0.15),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
         ),
         child: IntrinsicHeight(
           child: Row(
@@ -199,13 +156,6 @@ class NewsScreen extends StatelessWidget {
                 width: 8,
                 decoration: BoxDecoration(
                   color: cardColor,
-                  boxShadow: [
-                    BoxShadow(
-                      color: cardColor.withOpacity(0.8),
-                      blurRadius: 10,
-                      spreadRadius: -2,
-                    ),
-                  ],
                   borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(20),
                     bottomLeft: Radius.circular(20),
@@ -234,7 +184,7 @@ class NewsScreen extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.white.withOpacity(0.6),
+                          color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
                           height: 1.4,
                         ),
@@ -247,12 +197,12 @@ class NewsScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(right: 15),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: AppColors.surface,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.arrow_forward_ios_rounded,
-                  color: Colors.white.withOpacity(0.5),
+                  color: AppColors.textMuted,
                   size: 16,
                 ),
               ),

@@ -5,6 +5,8 @@ import '../services/chat_service.dart';
 import 'tts_service.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class ChatMessage {
   final String text;
@@ -190,7 +192,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(AiClient.userMessage(e)),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.dangerFill,
           ),
         );
       }
@@ -232,128 +234,88 @@ class _ChatScreenState extends State<ChatScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (context) => const PaywallScreen()));
   }
 
+  void _changeMode(String val) {
+    if (val == _selectedMode) return;
+    setState(() {
+      _selectedMode = val;
+      _history.clear();
+      _messages.clear();
+      _messages.add(
+        ChatMessage(
+          text: "Mod '$val' olarak değiştirildi. Let's practice!",
+          isUser: false,
+        ),
+      );
+    });
+  }
+
+  static const List<String> _starters = [
+    "Hi! How are you today?",
+    "Can you help me practice for a job interview?",
+    "Let's talk about my favorite movie.",
+  ];
+
+  void _sendStarter(String text) {
+    _messageController.text = text;
+    _sendMessage();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text(
-          'Octopus AI',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 1.2,
-          ),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withAlpha(15),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withAlpha(25)),
-            ),
-            child: Row(
+        backgroundColor: AppColors.bgTop,
+        titleSpacing: 0,
+        centerTitle: false,
+        title: Row(
+          children: [
+            const _AiAvatar(size: 38),
+            const SizedBox(width: AppSpacing.md),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(Icons.psychology, color: Colors.cyanAccent, size: 24),
-                const SizedBox(width: 8),
-                const Text(
-                  "Mod:",
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      value: _selectedMode,
-                      dropdownColor: const Color(0xFF1E293B),
-                      icon: const Icon(Icons.arrow_drop_down, color: Colors.cyanAccent),
-                      items: _modes.map((mode) {
-                        return DropdownMenuItem(
-                          value: mode,
-                          child: Text(
-                            mode,
-                            style: const TextStyle(fontSize: 15, color: Colors.white),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() {
-                            _selectedMode = val;
-                            _history.clear();
-                            _messages.clear();
-                            _messages.add(
-                              ChatMessage(
-                                text: "Mod '$val' olarak değiştirildi. Let's practice!",
-                                isUser: false,
-                              ),
-                            );
-                          });
-                        }
-                      },
-                    ),
-                  ),
+                Text('Octopus AI', style: AppText.heading(size: 17)),
+                const Row(
+                  children: [
+                    CircleAvatar(radius: 4, backgroundColor: AppColors.success),
+                    SizedBox(width: 6),
+                    Text('İngilizce öğretmenin', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  ],
                 ),
               ],
             ),
-          ),
-        ),
-        actions: [
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.pinkAccent.withAlpha(30),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.pinkAccent.withAlpha(100)),
-              ),
-              margin: const EdgeInsets.only(right: 16),
-              child: Text(
-                _isUnlimited ? 'Sınırsız' : '$_currentUsage/$_currentLimit',
-                style: const TextStyle(
-                  color: Colors.pinkAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-            ),
           ],
         ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.5,
-            colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.lg),
+            child: InfoPill(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: _isUnlimited ? 'Sınırsız' : '$_currentUsage/$_currentLimit',
+              color: AppColors.secondary,
+            ),
           ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(52),
+          child: _buildModeChips(),
         ),
+      ),
+      body: AppBackground(
         child: Column(
           children: [
             Expanded(
               child: ListView.builder(
                 controller: _scrollController,
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length,
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+                itemCount: _messages.length + (_isLoading && !_isStreaming ? 1 : 0),
                 itemBuilder: (context, index) {
+                  if (index >= _messages.length) return const _TypingBubble();
                   return _buildMessageBubble(index);
                 },
               ),
             ),
-            if (_isLoading && !_isStreaming)
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: CircularProgressIndicator(color: Colors.cyanAccent),
-              ),
+            if (_messages.length == 1 && !_isLoading) _buildStarters(),
             _buildMessageInput(),
           ],
         ),
@@ -361,254 +323,408 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _buildModeChips() {
+    return Container(
+      height: 52,
+      decoration: const BoxDecoration(
+        color: AppColors.bgTop,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 9),
+        itemCount: _modes.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+        itemBuilder: (context, i) {
+          final mode = _modes[i];
+          final selected = mode == _selectedMode;
+          return GestureDetector(
+            onTap: () => _changeMode(mode),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.primary : AppColors.surface,
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+                border: Border.all(color: selected ? AppColors.primary : AppColors.border),
+              ),
+              child: Text(
+                mode,
+                style: TextStyle(
+                  color: selected ? Colors.white : AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildStarters() {
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        itemCount: _starters.length,
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+        itemBuilder: (context, i) => ActionChip(
+          label: Text(_starters[i]),
+          labelStyle: const TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+          avatar: const Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primaryLight),
+          onPressed: () => _sendStarter(_starters[i]),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(int index) {
     final message = _messages[index];
-    bool hasCorrection =
-        message.correction != null &&
+    final bool hasCorrection = message.correction != null &&
         message.correction!['original'] != null &&
         message.correction!['original'].toString().isNotEmpty;
+    final maxWidth = MediaQuery.of(context).size.width * 0.78;
 
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.85,
+    if (message.isUser) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: const BoxDecoration(
+            color: AppColors.primary,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(AppRadius.lg),
+              topRight: Radius.circular(AppRadius.lg),
+              bottomLeft: Radius.circular(AppRadius.lg),
+              bottomRight: Radius.circular(6),
+            ),
+          ),
+          child: Text(
+            message.text,
+            style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4, fontWeight: FontWeight.w500),
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: message.isUser
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (!message.isUser)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.volume_up,
-                          size: 20,
-                          color: Colors.cyanAccent,
-                        ),
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(4),
-                        onPressed: () => _ttsService.speak(message.text),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.g_translate,
-                          size: 20,
-                          color: Colors.cyanAccent,
-                        ),
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.all(4),
-                        onPressed: () => _translateMessage(index),
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                  ),
-                Flexible(
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _AiAvatar(size: 30),
+          const SizedBox(width: AppSpacing.sm),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      gradient: message.isUser
-                          ? const LinearGradient(
-                              colors: [Colors.purpleAccent, Colors.deepPurpleAccent],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            )
-                          : null,
-                      color: message.isUser ? null : Colors.white.withAlpha(20),
-                      border: message.isUser ? null : Border.all(color: Colors.white.withAlpha(30)),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: message.isUser
-                            ? const Radius.circular(20)
-                            : const Radius.circular(4),
-                        bottomRight: message.isUser
-                            ? const Radius.circular(4)
-                            : const Radius.circular(20),
+                      color: AppColors.surface,
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(6),
+                        topRight: Radius.circular(AppRadius.lg),
+                        bottomLeft: Radius.circular(AppRadius.lg),
+                        bottomRight: Radius.circular(AppRadius.lg),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: message.isUser ? Colors.purpleAccent.withAlpha(50) : Colors.black.withAlpha(20),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           message.text,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: message.isUser ? FontWeight.w500 : FontWeight.normal,
-                          ),
+                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, height: 1.45),
                         ),
                         if (message.isTranslating)
                           const Padding(
-                            padding: EdgeInsets.only(top: 8.0),
+                            padding: EdgeInsets.only(top: 10),
                             child: SizedBox(
-                              width: 15,
-                              height: 15,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent),
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
                         if (message.translation != null) ...[
-                          const SizedBox(height: 8),
-                          Divider(color: Colors.white.withAlpha(50)),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 10),
+                            child: Divider(),
+                          ),
                           Text(
                             message.translation!,
-                            style: const TextStyle(
-                              color: Colors.cyanAccent,
-                              fontSize: 14,
-                              fontStyle: FontStyle.italic,
-                            ),
+                            style: const TextStyle(color: AppColors.secondary, fontSize: 14, height: 1.4),
                           ),
                         ],
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            if (hasCorrection)
-              Container(
-                margin: const EdgeInsets.only(top: 6, left: 40),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withAlpha(20),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withAlpha(80)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.lightbulb_outline,
-                          color: Colors.amberAccent,
-                          size: 16,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          "Gramer Düzeltmesi",
-                          style: TextStyle(
-                            color: Colors.amberAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "Yanlış: ${message.correction!['original']}",
-                      style: const TextStyle(
-                        decoration: TextDecoration.lineThrough,
-                        color: Colors.redAccent,
-                        fontSize: 13,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _BubbleAction(
+                        icon: Icons.volume_up_rounded,
+                        label: 'Dinle',
+                        onTap: () => _ttsService.speak(message.text),
                       ),
-                    ),
-                    Text(
-                      "Doğru: ${message.correction!['corrected']}",
-                      style: const TextStyle(
-                        color: Colors.greenAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                      _BubbleAction(
+                        icon: Icons.translate_rounded,
+                        label: 'Çevir',
+                        onTap: () => _translateMessage(index),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      message.correction!['explanation'],
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  if (hasCorrection) _buildCorrection(message.correction!),
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildCorrection(Map<String, dynamic> correction) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.secondary.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.auto_fix_high_rounded, color: AppColors.secondary, size: 16),
+              SizedBox(width: 6),
+              Text(
+                "GRAMER DÜZELTMESİ",
+                style: TextStyle(color: AppColors.secondary, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.2),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _correctionLine(Icons.close_rounded, AppColors.danger, "${correction['original']}", strike: true),
+          const SizedBox(height: 6),
+          _correctionLine(Icons.check_rounded, AppColors.success, "${correction['corrected']}"),
+          if ((correction['explanation'] ?? '').toString().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              correction['explanation'].toString(),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _correctionLine(IconData icon, Color color, String text, {bool strike = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 1),
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.15), shape: BoxShape.circle),
+          child: Icon(icon, size: 13, color: color),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: strike ? AppColors.textMuted : AppColors.textPrimary,
+              decoration: strike ? TextDecoration.lineThrough : null,
+              decorationColor: AppColors.danger,
+              fontSize: 14,
+              fontWeight: strike ? FontWeight.w500 : FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildMessageInput() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        border: Border(top: BorderSide(color: Colors.white.withAlpha(20))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(50),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.sm, AppSpacing.sm, AppSpacing.sm),
+      decoration: const BoxDecoration(
+        color: AppColors.bgBottom,
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SafeArea(
+        top: false,
         child: Row(
           children: [
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withAlpha(30)),
-                ),
-                child: TextField(
-                  controller: _messageController,
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: "İngilizce bir şeyler yazın...",
-                    hintStyle: TextStyle(color: Colors.white.withAlpha(100)),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
-                    ),
+              child: TextField(
+                controller: _messageController,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                minLines: 1,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: "İngilizce bir şeyler yazın...",
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
-                  textCapitalization: TextCapitalization.sentences,
-                  onSubmitted: (_) => _sendMessage(),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.xl),
+                    borderSide: const BorderSide(color: AppColors.primaryLight, width: 1.5),
+                  ),
                 ),
+                textCapitalization: TextCapitalization.sentences,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
-            const SizedBox(width: 12),
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Colors.cyanAccent, Colors.blueAccent],
+            const SizedBox(width: AppSpacing.sm),
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton.filled(
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  disabledBackgroundColor: AppColors.surfaceHigh,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.cyanAccent.withAlpha(100),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                  ),
-                ],
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.send_rounded, color: Color(0xFF0F172A)),
-                onPressed: _sendMessage,
+                icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
+                onPressed: _isLoading ? null : _sendMessage,
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AiAvatar extends StatelessWidget {
+  const _AiAvatar({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceHigh,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Image.asset('assets/logo_transparent.png'),
+    );
+  }
+}
+
+class _BubbleAction extends StatelessWidget {
+  const _BubbleAction({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: AppColors.textMuted),
+            const SizedBox(width: 4),
+            Text(label, style: const TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Yapay zeka cevap hazırlarken gösterilen "yazıyor..." balonu.
+class _TypingBubble extends StatefulWidget {
+  const _TypingBubble();
+
+  @override
+  State<_TypingBubble> createState() => _TypingBubbleState();
+}
+
+class _TypingBubbleState extends State<_TypingBubble> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..repeat();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          const _AiAvatar(size: 30),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(6),
+                topRight: Radius.circular(AppRadius.lg),
+                bottomLeft: Radius.circular(AppRadius.lg),
+                bottomRight: Radius.circular(AppRadius.lg),
+              ),
+            ),
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(3, (i) {
+                  final t = (_controller.value - i * 0.18) % 1.0;
+                  final lift = t < 0.4 ? (t < 0.2 ? t / 0.2 : (0.4 - t) / 0.2) : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                    child: Transform.translate(
+                      offset: Offset(0, -4 * lift),
+                      child: Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withValues(alpha: 0.5 + 0.5 * lift),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

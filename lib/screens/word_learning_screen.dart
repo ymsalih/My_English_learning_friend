@@ -6,6 +6,8 @@ import 'dart:convert';
 import 'tts_service.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class WordLearningScreen extends StatefulWidget {
   const WordLearningScreen({super.key});
@@ -30,7 +32,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   bool _isFetchingMore = false;
 
   final LinearGradient darkPrimaryGradient = const LinearGradient(
-    colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6)], // Purple to Blue
+    colors: [AppColors.primary, AppColors.secondary], // Purple to Blue
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -90,7 +92,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Veri çekilirken bir hata oluştu.', style: TextStyle(color: Colors.white)),
-            backgroundColor: Colors.redAccent.withOpacity(0.9),
+            backgroundColor: AppColors.dangerFill.withOpacity(0.9),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
           ),
@@ -146,16 +148,16 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.greenAccent),
+                const Icon(Icons.check_circle_rounded, color: AppColors.success),
                 const SizedBox(width: 10),
                 Expanded(child: Text('"$eng" başarıyla havuza eklendi!', style: const TextStyle(color: Colors.white))),
               ],
             ),
-            backgroundColor: const Color(0xFF1E293B).withOpacity(0.95), // Dark Theme SnackBar
+            backgroundColor: AppColors.surface.withOpacity(0.95), // Dark Theme SnackBar
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
-              side: BorderSide(color: Colors.greenAccent.withOpacity(0.5), width: 1.5),
+              side: BorderSide(color: AppColors.success.withOpacity(0.5), width: 1.5),
             ),
             elevation: 10,
             duration: const Duration(milliseconds: 1500),
@@ -168,55 +170,17 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
+      backgroundColor: AppColors.bg, // Dark Space Background
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'Kelime Paketleri',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
+          'Kelime Paketleri'
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
-          // Background Glows
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
 
           SafeArea(
             child: Column(
@@ -246,8 +210,8 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 30),
                           decoration: BoxDecoration(
                             gradient: isSelected ? darkPrimaryGradient : null,
-                            color: isSelected ? null : const Color(0xFF1E293B).withOpacity(0.6),
-                            borderRadius: BorderRadius.circular(30),
+                            color: isSelected ? null : AppColors.surface.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(AppRadius.xl),
                             border: Border.all(
                               color: isSelected
                                   ? Colors.transparent
@@ -257,7 +221,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                             boxShadow: isSelected
                                 ? [
                                     BoxShadow(
-                                      color: Colors.purpleAccent.withOpacity(0.4),
+                                      color: AppColors.primaryLight.withOpacity(0.4),
                                       blurRadius: 15,
                                       offset: const Offset(0, 5),
                                     ),
@@ -272,7 +236,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                               fontWeight: FontWeight.bold,
                               color: isSelected
                                   ? Colors.white
-                                  : Colors.white.withOpacity(0.5),
+                                  : AppColors.textMuted,
                             ),
                           ),
                         ),
@@ -286,7 +250,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                   child: _isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: Colors.purpleAccent,
+                            color: AppColors.primaryLight,
                           ),
                         )
                       : _allWords.isEmpty
@@ -303,7 +267,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                               Text(
                                 'Bu seviyede kelime bulunamadı.',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: AppColors.textMuted,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -328,7 +292,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                                 child: Padding(
                                   padding: EdgeInsets.all(15.0),
                                   child: CircularProgressIndicator(
-                                    color: Colors.purpleAccent,
+                                    color: AppColors.primaryLight,
                                     strokeWidth: 3,
                                   ),
                                 ),
@@ -339,19 +303,12 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                             return Container(
                               margin: const EdgeInsets.only(bottom: 16),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B).withOpacity(0.6), // Dark Glass Panel
+                                color: AppColors.surface.withOpacity(0.6), // Dark Glass Panel
                                 borderRadius: BorderRadius.circular(24),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.08),
+                                  color: AppColors.surface,
                                   width: 1.5,
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.2),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 6),
-                                  ),
-                                ],
                               ),
                               child: Material(
                                 color: Colors.transparent,
@@ -366,13 +323,6 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                                         decoration: BoxDecoration(
                                           gradient: darkPrimaryGradient,
                                           shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.blueAccent.withOpacity(0.3),
-                                              blurRadius: 10,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
                                         ),
                                         child: Center(
                                           child: Text(
@@ -420,17 +370,17 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
                                         children: [
                                           _buildActionButton(
                                             icon: Icons.volume_up_rounded,
-                                            iconColor: Colors.blueAccent,
-                                            bgColor: Colors.blueAccent.withOpacity(0.15),
-                                            borderColor: Colors.blueAccent.withOpacity(0.3),
+                                            iconColor: AppColors.secondary,
+                                            bgColor: AppColors.secondary.withOpacity(0.15),
+                                            borderColor: AppColors.secondary.withOpacity(0.3),
                                             onTap: () => _speak(word['eng']),
                                           ),
                                           const SizedBox(width: 12),
                                           _buildActionButton(
                                             icon: Icons.add_task_rounded,
-                                            iconColor: Colors.greenAccent,
-                                            bgColor: Colors.greenAccent.withOpacity(0.15),
-                                            borderColor: Colors.greenAccent.withOpacity(0.3),
+                                            iconColor: AppColors.success,
+                                            bgColor: AppColors.success.withOpacity(0.15),
+                                            borderColor: AppColors.success.withOpacity(0.3),
                                             onTap: () => _addWordToMyPool(word['eng'], word['tr']),
                                           ),
                                         ],
@@ -465,13 +415,6 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
         color: bgColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: iconColor.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,

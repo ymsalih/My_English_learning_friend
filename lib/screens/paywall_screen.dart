@@ -3,10 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:ui';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import '../services/subscription_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -142,7 +143,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 content: Text(
                   'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! 🎉',
                 ),
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.successFill,
               ),
             );
             Navigator.pop(context, true);
@@ -165,7 +166,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
             content: Text(
               'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! (Test) 🎉',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.successFill,
           ),
         );
         Navigator.pop(context, true);
@@ -181,17 +182,17 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
         String errorMessage =
             'Ödeme işlemi iptal edildi veya bir sorun oluştu.';
-        Color bgColor = Colors.redAccent;
+        Color bgColor = AppColors.danger;
 
         switch (errorCode) {
           case PurchasesErrorCode.productAlreadyPurchasedError:
             errorMessage = 'Bu pakete zaten sahipsiniz! 🔒';
-            bgColor = Colors.orangeAccent;
+            bgColor = AppColors.gold;
             break;
           case PurchasesErrorCode.paymentPendingError:
             errorMessage =
                 'Ödemeniz şu anda beklemede. Bankanız onayladığında paketiniz aktifleşecek. ⏳';
-            bgColor = Colors.orangeAccent;
+            bgColor = AppColors.gold;
             break;
           case PurchasesErrorCode.networkError:
             errorMessage =
@@ -230,7 +231,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Beklenmeyen bir hata oluştu.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.dangerFill,
           ),
         );
       }
@@ -250,7 +251,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Satın alımlarınız başarıyla geri yüklendi! 🎒'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppColors.successFill,
             ),
           );
         }
@@ -262,7 +263,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               content: Text(
                 'Geçmiş tarihli aktif bir VIP planınız bulunamadı. 🔍',
               ),
-              backgroundColor: Colors.orangeAccent,
+              backgroundColor: AppColors.goldFill,
             ),
           );
         }
@@ -273,7 +274,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Geri yükleme işlemi başarısız oldu.'),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: AppColors.dangerFill,
           ),
         );
       }
@@ -315,39 +316,39 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (tab == 'plus') {
       return {
         'name': 'Octopus Plus',
-        'color': const Color(0xFF3B82F6),
-        'accent': const Color(0xFF60A5FA),
+        'color': AppColors.secondary,
+        'accent': AppColors.secondary,
         'icon': Icons.star_border,
         'features': [
           _buildFeatureRow(
             Icons.add_circle,
             '${formatWords(plusL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
           _buildFeatureRow(
             Icons.auto_stories,
             'Günde ${formatLimit(plusL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
           _buildFeatureRow(
             Icons.library_books,
             'Günde ${formatLimit(plusL['storyReadCount']!)} Havuzdan Hikaye Okuma',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
           _buildFeatureRow(
             Icons.chat,
             'Günde ${formatLimit(plusL['chatMsgCount']!)} Octopus AI Sohbet Mesajı',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
           _buildFeatureRow(
             Icons.translate,
             'Günde ${formatLimit(plusL['translateCount']!)} Çeviri Hakkı',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
           _buildFeatureRow(
             Icons.school,
             'Günde ${formatLimit(plusL['testCount']!)} Kelime Testi Soru Hakkı',
-            Colors.blueAccent,
+            AppColors.secondary,
           ),
         ],
         'fallbackMonthlyPrice': '₺99.99',
@@ -356,39 +357,39 @@ class _PaywallScreenState extends State<PaywallScreen> {
     } else if (tab == 'pro') {
       return {
         'name': 'Octopus Pro',
-        'color': const Color(0xFF8B5CF6),
-        'accent': const Color(0xFFC084FC),
+        'color': AppColors.primary,
+        'accent': AppColors.primaryLight,
         'icon': Icons.star,
         'features': [
           _buildFeatureRow(
             Icons.add_circle,
             '${formatWords(proL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
           _buildFeatureRow(
             Icons.auto_stories,
             'Günde ${formatLimit(proL['storyGenCount']!)} Yeni Yapay Zeka Hikayesi',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
           _buildFeatureRow(
             Icons.library_books,
             'Günde ${formatLimit(proL['storyReadCount']!)} Havuzdan Hikaye Okuma',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
           _buildFeatureRow(
             Icons.chat,
             'Günde ${formatLimit(proL['chatMsgCount']!)} Octopus AI Sohbet Mesajı',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
           _buildFeatureRow(
             Icons.translate,
             'Günde ${formatLimit(proL['translateCount']!)} Çeviri Hakkı',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
           _buildFeatureRow(
             Icons.school,
             'Günde ${formatLimit(proL['testCount']!)} Kelime Testi Soru Hakkı',
-            Colors.purpleAccent,
+            AppColors.primaryLight,
           ),
         ],
         'fallbackMonthlyPrice': '₺199.99',
@@ -397,39 +398,39 @@ class _PaywallScreenState extends State<PaywallScreen> {
     } else {
       return {
         'name': 'Octopus Max',
-        'color': const Color(0xFFF59E0B),
-        'accent': const Color(0xFFFCD34D),
+        'color': AppColors.gold,
+        'accent': AppColors.gold,
         'icon': Icons.workspace_premium,
         'features': [
           _buildFeatureRow(
             Icons.all_inclusive,
             '${formatWords(maxL['lifetimeWordsAdded']!)} Kelime Havuzu Kapasitesi',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
           _buildFeatureRow(
             Icons.auto_stories,
             '${maxL['storyGenCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyGenCount']}'} Yeni Yapay Zeka Hikayesi',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
           _buildFeatureRow(
             Icons.library_books,
             '${maxL['storyReadCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['storyReadCount']}'} Havuzdan Hikaye Okuma',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
           _buildFeatureRow(
             Icons.chat,
             '${maxL['chatMsgCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['chatMsgCount']}'} Octopus AI Sohbet Mesajı',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
           _buildFeatureRow(
             Icons.translate,
             '${maxL['translateCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['translateCount']}'} Çeviri Hakkı',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
           _buildFeatureRow(
             Icons.school,
             '${maxL['testCount'] == 999999 ? 'Sınırsız' : 'Günde ${maxL['testCount']}'} Kelime Testi Soru Hakkı',
-            Colors.amberAccent,
+            AppColors.gold,
           ),
         ],
         'fallbackMonthlyPrice': '₺399.99',
@@ -440,64 +441,67 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Widget _buildFeatureRow(IconData icon, String text, Color iconColor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 7),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: iconColor, size: 16),
-          ),
-          const SizedBox(width: 12),
+          Icon(icon, color: iconColor, size: 20),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
+          const Icon(Icons.check_rounded, color: AppColors.success, size: 18),
         ],
       ),
     );
   }
 
-  Widget _buildTabButton(String tabId, String title, Color color) {
-    final isSelected = _selectedTab == tabId;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = tabId),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? color : Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? color : Colors.white.withOpacity(0.1),
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+  Widget _buildPlanSelector() {
+    const plans = [('plus', 'Plus'), ('pro', 'Pro'), ('max', 'Max')];
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          for (final (id, title) in plans)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _selectedTab = id),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _selectedTab == id ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
-                ]
-              : [],
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white54,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: _selectedTab == id ? Colors.white : AppColors.textSecondary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (id == 'pro') ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.local_fire_department_rounded, size: 14, color: AppColors.gold),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -515,89 +519,65 @@ class _PaywallScreenState extends State<PaywallScreen> {
     return GestureDetector(
       onTap: () => setState(() => _selectedDuration = durationId),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(16),
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: isSelected
-              ? activeColor.withOpacity(0.15)
-              : Colors.white.withOpacity(0.03),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.14) : AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
-            color: isSelected ? activeColor : Colors.white.withOpacity(0.1),
+            color: isSelected ? AppColors.primaryLight : AppColors.border,
             width: isSelected ? 2 : 1,
           ),
         ),
-        child: Stack(
-          clipBehavior: Clip.none,
+        child: Row(
           children: [
-            if (isPopular)
-              Positioned(
-                top: -26,
-                right: -10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: activeColor,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Text(
-                    'EN AVANTAJLI',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Icon(
-                      isSelected
-                          ? Icons.radio_button_checked
-                          : Icons.radio_button_unchecked,
-                      color: isSelected ? activeColor : Colors.white30,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  priceStr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (subtitle.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(
-                      subtitle,
-                      style: TextStyle(
-                        color: activeColor.withOpacity(0.8),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-              ],
+            Icon(
+              isSelected ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded,
+              color: isSelected ? AppColors.primaryLight : AppColors.textMuted,
             ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                      if (isPopular) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            gradient: AppColors.goldGradient,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'EN AVANTAJLI',
+                            style: TextStyle(color: AppColors.bg, fontSize: 10, fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (subtitle.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: isPopular ? AppColors.success : AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            Text(priceStr, style: AppText.heading(size: 19)),
           ],
         ),
       ),
@@ -676,316 +656,179 @@ class _PaywallScreenState extends State<PaywallScreen> {
       } catch (_) {}
     }
 
+    final String ctaText = isExactSame
+        ? 'Mevcut Planınız (Aktif)'
+        : (isDowngrade
+            ? 'Aboneliği Yönet / Düşür'
+            : '${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} ${tabData['name']} Al');
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
       extendBodyBehindAppBar: true,
-      body: Stack(
-        children: [
-          // Background Blobs
-          Positioned(
-            top: -50,
-            left: -50,
-            child: Container(
-              width: 200,
-              height: 200,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: themeColor.withOpacity(0.2),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 10,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.maybePop(context),
+        ),
+      ),
+      body: AppBackground(
+        child: SafeArea(
+          bottom: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.sm, AppSpacing.page, AppSpacing.xxl),
+            children: [
+              Center(
+                child: Container(
+                  width: 76,
+                  height: 76,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.5), width: 2),
                   ),
-                  child: Column(
-                    children: [
-                      Text(
-                        "Planınızı Seçin",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: themeColor.withOpacity(0.5),
-                              blurRadius: 10,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "İstediğiniz zaman iptal edebilirsiniz.",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
-                  ),
+                  child: Image.asset('assets/logo_transparent.png'),
                 ),
-
-                const SizedBox(height: 10),
-
-                // Tabs
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Row(
-                    children: [
-                      _buildTabButton('plus', 'Plus', const Color(0xFF3B82F6)),
-                      const SizedBox(width: 12),
-                      _buildTabButton('pro', 'Pro', const Color(0xFF8B5CF6)),
-                      const SizedBox(width: 12),
-                      _buildTabButton('max', 'Max', const Color(0xFFF59E0B)),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // Main Card
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(40),
-                        topRight: Radius.circular(40),
-                      ),
-                      border: Border(
-                        top: BorderSide(color: Colors.white.withOpacity(0.1)),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, -5),
-                        ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('Octopus Premium', textAlign: TextAlign.center, style: AppText.display(size: 28)),
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                'Daha fazla pratik, daha hızlı ilerleme.\nİstediğin zaman iptal edebilirsin.',
+                textAlign: TextAlign.center,
+                style: AppText.body,
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              _buildPlanSelector(),
+              const SizedBox(height: AppSpacing.lg),
+              AppCard(
+                padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        IconBadge(icon: tabData['icon'] as IconData, color: themeColor, size: 40),
+                        const SizedBox(width: AppSpacing.md),
+                        Text(tabData['name'], style: AppText.heading(size: 19)),
                       ],
                     ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                tabData['icon'],
-                                color: themeColor,
-                                size: 32,
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                tabData['name'],
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Features List
-                          ...List.generate(
-                            (tabData['features'] as List).length,
-                            (index) =>
-                                (tabData['features'] as List)[index] as Widget,
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Duration Selectors
-                          _buildDurationCard(
-                            durationId: 'monthly',
-                            title: '1 Aylık',
-                            subtitle: 'Esnek ödeme',
-                            priceStr: monthlyPrice,
-                            activeColor: themeColor,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildDurationCard(
-                            durationId: 'annual',
-                            title: '12 Aylık',
-                            subtitle: discountText,
-                            priceStr: annualPrice,
-                            activeColor: themeColor,
-                            isPopular: true,
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Action Button
-                          SizedBox(
-                            width: double.infinity,
-                            height: 56,
-                            child: ElevatedButton(
-                              onPressed: isExactSame
-                                  ? null
-                                  : () {
-                                      if (isDowngrade) {
-                                        _launchURL(
-                                          Platform.isIOS
-                                              ? 'https://apps.apple.com/account/subscriptions'
-                                              : 'https://play.google.com/store/account/subscriptions',
-                                        );
-                                      } else {
-                                        _purchasePlan();
-                                      }
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isDowngrade
-                                    ? Colors.grey.shade800
-                                    : themeColor,
-                                foregroundColor: Colors.white,
-                                elevation: isExactSame ? 0 : 8,
-                                shadowColor: themeColor.withOpacity(0.5),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                disabledBackgroundColor: Colors.grey.shade800,
-                                disabledForegroundColor: Colors.white54,
-                              ),
-                              child: _isLoading
-                                  ? const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        if (!isDowngrade && !isExactSame)
-                                          const Icon(
-                                            Icons.lock,
-                                            size: 16,
-                                            color: Colors.white70,
-                                          ),
-                                        if (!isDowngrade && !isExactSame)
-                                          const SizedBox(width: 8),
-                                        Text(
-                                          isExactSame
-                                              ? 'Mevcut Planınız (Aktif)'
-                                              : (isDowngrade
-                                                    ? 'Aboneliği Yönet / Düşür'
-                                                    : 'Güvenli Ödeme ile ${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} Al'),
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          // Restore Purchases
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              children: [
-                                TextButton(
-                                  onPressed: _isLoading
-                                      ? null
-                                      : _restorePurchases,
-                                  child: const Text(
-                                    "Satın Alımları Geri Yükle (Restore Purchases)",
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                                const Text(
-                                  "Önceden aktif bir aboneliğiniz varsa veya hesabınızı silip yeniden kayıt olduysanız VIP paketinizi buradan geri çağırabilirsiniz.",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Legal Links (MAĞAZA ZORUNLULUĞU)
-                          Center(
-                            child: Wrap(
-                              alignment: WrapAlignment.center,
-                              spacing: 10,
-                              children: [
-                                GestureDetector(
-                                  onTap: () => _launchURL(
-                                    'https://sites.google.com/view/owlishprivacypolicy/ana-sayfa',
-                                  ),
-                                  child: const Text(
-                                    "Gizlilik Politikası",
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                                const Text(
-                                  "|",
-                                  style: TextStyle(
-                                    color: Colors.white54,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                GestureDetector(
-                                  onTap: () => _launchURL(
-                                    'https://sites.google.com/view/owlish-terms-of-use/ana-sayfa',
-                                  ),
-                                  child: const Text(
-                                    "Kullanım Şartları",
-                                    style: TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 30), // Safe area bottom
-                        ],
-                      ),
-                    ),
-                  ),
+                    const SizedBox(height: AppSpacing.md),
+                    const Divider(),
+                    const SizedBox(height: AppSpacing.xs),
+                    ...(tabData['features'] as List).cast<Widget>(),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              _buildDurationCard(
+                durationId: 'annual',
+                title: '12 Aylık',
+                subtitle: discountText,
+                priceStr: annualPrice,
+                activeColor: themeColor,
+                isPopular: true,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              _buildDurationCard(
+                durationId: 'monthly',
+                title: '1 Aylık',
+                subtitle: 'Esnek ödeme',
+                priceStr: monthlyPrice,
+                activeColor: themeColor,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Center(
+                child: TextButton(
+                  onPressed: _isLoading ? null : _restorePurchases,
+                  child: const Text("Satın Alımları Geri Yükle"),
+                ),
+              ),
+              const Text(
+                "Önceden aktif bir aboneliğiniz varsa veya hesabınızı silip yeniden kayıt olduysanız paketinizi buradan geri çağırabilirsiniz.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              // Yasal bağlantılar (mağaza zorunluluğu)
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                children: [
+                  GestureDetector(
+                    onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
+                    child: const Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  ),
+                  const Text("|", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  GestureDetector(
+                    onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
+                    child: const Text("Kullanım Şartları", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+      // Satın alma butonu her zaman görünür.
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.md, AppSpacing.page, AppSpacing.md),
+        decoration: const BoxDecoration(
+          color: AppColors.bgBottom,
+          border: Border(top: BorderSide(color: AppColors.border)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: FilledButton(
+                  onPressed: isExactSame || _isLoading
+                      ? null
+                      : () {
+                          if (isDowngrade) {
+                            _launchURL(
+                              Platform.isIOS
+                                  ? 'https://apps.apple.com/account/subscriptions'
+                                  : 'https://play.google.com/store/account/subscriptions',
+                            );
+                          } else {
+                            _purchasePlan();
+                          }
+                        },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: isDowngrade ? AppColors.surfaceHigh : AppColors.primary,
+                    disabledBackgroundColor: AppColors.surfaceHigh,
+                    disabledForegroundColor: AppColors.textMuted,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (!isDowngrade && !isExactSame) ...[
+                              const Icon(Icons.lock_rounded, size: 16),
+                              const SizedBox(width: 8),
+                            ],
+                            Flexible(child: Text(ctaText, overflow: TextOverflow.ellipsis)),
+                          ],
+                        ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Google Play / App Store ile güvenli ödeme',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

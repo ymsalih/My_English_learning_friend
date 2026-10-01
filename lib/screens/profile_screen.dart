@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:ui';
 import 'dart:io';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.embedded = false});
+
+  /// Alt navigasyon sekmesi olarak gösteriliyorsa geri butonu gizlenir.
+  final bool embedded;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -44,27 +47,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.surface,
         title: const Text(
           "Aboneliği Yönet / İptal Et",
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: const Text(
           "Güvenliğiniz için abonelik iptal işlemleri doğrudan uygulama mağazası üzerinden yapılmaktadır. Sizi mağazaya yönlendirmemizi ister misiniz?",
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text(
               "Vazgeç",
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.textMuted),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppColors.dangerFill,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -95,7 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               content: Text(
                 'Mağaza açılamadı. Lütfen telefonunuzun ayarlarından aboneliklerinize gidin.',
               ),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppColors.dangerFill,
             ),
           );
         }
@@ -109,18 +112,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
+      child: Container(
           padding: padding ?? const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.white.withAlpha(15),
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withAlpha(30)),
           ),
           child: child,
         ),
-      ),
     );
   }
 
@@ -140,13 +140,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Color _getPlanColor(String planKey) {
     switch (planKey.toLowerCase()) {
       case 'plus':
-        return Colors.blueAccent;
+        return AppColors.secondary;
       case 'pro':
-        return Colors.purpleAccent;
+        return AppColors.primaryLight;
       case 'max':
-        return Colors.amberAccent;
+        return AppColors.gold;
       default:
-        return Colors.grey;
+        return AppColors.textMuted;
     }
   }
 
@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             isUnlimited ? "Sınırsız" : "$current / $limit",
             style: TextStyle(
-              color: isUnlimited ? Colors.amberAccent : Colors.white70,
+              color: isUnlimited ? AppColors.gold : AppColors.textSecondary,
               fontWeight: FontWeight.bold,
               fontSize: 16,
             ),
@@ -200,26 +200,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const Scaffold(body: Center(child: Text("Giriş yapılmadı.")));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
+        automaticallyImplyLeading: !widget.embedded,
         title: const Text(
-          "Profilim",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+          "Profilim"
         ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.5,
-            colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppColors.backgroundGradient),
         child: StreamBuilder<DocumentSnapshot>(
           stream: FirebaseFirestore.instance
               .collection('users')
@@ -228,7 +219,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
               return const Center(
-                child: CircularProgressIndicator(color: Colors.cyanAccent),
+                child: CircularProgressIndicator(color: AppColors.secondary),
               );
             }
 
@@ -355,7 +346,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const Text(
                               "Mevcut Planınız",
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: AppColors.textSecondary,
                                 fontSize: 16,
                               ),
                             ),
@@ -386,37 +377,37 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           'Kelime Havuzu',
                           limitsSummary['words'],
                           Icons.book,
-                          Colors.blueAccent,
+                          AppColors.secondary,
                         ),
                         _buildStatRow(
                           'Hikaye Üretme',
                           limitsSummary['storyGen'],
                           Icons.edit,
-                          Colors.pinkAccent,
+                          AppColors.primaryLight,
                         ),
                         _buildStatRow(
                           'Hikaye Okuma',
                           limitsSummary['storyRead'],
                           Icons.menu_book,
-                          Colors.orangeAccent,
+                          AppColors.gold,
                         ),
                         _buildStatRow(
                           'Yapay Zeka Chat',
                           limitsSummary['chat'],
                           Icons.chat,
-                          Colors.tealAccent,
+                          AppColors.secondary,
                         ),
                         _buildStatRow(
                           'Görsel Çeviri',
                           limitsSummary['translate'],
                           Icons.g_translate,
-                          Colors.greenAccent,
+                          AppColors.success,
                         ),
                         _buildStatRow(
                           'Kendini Test Et',
                           limitsSummary['test'],
                           Icons.psychology,
-                          Colors.purpleAccent,
+                          AppColors.primaryLight,
                         ),
 
                         const SizedBox(height: 25),
@@ -429,9 +420,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: OutlinedButton(
                                   onPressed: _cancelSubscription,
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.redAccent,
+                                    foregroundColor: AppColors.danger,
                                     side: const BorderSide(
-                                      color: Colors.redAccent,
+                                      color: AppColors.danger,
                                     ),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 16,
@@ -459,7 +450,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 },
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: isBasic
-                                      ? Colors.purpleAccent
+                                      ? AppColors.primaryLight
                                       : Colors.white24,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 16,

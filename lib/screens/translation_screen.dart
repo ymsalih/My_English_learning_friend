@@ -14,6 +14,8 @@ import 'camera_scanner_screen.dart';
 import 'tts_service.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 // --- VERİ MODELLERİ ---
 class WordMeaningGroup {
@@ -174,7 +176,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Günlük çeviri limitiniz doldu. Sınırsız kullanım için paketinizi yükseltin.'),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppColors.dangerFill,
             ),
           );
         }
@@ -689,7 +691,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         style: TextStyle(
           fontSize: 15,
           fontStyle: FontStyle.italic,
-          color: Colors.white.withOpacity(0.85),
+          color: AppColors.textSecondary,
         ),
       );
     }
@@ -705,7 +707,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         style: TextStyle(
           fontSize: 15,
           fontStyle: FontStyle.italic,
-          color: Colors.white.withOpacity(0.85),
+          color: AppColors.textSecondary,
         ),
       );
     }
@@ -717,7 +719,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         spans.add(
           TextSpan(
             text: text.substring(lastMatchEnd, match.start),
-            style: TextStyle(color: Colors.white.withOpacity(0.85)),
+            style: TextStyle(color: AppColors.textSecondary),
           ),
         );
       }
@@ -725,7 +727,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         TextSpan(
           text: text.substring(match.start, match.end),
           style: const TextStyle(
-            backgroundColor: Colors.blueAccent,
+            backgroundColor: AppColors.primary,
             color: Colors.white,
             fontWeight: FontWeight.w600,
           ),
@@ -738,7 +740,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
       spans.add(
         TextSpan(
           text: text.substring(lastMatchEnd),
-          style: TextStyle(color: Colors.white.withOpacity(0.85)),
+          style: TextStyle(color: AppColors.textSecondary),
         ),
       );
     }
@@ -754,31 +756,27 @@ class _TranslationScreenState extends State<TranslationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.bg,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'Akıllı Çeviri',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+          'Akıllı Çeviri'
         ),
         centerTitle: true,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           Center(
             child: Container(
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.greenAccent.withOpacity(0.2),
+                color: AppColors.success.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.greenAccent.withOpacity(0.5)),
+                border: Border.all(color: AppColors.success.withOpacity(0.5)),
               ),
               child: Text(
                 _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
                 style: const TextStyle(
-                  color: Colors.greenAccent,
+                  color: AppColors.success,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -790,41 +788,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
       body: Stack(
         children: [
           // Uzay Arka Plan (Glow Effects)
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          Positioned(
-            top: -100, left: -50,
-            child: Container(
-              width: 300, height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50, right: -50,
-            child: Container(
-              width: 250, height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           
           SafeArea(
             child: SingleChildScrollView(
@@ -853,16 +817,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.7),
+        color: AppColors.surface.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppColors.surface, width: 1.5),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -875,7 +832,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
             icon: const Icon(
               Icons.swap_horizontal_circle,
               size: 35,
-              color: Colors.blueAccent,
+              color: AppColors.secondary,
             ),
             onPressed: () {
               setState(() {
@@ -901,19 +858,12 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Widget _buildInput() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.7),
+        color: AppColors.surface.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _isListening ? Colors.redAccent.withOpacity(0.8) : Colors.white.withOpacity(0.08), 
+          color: _isListening ? AppColors.danger.withOpacity(0.8) : Colors.white.withOpacity(0.08), 
           width: 1.5
         ),
-        boxShadow: [
-          BoxShadow(
-            color: _isListening ? Colors.redAccent.withOpacity(0.15) : Colors.black.withOpacity(0.2),
-            blurRadius: _isListening ? 20 : 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
       ),
       child: Column(
         children: [
@@ -926,7 +876,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
             textInputAction: TextInputAction.newline,
             textCapitalization: TextCapitalization.sentences,
             style: const TextStyle(fontSize: 18, color: Colors.white),
-            cursorColor: Colors.blueAccent,
+            cursorColor: AppColors.secondary,
             inputFormatters: _isEnToTr
                 ? [FilteringTextInputFormatter.deny(RegExp(r'[çÇğĞıİöÖşŞüÜ]'))]
                 : [],
@@ -936,7 +886,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                   : (_isEnToTr
                         ? 'Type or speak an English word/sentence...'
                         : 'Türkçe metin yazın veya konuşun...'),
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
+              hintStyle: TextStyle(color: AppColors.textMuted),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.all(20),
             ),
@@ -945,36 +895,36 @@ class _TranslationScreenState extends State<TranslationScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: AppColors.surface,
               borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20)),
-              border: Border(top: BorderSide(color: Colors.white.withOpacity(0.05))),
+              border: Border(top: BorderSide(color: AppColors.surface)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (_isEnToTr)
                   IconButton(
-                    icon: const Icon(Icons.volume_up, color: Colors.blueAccent),
+                    icon: const Icon(Icons.volume_up, color: AppColors.secondary),
                     tooltip: "Dinle",
                     onPressed: () => _speak(_textController.text),
                   ),
                 if (!kIsWeb)
                   IconButton(
-                    icon: const Icon(Icons.camera_alt, color: Colors.purpleAccent),
+                    icon: const Icon(Icons.camera_alt, color: AppColors.primaryLight),
                     tooltip: "Kamera ile Okut",
                     onPressed: _openCameraScanner,
                   ),
                 IconButton(
                   icon: Icon(
                     _isListening ? Icons.mic : Icons.mic_none,
-                    color: _isListening ? Colors.redAccent : Colors.white70,
+                    color: _isListening ? AppColors.danger : AppColors.textSecondary,
                     size: _isListening ? 30 : 26,
                   ),
                   tooltip: "Konuşarak Yaz",
                   onPressed: _listen,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.white54),
+                  icon: const Icon(Icons.clear, color: AppColors.textMuted),
                   tooltip: "Temizle",
                   onPressed: () => setState(() {
                     _textController.clear();
@@ -997,18 +947,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+          colors: [AppColors.secondary, AppColors.primary],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3B82F6).withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _translateAndFetchDictionary,
@@ -1042,16 +985,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.7),
+            color: AppColors.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.blueAccent.withOpacity(0.3), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.1),
-                blurRadius: 15,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: Border.all(color: AppColors.secondary.withOpacity(0.3), width: 1.5),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1070,18 +1006,18 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       placeholder: (context, url) => Container(
                         height: 200,
                         width: double.infinity,
-                        color: Colors.white.withOpacity(0.05),
+                        color: AppColors.surface,
                         child: const Center(
-                          child: CircularProgressIndicator(color: Colors.purpleAccent),
+                          child: CircularProgressIndicator(color: AppColors.primaryLight),
                         ),
                       ),
                       errorWidget: (context, url, error) => Container(
                         height: 200,
                         width: double.infinity,
-                        color: Colors.white.withOpacity(0.05),
+                        color: AppColors.surface,
                         child: const Icon(
                           Icons.broken_image_rounded,
-                          color: Colors.white54,
+                          color: AppColors.textMuted,
                           size: 50,
                         ),
                       ),
@@ -1098,15 +1034,15 @@ class _TranslationScreenState extends State<TranslationScreen> {
                           : _mainTranslation.toLowerCase(),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.blueAccent,
+                        color: AppColors.secondary,
                         fontSize: 22,
                       ),
                     ),
                   ),
                   Container(
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), shape: BoxShape.circle),
+                    decoration: BoxDecoration(color: AppColors.surface, shape: BoxShape.circle),
                     child: IconButton(
-                      icon: const Icon(Icons.volume_up, color: Colors.blueAccent),
+                      icon: const Icon(Icons.volume_up, color: AppColors.secondary),
                       onPressed: () => _speak(
                         _isEnToTr ? _textController.text.trim() : _mainTranslation,
                       ),
@@ -1140,7 +1076,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             TextSpan(
                               text: "(${_getShortPartSpeech(group.partOfSpeech)}) ",
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.5),
+                                color: AppColors.textMuted,
                                 fontStyle: FontStyle.italic,
                                 fontSize: 16,
                               ),
@@ -1148,7 +1084,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             TextSpan(
                               text: group.shortMeanings.join(', '),
                               style: const TextStyle(
-                                color: Colors.white70,
+                                color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
                               ),
@@ -1168,7 +1104,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
             padding: const EdgeInsets.only(top: 25.0, bottom: 10.0),
             child: Row(
               children: [
-                const Icon(Icons.lightbulb_outline_rounded, color: Colors.orangeAccent, size: 22),
+                const Icon(Icons.lightbulb_outline_rounded, color: AppColors.gold, size: 22),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1176,7 +1112,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      color: Colors.white.withOpacity(0.8),
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -1189,9 +1125,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withOpacity(0.7),
+              color: AppColors.surface.withOpacity(0.7),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white.withOpacity(0.08), width: 1.5),
+              border: Border.all(color: AppColors.surface, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1205,7 +1141,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                       Text(
                         group.partOfSpeech.toLowerCase(),
                         style: const TextStyle(
-                          color: Colors.purpleAccent,
+                          color: AppColors.primaryLight,
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -1219,7 +1155,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 15),
                           decoration: const BoxDecoration(
-                            border: Border(left: BorderSide(color: Colors.blueAccent, width: 3)),
+                            border: Border(left: BorderSide(color: AppColors.secondary, width: 3)),
                           ),
                           padding: const EdgeInsets.only(left: 12),
                           child: Column(
@@ -1236,7 +1172,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 trMeanings.join(', '),
-                                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                               ),
                             ],
                           ),
@@ -1257,16 +1193,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
             margin: const EdgeInsets.only(top: 20),
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withOpacity(0.5),
+              color: AppColors.surface.withOpacity(0.5),
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white.withOpacity(0.05), width: 1.5),
+              border: Border.all(color: AppColors.surface, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.format_quote_rounded, color: Colors.blueAccent, size: 24),
+                    const Icon(Icons.format_quote_rounded, color: AppColors.secondary, size: 24),
                     const SizedBox(width: 8),
                     Text(
                       "Örnekler: Bağlam içi kullanım",
@@ -1290,7 +1226,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                             padding: const EdgeInsets.only(bottom: 8.0, top: 10.0),
                             child: Text(
                               "[${_getShortPartSpeech(group.partOfSpeech)}]",
-                              style: const TextStyle(color: Colors.purpleAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                              style: const TextStyle(color: AppColors.primaryLight, fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                           ),
 
@@ -1304,7 +1240,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     ex['tr'] ?? '',
-                                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6)),
+                                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                                   ),
                                 ],
                               ),
@@ -1325,7 +1261,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
         Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(15),
-            boxShadow: [BoxShadow(color: Colors.purpleAccent.withOpacity(0.15), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: OutlinedButton.icon(
             onPressed: _saveToPool,
@@ -1337,9 +1272,9 @@ class _TranslationScreenState extends State<TranslationScreen> {
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 55),
               foregroundColor: Colors.white,
-              side: BorderSide(color: Colors.purpleAccent.withOpacity(0.6), width: 2),
+              side: BorderSide(color: AppColors.primaryLight.withOpacity(0.6), width: 2),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              backgroundColor: const Color(0xFF1E293B).withOpacity(0.8),
+              backgroundColor: AppColors.surface.withOpacity(0.8),
             ),
           ),
         ),

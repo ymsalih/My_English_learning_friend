@@ -8,6 +8,8 @@ import 'package:translator/translator.dart';
 import 'dart:async';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -143,80 +145,59 @@ class _HomeScreenState extends State<HomeScreen> {
             }
 
             return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
-              ),
+              padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
               child: Container(
-                padding: const EdgeInsets.all(25),
+                padding: const EdgeInsets.fromLTRB(AppSpacing.xxl, AppSpacing.md, AppSpacing.xxl, AppSpacing.xxl),
                 decoration: const BoxDecoration(
-                  color: Color(0xFF0F172A), // Dark premium background
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                  border: Border(top: BorderSide(color: Color(0xFF334155), width: 1)),
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+                  border: Border(top: BorderSide(color: AppColors.border)),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      'Yeni Kelime Ekle',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: engController,
-                      onChanged: onEngTextChanged,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'İngilizce (Otomatik Çevrilir)',
-                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                        prefixIcon: const Icon(Icons.language, color: Colors.blueAccent),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.05),
-                        suffixIcon: isTranslating 
-                          ? const Padding(
-                              padding: EdgeInsets.all(12), 
-                              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))
-                            ) 
-                          : null,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide.none,
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    TextField(
-                      controller: trController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Türkçe',
-                        labelStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
-                        prefixIcon: const Icon(Icons.translate, color: Colors.purpleAccent),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.05),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide.none,
+                      const SizedBox(height: AppSpacing.xl),
+                      Text('Yeni Kelime Ekle', style: AppText.heading(size: 21)),
+                      const SizedBox(height: AppSpacing.xs),
+                      const Text('İngilizcesini yaz, Türkçesi otomatik gelsin.', style: AppText.caption),
+                      const SizedBox(height: AppSpacing.xl),
+                      TextField(
+                        controller: engController,
+                        onChanged: onEngTextChanged,
+                        autofocus: true,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: InputDecoration(
+                          labelText: 'İngilizce',
+                          prefixIcon: const Icon(Icons.language_rounded),
+                          suffixIcon: isTranslating
+                              ? const Padding(
+                                  padding: EdgeInsets.all(14),
+                                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                                )
+                              : null,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 25),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]),
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))],
+                      const SizedBox(height: AppSpacing.md),
+                      TextField(
+                        controller: trController,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                        decoration: const InputDecoration(
+                          labelText: 'Türkçe',
+                          prefixIcon: Icon(Icons.translate_rounded),
+                        ),
                       ),
-                      child: ElevatedButton(
+                      const SizedBox(height: AppSpacing.xl),
+                      FilledButton.icon(
                         onPressed: () async {
                           if (engController.text.isNotEmpty && trController.text.isNotEmpty) {
                             await FirebaseFirestore.instance
@@ -235,18 +216,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             if (mounted) Navigator.pop(context);
                           }
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.transparent,
-                          shadowColor: Colors.transparent,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                        ),
-                        child: const Text(
-                          'Havuza Kaydet',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1),
-                        ),
+                        icon: const Icon(Icons.check_rounded),
+                        label: const Text('Havuza Kaydet'),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             );
@@ -259,247 +233,170 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text(
-          'Kelime Havuzum',
-          style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: AppColors.bgTop,
+        title: const Text('Kelime Havuzum'),
         actions: [
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.orangeAccent.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orangeAccent.withOpacity(0.5)),
-              ),
-              child: Text(
-                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
-                style: const TextStyle(
-                  color: Colors.orangeAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.lg),
+            child: InfoPill(
+              icon: Icons.style_outlined,
+              label: _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
             ),
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // Yüksek performanslı arka plan
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          // Performanslı glow efektleri
-          Positioned(
-            top: -100, right: -50,
-            child: Container(
-              width: 300, height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
+      body: AppBackground(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.md, AppSpacing.page, AppSpacing.sm),
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Kelime ara...',
+                  prefixIcon: Icon(Icons.search_rounded),
                 ),
               ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Kelime Ara...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4)),
-                        prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.5)),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.all(16),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(user?.uid)
+                    .collection('words')
+                    .where('isLearned', isEqualTo: false) // 🚀 Server-Side Filtreleme (Client yorulmaz)
+                    .orderBy('timestamp', descending: true)
+                    .limit(_searchQuery.isNotEmpty ? 1000 : _documentLimit)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    debugPrint("Firestore Hatası: ${snapshot.error}");
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(AppSpacing.xl),
+                        child: Text(
+                          "Kelimeler yüklenemedi. Lütfen daha sonra tekrar deneyin.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.w600),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user?.uid)
-                        .collection('words')
-                        .where('isLearned', isEqualTo: false) // 🚀 Server-Side Filtreleme (Client yorulmaz)
-                        .orderBy('timestamp', descending: true)
-                        .limit(_searchQuery.isNotEmpty ? 1000 : _documentLimit)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting && snapshot.data == null) {
-                        return const Center(child: CircularProgressIndicator(color: Colors.purpleAccent));
-                      }
-                      
-                      if (snapshot.hasError) {
-                        debugPrint("Firestore Hatası: ${snapshot.error}");
-                        return const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20.0),
-                            child: Text(
-                              "Optimizasyon için Firebase Index gerekiyor.\nLütfen Terminal'de (Debug Console) beliren linke tıklayıp index oluşturun.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                    );
+                  }
+
+                  final words = (snapshot.data?.docs ?? []).where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    if (_searchQuery.isEmpty) return true;
+                    return data['eng'].toString().toLowerCase().contains(_searchQuery) ||
+                        data['tr'].toString().toLowerCase().contains(_searchQuery);
+                  }).toList();
+
+                  if (words.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.section),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const IconBadge(icon: Icons.style_rounded, size: 80),
+                            const SizedBox(height: AppSpacing.xl),
+                            Text(
+                              _searchQuery.isEmpty ? "Havuzun boş" : "Sonuç bulunamadı",
+                              style: AppText.heading(size: 20),
                             ),
-                          ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              _searchQuery.isEmpty
+                                  ? "Öğrenmek istediğin kelimeleri ekleyerek başla."
+                                  : "Farklı bir kelimeyle aramayı dene.",
+                              textAlign: TextAlign.center,
+                              style: AppText.body,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.sm, AppSpacing.page, 100),
+                    itemCount: words.length + (_isFetchingMore ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == words.length) {
+                        return const Center(
+                          child: Padding(padding: EdgeInsets.all(15), child: CircularProgressIndicator()),
                         );
                       }
 
-                      final words = (snapshot.data?.docs ?? []).where((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        if (_searchQuery.isEmpty) return true;
-                        return data['eng'].toString().toLowerCase().contains(_searchQuery) ||
-                               data['tr'].toString().toLowerCase().contains(_searchQuery);
-                      }).toList();
+                      final doc = words[index];
+                      final data = doc.data() as Map<String, dynamic>;
 
-                      if (words.isEmpty) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                        child: Slidable(
+                          key: ValueKey(doc.id),
+                          endActionPane: ActionPane(
+                            motion: const DrawerMotion(),
                             children: [
-                              Icon(Icons.inventory_2_outlined, size: 80, color: Colors.white.withOpacity(0.2)),
-                              const SizedBox(height: 16),
-                              Text("Havuzun Boş!", style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 18, fontWeight: FontWeight.bold)),
+                              SlidableAction(
+                                onPressed: (context) => _deleteWord(doc.id),
+                                backgroundColor: AppColors.dangerFill,
+                                foregroundColor: Colors.white,
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                icon: Icons.delete_outline_rounded,
+                                label: 'Sil',
+                              ),
                             ],
                           ),
-                        );
-                      }
-
-                      return ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(20, 10, 20, 100),
-                        itemCount: words.length + (_isFetchingMore ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index == words.length) {
-                            return const Center(
-                              child: Padding(
-                                padding: EdgeInsets.all(15),
-                                child: CircularProgressIndicator(color: Colors.purpleAccent),
-                              ),
-                            );
-                          }
-                          
-                          final doc = words[index];
-                          final data = doc.data() as Map<String, dynamic>;
-                          
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Slidable(
-                              key: ValueKey(doc.id),
-                              endActionPane: ActionPane(
-                                motion: const DrawerMotion(),
-                                children: [
-                                  SlidableAction(
-                                    onPressed: (context) => _deleteWord(doc.id),
-                                    backgroundColor: Colors.transparent,
-                                    foregroundColor: Colors.redAccent,
-                                    icon: Icons.delete_outline_rounded,
-                                    label: 'Sil',
+                          child: AppCard(
+                            radius: AppRadius.md,
+                            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.md, AppSpacing.sm, AppSpacing.md),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        data['eng'],
+                                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: AppColors.textPrimary),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        data['tr'],
+                                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.03),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: Colors.white.withOpacity(0.05)),
                                 ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blueAccent.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: const Icon(Icons.auto_awesome_motion_rounded, color: Colors.blueAccent, size: 22),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            data['eng'],
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: Colors.white, letterSpacing: -0.3),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            data['tr'],
-                                            style: const TextStyle(color: Colors.purpleAccent, fontWeight: FontWeight.w600, fontSize: 14),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.05),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: IconButton(
-                                        icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 20),
-                                        onPressed: () => _speak(data['eng']),
-                                        splashRadius: 24,
-                                      ),
-                                    ),
-                                  ],
+                                IconButton(
+                                  icon: const Icon(Icons.volume_up_rounded, color: AppColors.primaryLight, size: 22),
+                                  onPressed: () => _speak(data['eng']),
+                                  tooltip: 'Dinle',
                                 ),
-                              ),
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       );
                     },
-                  ),
-                ),
-              ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Colors.blueAccent, Colors.purpleAccent]),
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [BoxShadow(color: Colors.purpleAccent.withOpacity(0.4), blurRadius: 15, offset: const Offset(0, 5))],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: _showAddWordBottomSheet,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          label: const Text(
-            'Yeni Kelime',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-          ),
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
-        ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddWordBottomSheet,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Yeni Kelime', style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     );
   }

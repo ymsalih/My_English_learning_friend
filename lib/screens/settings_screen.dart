@@ -5,6 +5,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'auth_screen.dart';
 import 'tts_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -99,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Text("Ses ayarları başarıyla kaydedildi! ✨", style: TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
-          backgroundColor: Colors.purpleAccent.withOpacity(0.9), // Temaya Uygun SnackBar
+          backgroundColor: AppColors.primary.withOpacity(0.9), // Temaya Uygun SnackBar
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -131,7 +133,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.surface,
         title: const Text("Hesabı Sil", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -139,19 +141,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             const Text(
               "Hesabınızı ve tüm kelime havuzu/istatistik verilerinizi kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 15),
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.redAccent.withOpacity(0.1),
+                color: AppColors.danger.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                border: Border.all(color: AppColors.danger.withOpacity(0.3)),
               ),
               child: const Text(
                 "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini cihazınızın App Store veya Google Play ayarlarından yapmanız gerekmektedir.",
-                style: TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -159,10 +161,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Vazgeç", style: TextStyle(color: Colors.white54)),
+            child: const Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.dangerFill),
             onPressed: () async {
               Navigator.pop(context);
               await _deleteAccount();
@@ -233,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Güvenlik nedeniyle hesabınızı silmek için lütfen uygulamadan çıkış yapıp tekrar giriş yapın ve tekrar deneyin."),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: AppColors.dangerFill,
             ),
           );
         }
@@ -244,21 +246,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
+      backgroundColor: AppColors.bg, // Dark Space Background
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'Genel Ayarlar',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            fontSize: 20,
-            letterSpacing: 0.5,
-          ),
+          'Genel Ayarlar'
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -266,37 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       body: Stack(
         children: [
-          // --- ARKA PLAN (AURA) ---
-          Positioned(
-            top: -50,
-            left: -100,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -100,
-            right: -100,
-            child: Container(
-              width: 350,
-              height: 350,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
 
           SafeArea(
             child: SingleChildScrollView(
@@ -309,32 +273,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.7), // Glass background
+                      color: AppColors.surface.withOpacity(0.7), // Glass background
                       borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                      border: Border.all(color: AppColors.border,
                         width: 1.5,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.purpleAccent.withOpacity(0.15),
+                            color: AppColors.primaryLight.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
                             Icons.record_voice_over_rounded,
                             size: 28,
-                            color: Colors.purpleAccent,
+                            color: AppColors.primaryLight,
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -342,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Text(
                             "Burada yaptığınız değişiklikler tüm uygulamadaki okuma hızını ve tonunu anında günceller.",
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.8),
+                              color: AppColors.textSecondary,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                               height: 1.4,
@@ -371,19 +327,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.blueAccent.withOpacity(0.15),
+                            color: AppColors.secondary.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(15),
-                            border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                            border: Border.all(color: AppColors.secondary.withOpacity(0.3)),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
                               value: _selectedLevel,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.blueAccent),
-                              dropdownColor: const Color(0xFF1E293B),
+                              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.secondary),
+                              dropdownColor: AppColors.surface,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blueAccent,
+                                color: AppColors.secondary,
                               ),
                               onChanged: (String? newValue) {
                                 if (newValue != null) {
@@ -407,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       "Yapay zeka asistanı içerik üretirken bu seviyeyi baz alacaktır.",
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
+                        color: AppColors.textMuted,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -431,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.blueAccent.withOpacity(0.1),
+                          color: AppColors.secondary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -439,7 +395,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: Colors.blueAccent,
+                            color: AppColors.secondary,
                           ),
                         ),
                       ),
@@ -448,10 +404,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 15),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: Colors.blueAccent,
-                      inactiveTrackColor: Colors.blueAccent.withOpacity(0.2),
+                      activeTrackColor: AppColors.secondary,
+                      inactiveTrackColor: AppColors.secondary.withOpacity(0.2),
                       thumbColor: Colors.white,
-                      overlayColor: Colors.blueAccent.withOpacity(0.2),
+                      overlayColor: AppColors.secondary.withOpacity(0.2),
                       trackHeight: 6.0,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
                     ),
@@ -474,11 +430,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           "Çok Yavaş",
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           "Çok Hızlı",
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -501,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.purpleAccent.withOpacity(0.1),
+                          color: AppColors.primaryLight.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -509,7 +465,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
-                            color: Colors.purpleAccent,
+                            color: AppColors.primaryLight,
                           ),
                         ),
                       ),
@@ -518,10 +474,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 15),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
-                      activeTrackColor: Colors.purpleAccent,
-                      inactiveTrackColor: Colors.purpleAccent.withOpacity(0.2),
+                      activeTrackColor: AppColors.primaryLight,
+                      inactiveTrackColor: AppColors.primaryLight.withOpacity(0.2),
                       thumbColor: Colors.white,
-                      overlayColor: Colors.purpleAccent.withOpacity(0.2),
+                      overlayColor: AppColors.primaryLight.withOpacity(0.2),
                       trackHeight: 6.0,
                       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
                     ),
@@ -544,11 +500,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         Text(
                           "Kalın Ses",
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           "İnce Ses",
-                          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: AppColors.textMuted, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -561,22 +517,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       labelText: "İngilizce Test Metni",
-                      labelStyle: TextStyle(color: Colors.white.withOpacity(0.6)),
+                      labelStyle: TextStyle(color: AppColors.textSecondary),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
-                        borderSide: const BorderSide(color: Colors.blueAccent, width: 2),
+                        borderSide: const BorderSide(color: AppColors.secondary, width: 2),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(18),
                         borderSide: BorderSide(color: Colors.white.withOpacity(0.1), width: 1.5),
                       ),
-                      prefixIcon: const Icon(Icons.text_fields_rounded, color: Colors.blueAccent),
+                      prefixIcon: const Icon(Icons.text_fields_rounded, color: AppColors.secondary),
                       filled: true,
-                      fillColor: const Color(0xFF1E293B).withOpacity(0.7),
+                      fillColor: AppColors.surface.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 35),
@@ -595,11 +551,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 18),
                             foregroundColor: Colors.white,
-                            side: BorderSide(color: Colors.blueAccent.withOpacity(0.5), width: 2),
+                            side: BorderSide(color: AppColors.secondary.withOpacity(0.5), width: 2),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
-                            backgroundColor: Colors.blueAccent.withOpacity(0.1),
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
                           ),
                         ),
                       ),
@@ -614,9 +570,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 18),
-                            backgroundColor: Colors.purpleAccent,
+                            backgroundColor: AppColors.primary,
                             elevation: 8,
-                            shadowColor: Colors.purpleAccent.withOpacity(0.5),
+                            shadowColor: AppColors.primaryLight.withOpacity(0.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(18),
                             ),
@@ -640,35 +596,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 15),
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withOpacity(0.5),
+                      color: AppColors.surface.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: AppColors.surface),
                     ),
                     child: Column(
                       children: [
                         ListTile(
-                          leading: const Icon(Icons.privacy_tip_outlined, color: Colors.blueAccent),
+                          leading: const Icon(Icons.privacy_tip_outlined, color: AppColors.secondary),
                           title: const Text("Gizlilik Politikası", style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.open_in_new, color: Colors.white54, size: 18),
+                          trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
                           onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
                         ),
                         Divider(color: Colors.white.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.description_outlined, color: Colors.purpleAccent),
+                          leading: const Icon(Icons.description_outlined, color: AppColors.primaryLight),
                           title: const Text("Kullanım Şartları", style: TextStyle(color: Colors.white)),
-                          trailing: const Icon(Icons.open_in_new, color: Colors.white54, size: 18),
+                          trailing: const Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
                           onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
                         ),
                         Divider(color: Colors.white.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.logout_rounded, color: Colors.white70),
-                          title: const Text("Çıkış Yap", style: TextStyle(color: Colors.white70)),
+                          leading: const Icon(Icons.logout_rounded, color: AppColors.textSecondary),
+                          title: const Text("Çıkış Yap", style: TextStyle(color: AppColors.textSecondary)),
                           onTap: _signOut,
                         ),
                         Divider(color: Colors.white.withOpacity(0.1), height: 1),
                         ListTile(
-                          leading: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
-                          title: const Text("Hesabımı Sil", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                          leading: const Icon(Icons.delete_forever_rounded, color: AppColors.danger),
+                          title: const Text("Hesabımı Sil", style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
                           onTap: _confirmDeleteAccount,
                         ),
                       ],

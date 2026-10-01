@@ -6,6 +6,8 @@ import 'package:translator/translator.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import 'tts_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class ReadingPracticeScreen extends StatefulWidget {
   const ReadingPracticeScreen({super.key});
@@ -185,8 +187,11 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
 
     setState(() {
       _wordEvaluations = evaluations;
-      _pronunciationState = 2; 
+      _pronunciationState = 2;
     });
+
+    // Telaffuz çalışması günlük seriye sayılır.
+    _subService.recordActivity();
   }
 
   List<String> _cleanAndSplit(String text) {
@@ -230,9 +235,9 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
           padding: const EdgeInsets.all(24),
           constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7), // En fazla %70 kaplar ama metin kısaysa küçülür
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: AppColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -243,10 +248,10 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                 children: [
                   const Text(
                     "Tüm Metnin Çevirisi",
-                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white54),
+                    icon: const Icon(Icons.close, color: AppColors.textMuted),
                     onPressed: () => Navigator.pop(context),
                   )
                 ],
@@ -255,12 +260,12 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               Flexible(
                 child: SingleChildScrollView(
                   child: snapshot.connectionState == ConnectionState.waiting
-                      ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+                      ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
                       : snapshot.hasError
-                          ? const Text("Çeviri yapılamadı.", style: TextStyle(color: Colors.redAccent))
+                          ? const Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
                           : Text(
                               snapshot.data!.text,
-                              style: const TextStyle(color: Colors.cyanAccent, fontSize: 18, height: 1.5, fontWeight: FontWeight.w500),
+                              style: const TextStyle(color: AppColors.secondary, fontSize: 18, height: 1.5, fontWeight: FontWeight.w500),
                             ),
                 ),
               ),
@@ -278,9 +283,9 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            color: AppColors.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -295,14 +300,14 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               ),
               const SizedBox(height: 10),
               if (snapshot.connectionState == ConnectionState.waiting)
-                const CircularProgressIndicator(color: Colors.deepPurpleAccent)
+                const CircularProgressIndicator(color: AppColors.primary)
               else if (snapshot.hasError)
-                const Text("Çeviri yapılamadı.", style: TextStyle(color: Colors.redAccent))
+                const Text("Çeviri yapılamadı.", style: TextStyle(color: AppColors.danger))
               else
                 Text(
                   snapshot.data!.text,
                   style: const TextStyle(
-                    color: Colors.cyanAccent,
+                    color: AppColors.secondary,
                     fontSize: 22,
                     fontWeight: FontWeight.w600,
                   ),
@@ -313,7 +318,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text("Havuza Ekle", style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurpleAccent,
+                  backgroundColor: AppColors.primary,
                   minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                 ),
@@ -353,7 +358,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
       if (mounted) {
         Navigator.pop(bottomSheetContext);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kelime havuza eklendi!'), backgroundColor: Colors.green),
+          const SnackBar(content: Text('Kelime havuza eklendi!'), backgroundColor: AppColors.successFill),
         );
       }
     } catch (e) {
@@ -364,14 +369,12 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.bg,
       appBar: AppBar(
-        title: const Text('Okuma & Telaffuz', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Okuma & Telaffuz'),
       ),
-      body: Column(
+      body: AppBackground(
+        child: Column(
         children: [
           SizedBox(
             height: 60,
@@ -396,17 +399,17 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.deepPurpleAccent : const Color(0xFF1E293B),
+                        color: isSelected ? AppColors.primary : AppColors.surface,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? Colors.deepPurpleAccent : Colors.white.withOpacity(0.1),
+                          color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.1),
                         ),
                       ),
                       child: Center(
                         child: Text(
                           cat,
                           style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.white70,
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
@@ -445,17 +448,17 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.cyanAccent.withOpacity(0.2) : const Color(0xFF1E293B),
+                        color: isSelected ? AppColors.secondary.withOpacity(0.2) : AppColors.surface,
                         borderRadius: BorderRadius.circular(15),
                         border: Border.all(
-                          color: isSelected ? Colors.cyanAccent : Colors.white.withOpacity(0.1),
+                          color: isSelected ? AppColors.secondary : Colors.white.withOpacity(0.1),
                         ),
                       ),
                       child: Center(
                         child: Text(
                           level,
                           style: TextStyle(
-                            color: isSelected ? Colors.cyanAccent : Colors.white70,
+                            color: isSelected ? AppColors.secondary : AppColors.textSecondary,
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
                           ),
@@ -472,13 +475,13 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
 
           Expanded(
             child: _isLoadingTexts 
-              ? const Center(child: CircularProgressIndicator(color: Colors.cyanAccent))
+              ? const Center(child: CircularProgressIndicator(color: AppColors.secondary))
               : _categoryTexts.isEmpty
                 ? Center(
                     child: Text(
                       "Bu kategori ve seviyede henüz metin yok.\n(Firebase'den ekleyebilirsiniz)",
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 16),
+                      style: TextStyle(color: AppColors.textMuted, fontSize: 16),
                     ),
                   )
                 : Column(
@@ -504,7 +507,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                             icon: const Icon(Icons.refresh, color: Colors.white),
                             label: const Text("Farklı Bir Metin Getir", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurpleAccent,
+                              backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                             ),
@@ -512,6 +515,55 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                         ),
                     ],
                   ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildScoreCard() {
+    final total = _wordEvaluations.length;
+    if (total == 0) return const SizedBox.shrink();
+    final correct = _wordEvaluations.values.where((v) => v).length;
+    final score = (correct / total * 100).round();
+    final color = score >= 80 ? AppColors.success : (score >= 50 ? AppColors.gold : AppColors.danger);
+    return AppCard(
+      borderColor: color.withValues(alpha: 0.45),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 56,
+            height: 56,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                CircularProgressIndicator(
+                  value: score / 100,
+                  strokeWidth: 6,
+                  strokeCap: StrokeCap.round,
+                  valueColor: AlwaysStoppedAnimation(color),
+                ),
+                Center(child: Text('%$score', style: AppText.heading(size: 15))),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  score >= 80 ? 'Harika telaffuz!' : (score >= 50 ? 'İyi gidiyorsun' : 'Biraz daha pratik'),
+                  style: AppText.heading(size: 17),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$correct / $total kelime doğru. Kırmızı kelimelere dokunup dinleyebilirsin.',
+                  style: AppText.caption,
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -543,19 +595,19 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  style: AppText.heading(size: 22),
                 ),
               ),
               IconButton(
                 onPressed: () => _showFullTranslationSheet(content),
-                icon: const Icon(Icons.g_translate, color: Colors.cyanAccent),
+                icon: const Icon(Icons.g_translate, color: AppColors.secondary),
                 tooltip: "Tüm Metni Çevir",
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: Colors.cyanAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                child: Text(level, style: const TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(color: AppColors.secondary.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                child: Text(level, style: const TextStyle(color: AppColors.secondary, fontWeight: FontWeight.bold)),
               )
             ],
           ),
@@ -565,9 +617,9 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.03),
+              color: AppColors.surface,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.1)),
+              border: Border.all(color: AppColors.border),
             ),
             child: Wrap(
               spacing: 6,
@@ -575,22 +627,22 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               children: List.generate(displayWords.length, (index) {
                 final word = displayWords[index];
                 
-                Color wordColor = Colors.white70;
+                Color wordColor = AppColors.textPrimary;
                 TextDecoration decoration = TextDecoration.none;
 
                 if (_pronunciationState == 2) {
                   bool isCorrect = _wordEvaluations[index] ?? false;
                   if (isCorrect) {
-                    wordColor = Colors.greenAccent;
+                    wordColor = AppColors.success;
                   } else {
-                    wordColor = Colors.redAccent;
+                    wordColor = AppColors.danger;
                     decoration = TextDecoration.underline;
                   }
                 }
 
                 return GestureDetector(
                   onTap: () {
-                    if (_pronunciationState == 2 && wordColor == Colors.redAccent) {
+                    if (_pronunciationState == 2 && wordColor == AppColors.danger) {
                       final clean = word.replaceAll(RegExp(r'[^\w\s]'), '');
                       _ttsService.speak(clean);
                     } else {
@@ -604,7 +656,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                       fontSize: 18,
                       height: 1.5,
                       decoration: decoration,
-                      decorationColor: Colors.redAccent,
+                      decorationColor: AppColors.danger,
                     ),
                   ),
                 );
@@ -619,7 +671,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
               padding: const EdgeInsets.all(16),
               margin: const EdgeInsets.only(bottom: 20),
               decoration: BoxDecoration(
-                color: Colors.deepPurpleAccent.withOpacity(0.2),
+                color: AppColors.primary.withOpacity(0.2),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Column(
@@ -627,18 +679,18 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.mic, color: Colors.deepPurpleAccent),
+                      const Icon(Icons.mic, color: AppColors.primary),
                       const SizedBox(width: 10),
                       Text(
                         _isListening ? "Dinliyorum..." : "İşleniyor...",
-                        style: const TextStyle(color: Colors.deepPurpleAccent, fontWeight: FontWeight.bold),
+                        style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const SizedBox(height: 10),
                   Text(
                     _spokenText.isEmpty ? "Konuşmaya başlayın..." : _spokenText,
-                    style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                    style: const TextStyle(color: AppColors.textSecondary, fontStyle: FontStyle.italic),
                   ),
                 ],
               ),
@@ -652,7 +704,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                   icon: const Icon(Icons.volume_up, color: Colors.white),
                   label: const Text('Metni Dinle', style: TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan.withOpacity(0.3),
+                    backgroundColor: AppColors.primary.withOpacity(0.3),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
@@ -671,7 +723,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                   icon: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
                   label: Text(_isListening ? 'Bitir' : 'Okuyacağım', style: const TextStyle(color: Colors.white)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isListening ? Colors.redAccent : Colors.deepPurpleAccent,
+                    backgroundColor: _isListening ? AppColors.dangerFill : AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
@@ -682,6 +734,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
 
           if (_pronunciationState == 2) ...[
             const SizedBox(height: 20),
+            _buildScoreCard(),
+            const SizedBox(height: 8),
             Center(
               child: TextButton.icon(
                 onPressed: () {
@@ -690,8 +744,8 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
                     _spokenText = "";
                   });
                 },
-                icon: const Icon(Icons.refresh, color: Colors.white54),
-                label: const Text("Sıfırla", style: TextStyle(color: Colors.white54)),
+                icon: const Icon(Icons.refresh, color: AppColors.textMuted),
+                label: const Text("Sıfırla", style: TextStyle(color: AppColors.textMuted)),
               ),
             )
           ]

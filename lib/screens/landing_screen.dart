@@ -1,6 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'auth_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -23,8 +24,6 @@ class LandingScreen extends StatelessWidget {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         title: Row(
           children: [
             Container(
@@ -32,12 +31,6 @@ class LandingScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.3),
-                    blurRadius: 10,
-                  ),
-                ],
               ),
               child: Image.asset(
                 'assets/logo_transparent.png',
@@ -47,13 +40,17 @@ class LandingScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Octopus English',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 0.5,
-                fontSize: 18,
+            const Flexible(
+              child: Text(
+                'Octopus English',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                  fontSize: 18,
+                ),
               ),
             ),
           ],
@@ -84,42 +81,9 @@ class LandingScreen extends StatelessWidget {
       body: Stack(
         children: [
           // YENİ UZUN DİNAMİK ARKA PLAN
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF0F172A),
-                  Color(0xFF1E1B4B),
-                  Color(0xFF0F172A),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: [0.0, 0.5, 1.0],
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
 
           // Aura Efektleri (Arka plana derinlik katmak için)
-          Positioned(
-            top: -100,
-            left: -100,
-            child: _buildAura(Colors.deepPurpleAccent.withOpacity(0.3), 400),
-          ),
-          Positioned(
-            top: 400,
-            right: -150,
-            child: _buildAura(Colors.blueAccent.withOpacity(0.2), 500),
-          ),
-          Positioned(
-            bottom: 200,
-            left: -100,
-            child: _buildAura(Colors.tealAccent.withOpacity(0.2), 400),
-          ),
-          Positioned(
-            bottom: -150,
-            right: -100,
-            child: _buildAura(Colors.pinkAccent.withOpacity(0.2), 400),
-          ),
 
           // Kaydırılabilir Ana İçerik
           SafeArea(
@@ -143,9 +107,8 @@ class LandingScreen extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(AppRadius.xl),
+                              border: Border.all(color: AppColors.border,
                               ),
                             ),
                             child: Row(
@@ -153,7 +116,7 @@ class LandingScreen extends StatelessWidget {
                               children: [
                                 const Icon(
                                   Icons.auto_awesome,
-                                  color: Colors.amberAccent,
+                                  color: AppColors.gold,
                                   size: 16,
                                 ),
                                 const SizedBox(width: 8),
@@ -186,7 +149,7 @@ class LandingScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.white.withOpacity(0.7),
+                              color: AppColors.textSecondary,
                               height: 1.5,
                             ),
                           ),
@@ -212,20 +175,20 @@ class LandingScreen extends StatelessWidget {
 
                     _buildLargeBentoCard(
                       icon: Icons.forum_rounded,
-                      iconColor: Colors.amberAccent,
+                      iconColor: AppColors.gold,
                       title: "Yapay Zeka Öğretmen",
                       description: "AI tabanlı chat sistemi ile 7/24 kesintisiz pratik yapın ve hatalarınızı anında görün.",
-                      gradientColors: [Colors.amberAccent.withOpacity(0.2), Colors.orangeAccent.withOpacity(0.05)],
+                      gradientColors: [AppColors.gold.withOpacity(0.2), AppColors.gold.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
 
                     // YENİ: BÜYÜK KART (Okuma ve Telaffuz)
                     _buildLargeBentoCard(
                       icon: Icons.mic_external_on_rounded,
-                      iconColor: Colors.pinkAccent,
+                      iconColor: AppColors.primaryLight,
                       title: "Okuma ve Telaffuz Analizi",
                       description: "İngilizce metinleri sesli okuyun, AI telaffuzunuzu analiz edip hatalarınızı kırmızı ile göstersin.",
-                      gradientColors: [Colors.pinkAccent.withOpacity(0.2), Colors.purpleAccent.withOpacity(0.05)],
+                      gradientColors: [AppColors.primaryLight.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
 
@@ -235,7 +198,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.auto_stories_rounded,
-                            iconColor: Colors.pinkAccent,
+                            iconColor: AppColors.primaryLight,
                             title: "Hikayeler",
                             description: "İnteraktif metinler ve anında çeviri.",
                           ),
@@ -244,7 +207,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.play_circle_fill_rounded,
-                            iconColor: Colors.redAccent,
+                            iconColor: AppColors.danger,
                             title: "Videolar",
                             description: "Dinleme (Listening) pratikleri yapın.",
                           ),
@@ -256,10 +219,10 @@ class LandingScreen extends StatelessWidget {
                     // 3. SATIR: BÜYÜK KART (Kamera Çevirisi)
                     _buildLargeBentoCard(
                       icon: Icons.document_scanner_rounded,
-                      iconColor: Colors.tealAccent,
+                      iconColor: AppColors.secondary,
                       title: "Kamera ile Çeviri (AI Vision)",
                       description: "Gerçek dünyadaki İngilizce metinleri kameranızla okutun, AI teknolojisi anında çevirsin.",
-                      gradientColors: [Colors.tealAccent.withOpacity(0.2), Colors.cyanAccent.withOpacity(0.05)],
+                      gradientColors: [AppColors.secondary.withOpacity(0.2), AppColors.secondary.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
 
@@ -269,7 +232,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.article_rounded,
-                            iconColor: Colors.blueAccent,
+                            iconColor: AppColors.secondary,
                             title: "Haberler",
                             description: "Güncel İngilizce makaleler.",
                           ),
@@ -278,7 +241,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.inventory_2_rounded,
-                            iconColor: Colors.deepPurpleAccent,
+                            iconColor: AppColors.primary,
                             title: "Havuz",
                             description: "Öğrendiklerinizi biriktirin.",
                           ),
@@ -293,7 +256,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.quiz_rounded,
-                            iconColor: Colors.deepOrangeAccent,
+                            iconColor: AppColors.gold,
                             title: "Testler",
                             description: "Kalıcı hafıza için quizler.",
                           ),
@@ -302,7 +265,7 @@ class LandingScreen extends StatelessWidget {
                         Expanded(
                           child: _buildSmallBentoCard(
                             icon: Icons.insights_rounded,
-                            iconColor: Colors.greenAccent,
+                            iconColor: AppColors.success,
                             title: "Gelişim",
                             description: "Detaylı analiz ve raporlar.",
                           ),
@@ -373,23 +336,16 @@ class LandingScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.deepPurpleAccent.withOpacity(0.9),
-                            Colors.blueAccent.withOpacity(0.9),
+                            AppColors.primary.withOpacity(0.9),
+                            AppColors.secondary.withOpacity(0.9),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(AppRadius.xl),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.4),
+                          color: AppColors.textMuted,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.deepPurple.withOpacity(0.5),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
                       ),
                       child: Column(
                         children: [
@@ -415,7 +371,7 @@ class LandingScreen extends StatelessWidget {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 15,
-                              color: Colors.white70,
+                              color: AppColors.textSecondary,
                               height: 1.4,
                             ),
                           ),
@@ -427,10 +383,10 @@ class LandingScreen extends StatelessWidget {
                             ), // false = Register
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
-                              foregroundColor: Colors.deepPurple,
+                              foregroundColor: AppColors.primary,
                               minimumSize: const Size(double.infinity, 60),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(25),
+                                borderRadius: BorderRadius.circular(AppRadius.xl),
                               ),
                               elevation: 10,
                             ),
@@ -450,7 +406,7 @@ class LandingScreen extends StatelessWidget {
                             child: Text(
                               "Zaten hesabım var",
                               style: TextStyle(
-                                color: Colors.white.withOpacity(0.8),
+                                color: AppColors.textSecondary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -472,19 +428,6 @@ class LandingScreen extends StatelessWidget {
 
   // --- YARDIMCI WIDGET'LAR ---
 
-  Widget _buildAura(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color.withOpacity(0.5), Colors.transparent],
-          stops: const [0.1, 1.0],
-        ),
-      ),
-    );
-  }
 
   // YENİ BENTO BOX BÜYÜK KART TASARIMI
   Widget _buildLargeBentoCard({
@@ -503,13 +446,11 @@ class LandingScreen extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AppColors.border),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Stack(
+        child: Stack(
             children: [
               Positioned(
                 right: -30,
@@ -555,7 +496,7 @@ class LandingScreen extends StatelessWidget {
                           Text(
                             description,
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
+                              color: AppColors.textSecondary,
                               fontSize: 14,
                               height: 1.4,
                             ),
@@ -568,7 +509,6 @@ class LandingScreen extends StatelessWidget {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -583,15 +523,13 @@ class LandingScreen extends StatelessWidget {
     return Container(
       height: 180, // Eşit yükseklik sağlamak için
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: AppColors.surface),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Padding(
+        child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -619,7 +557,7 @@ class LandingScreen extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                     height: 1.3,
                   ),
@@ -627,7 +565,6 @@ class LandingScreen extends StatelessWidget {
               ],
             ),
           ),
-        ),
       ),
     );
   }
@@ -639,15 +576,13 @@ class LandingScreen extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: AppColors.border),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Padding(
+        child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -679,7 +614,7 @@ class LandingScreen extends StatelessWidget {
                         Text(
                           role,
                           style: TextStyle(
-                            color: Colors.amberAccent.withOpacity(0.8),
+                            color: AppColors.gold.withOpacity(0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -697,7 +632,7 @@ class LandingScreen extends StatelessWidget {
                 Text(
                   "\"$comment\"",
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.85),
+                    color: AppColors.textSecondary,
                     fontStyle: FontStyle.italic,
                     fontSize: 15,
                     height: 1.5,
@@ -709,7 +644,7 @@ class LandingScreen extends StatelessWidget {
                     5,
                     (index) => const Icon(
                       Icons.star_rounded,
-                      color: Colors.amberAccent,
+                      color: AppColors.gold,
                       size: 18,
                     ),
                   ),
@@ -717,7 +652,6 @@ class LandingScreen extends StatelessWidget {
               ],
             ),
           ),
-        ),
       ),
     );
   }

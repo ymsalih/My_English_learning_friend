@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
+import '../theme/app_theme.dart';
 import '../main.dart'; // Global cameras listesini çekiyoruz
 
 class CameraScannerScreen extends StatefulWidget {
@@ -148,7 +149,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: CircularProgressIndicator(color: Colors.tealAccent),
+          child: CircularProgressIndicator(color: AppColors.secondary),
         ),
       );
     }
@@ -179,7 +180,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                 IconButton(
                   icon: Icon(
                     _isFlashOn ? Icons.flash_on : Icons.flash_off,
-                    color: _isFlashOn ? Colors.yellowAccent : Colors.white,
+                    color: _isFlashOn ? AppColors.gold : Colors.white,
                     size: 30,
                   ),
                   onPressed: _toggleFlash,
@@ -196,8 +197,9 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
             child: Container(
               padding: const EdgeInsets.all(30),
               decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                color: AppColors.surface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+                border: Border(top: BorderSide(color: AppColors.border)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -205,7 +207,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                   if (_isProcessing)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
-                      child: CircularProgressIndicator(color: Colors.teal),
+                      child: CircularProgressIndicator(color: AppColors.secondary),
                     )
                   else if (_scannedText.isEmpty ||
                       _scannedText == "Metin tespit edilemedi.")
@@ -216,7 +218,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                               ? "Metni ekrana hizalayın veya Galeriden seçin"
                               : _scannedText,
                           style: TextStyle(
-                            color: _scannedText.isEmpty ? Colors.grey : Colors.red,
+                            color: _scannedText.isEmpty ? AppColors.textMuted : AppColors.danger,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -229,10 +231,10 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                               onTap: _pickImageFromGallery,
                               child: CircleAvatar(
                                 radius: 30,
-                                backgroundColor: Colors.purple.shade50,
+                                backgroundColor: AppColors.surfaceHigh,
                                 child: const Icon(
                                   Icons.photo_library,
-                                  color: Colors.purple,
+                                  color: AppColors.primary,
                                   size: 30,
                                 ),
                               ),
@@ -242,10 +244,10 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                               onTap: _takePictureAndProcess,
                               child: CircleAvatar(
                                 radius: 35,
-                                backgroundColor: Colors.teal.shade50,
+                                backgroundColor: AppColors.primary,
                                 child: const Icon(
                                   Icons.camera_alt,
-                                  color: Colors.teal,
+                                  color: Colors.white,
                                   size: 35,
                                 ),
                               ),
@@ -259,16 +261,16 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                       children: [
                         const Text(
                           "Tespit Edilen Metin:",
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 10),
                         Container(
                           constraints: const BoxConstraints(maxHeight: 150),
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.grey.shade300),
+                            color: AppColors.bg,
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
@@ -276,7 +278,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                               _scannedText,
                               style: const TextStyle(
                                 fontSize: 16,
-                                color: Colors.black87,
+                                color: AppColors.textPrimary,
                               ),
                               textAlign: TextAlign.center,
                             ),
@@ -298,7 +300,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
                                 onPressed: () =>
                                     Navigator.pop(context, _scannedText),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.teal,
+                                  backgroundColor: AppColors.primary,
                                 ),
                                 child: const Text(
                                   "Çevir",

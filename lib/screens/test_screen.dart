@@ -6,6 +6,8 @@ import 'package:flip_card/flip_card.dart';
 import 'tts_service.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
@@ -44,7 +46,7 @@ class _TestScreenState extends State<TestScreen> {
   bool _testCompleted = false;
 
   final LinearGradient primaryGradient = const LinearGradient(
-    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+    colors: [AppColors.secondary, AppColors.primary],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -259,130 +261,82 @@ class _TestScreenState extends State<TestScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(
-          _isSetupMode ? 'Kendini Test Et' : 'Öğrenme Zamanı',
-          style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
-        ),
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(_isSetupMode ? 'Kendini Test Et' : 'Öğrenme Zamanı'),
         actions: [
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(right: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.purpleAccent.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
-              ),
-              child: Text(
-                _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
-                style: const TextStyle(
-                  color: Colors.purpleAccent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.lg),
+            child: InfoPill(
+              icon: Icons.quiz_outlined,
+              label: _isUnlimited ? "Sınırsız" : "$_currentUsage/$_currentLimit",
             ),
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E1B4B), Color(0xFF312E81)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
+      body: AppBackground(
+        child: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _allAvailableWords.isEmpty
+                  ? _buildEmptyState()
+                  : _isSetupMode
+                      ? _buildSetupScreen()
+                      : _testCompleted
+                          ? _buildResultsScreen()
+                          : _buildTestScreen(),
+        ),
+      ),
+    );
+  }
+
+  Widget _countChip(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : AppColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: isSelected ? AppColors.primary : AppColors.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : AppColors.textSecondary,
           ),
-          Positioned(
-            top: -100, right: -50,
-            child: Container(
-              width: 300, height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.purpleAccent))
-                : _allAvailableWords.isEmpty
-                ? _buildEmptyState()
-                : _isSetupMode
-                ? _buildSetupScreen()
-                : _testCompleted
-                ? _buildResultsScreen()
-                : _buildTestScreen(),
-          ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildSetupScreen() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(30.0),
-        child: Container(
-          padding: const EdgeInsets.all(25),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1E293B).withOpacity(0.8),
-            borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 30,
-                offset: const Offset(0, 15),
-              ),
-            ],
-          ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.page),
+        child: AppCard(
+          radius: AppRadius.xl,
+          padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.settings_suggest_rounded, size: 60, color: Colors.white),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                "Test Ayarları",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white),
-              ),
-              const SizedBox(height: 10),
+              const IconBadge(icon: Icons.tune_rounded, size: 64),
+              const SizedBox(height: AppSpacing.lg),
+              Text("Test Ayarları", style: AppText.heading(size: 22)),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 "Havuzda öğrenilmeyi bekleyen toplam\n${_allAvailableWords.length} kelimen var.",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.6)),
+                style: AppText.body,
               ),
-              const SizedBox(height: 30),
-              Text(
-                "$_selectedWordCount Kelime",
-                style: const TextStyle(fontSize: 35, fontWeight: FontWeight.w900, color: Colors.white),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.xxl),
+              Text("$_selectedWordCount", style: AppText.display(size: 48)),
+              const Text("KELİME", style: AppText.overline),
+              const SizedBox(height: AppSpacing.md),
               SliderTheme(
                 data: SliderTheme.of(context).copyWith(
-                  activeTrackColor: Colors.indigoAccent,
-                  inactiveTrackColor: Colors.white.withOpacity(0.1),
-                  thumbColor: Colors.indigoAccent,
-                  overlayColor: Colors.indigoAccent.withOpacity(0.2),
                   trackHeight: 6.0,
-                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10.0),
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 11.0),
                 ),
                 child: Slider(
                   value: _selectedWordCount.toDouble(),
@@ -396,60 +350,33 @@ class _TestScreenState extends State<TestScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.md),
               Wrap(
-                spacing: 12,
+                spacing: AppSpacing.sm,
+                runSpacing: AppSpacing.sm,
                 alignment: WrapAlignment.center,
                 children: [
-                  ...[10, 20, 50].map((count) {
-                    if (count > _allAvailableWords.length) return const SizedBox.shrink();
-                    bool isSelected = _selectedWordCount == count;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedWordCount = count),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Colors.indigoAccent : Colors.white.withOpacity(0.05),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: isSelected ? Colors.indigoAccent : Colors.transparent),
+                  ...[10, 20, 50].where((c) => c <= _allAvailableWords.length).map(
+                        (count) => _countChip(
+                          "$count",
+                          _selectedWordCount == count,
+                          () => setState(() => _selectedWordCount = count),
                         ),
-                        child: Text("$count", style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.white70)),
                       ),
-                    );
-                  }),
-                  GestureDetector(
-                    onTap: () => setState(() => _selectedWordCount = _allAvailableWords.length),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: _selectedWordCount == _allAvailableWords.length ? Colors.indigoAccent : Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _selectedWordCount == _allAvailableWords.length ? Colors.indigoAccent : Colors.transparent),
-                      ),
-                      child: Text("Hepsi", style: TextStyle(fontWeight: FontWeight.bold, color: _selectedWordCount == _allAvailableWords.length ? Colors.white : Colors.white70)),
-                    ),
+                  _countChip(
+                    "Hepsi",
+                    _selectedWordCount == _allAvailableWords.length,
+                    () => setState(() => _selectedWordCount = _allAvailableWords.length),
                   ),
                 ],
               ),
-              const SizedBox(height: 35),
-              Container(
+              const SizedBox(height: AppSpacing.xxl),
+              SizedBox(
                 width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: primaryGradient,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 5))],
-                ),
-                child: ElevatedButton(
+                child: FilledButton.icon(
                   onPressed: _startTest,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  ),
-                  child: const Text("Teste Başla", style: TextStyle(fontSize: 18, color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text("Teste Başla"),
                 ),
               ),
             ],
@@ -466,19 +393,19 @@ class _TestScreenState extends State<TestScreen> {
     IconData actionIcon = Icons.help;
     double opacity = 0.0;
     if (position.dy < -50 && position.dy.abs() > position.dx.abs()) {
-      overlayColor = Colors.orangeAccent;
+      overlayColor = AppColors.goldFill;
       actionText = "Öğrendim";
       actionIcon = Icons.school_rounded;
       opacity = min(1.0, position.dy.abs() / 150);
     } else if (position.dx > 40) {
-      overlayColor = Colors.redAccent;
+      overlayColor = AppColors.dangerFill;
       actionText = "Unuttum";
-      actionIcon = Icons.cancel_rounded;
+      actionIcon = Icons.close_rounded;
       opacity = min(1.0, position.dx.abs() / 150);
     } else if (position.dx < -40) {
-      overlayColor = Colors.greenAccent;
+      overlayColor = AppColors.successFill;
       actionText = "Hatırladım";
-      actionIcon = Icons.check_circle_rounded;
+      actionIcon = Icons.check_rounded;
       opacity = min(1.0, position.dx.abs() / 150);
     }
 
@@ -488,26 +415,18 @@ class _TestScreenState extends State<TestScreen> {
         width: 320,
         height: 250,
         decoration: BoxDecoration(
-          color: overlayColor.withOpacity(opacity * 0.8),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withOpacity(opacity * 0.5), width: 2),
+          color: overlayColor.withValues(alpha: opacity * 0.9),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
         ),
         child: Center(
           child: Transform.scale(
-            scale: 0.5 + (opacity * 0.5),
+            scale: 0.6 + (opacity * 0.4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.2), shape: BoxShape.circle),
-                  child: Icon(actionIcon, color: Colors.white, size: 50),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  actionText,
-                  style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 1.5),
-                ),
+                Icon(actionIcon, color: Colors.white, size: 56),
+                const SizedBox(height: AppSpacing.sm),
+                Text(actionText, style: AppText.display(size: 28, color: Colors.white)),
               ],
             ),
           ),
@@ -516,59 +435,53 @@ class _TestScreenState extends State<TestScreen> {
     );
   }
 
+  Widget _actionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return Expanded(
+      child: Column(
+        children: [
+          Material(
+            color: color.withValues(alpha: 0.14),
+            shape: CircleBorder(side: BorderSide(color: color.withValues(alpha: 0.4))),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: onTap,
+              child: SizedBox(width: 60, height: 60, child: Icon(icon, color: color, size: 28)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTestScreen() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final progress = _totalWordsInSession == 0
+            ? 0.0
+            : (_totalWordsInSession - _words.length) / _totalWordsInSession;
         return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: Column(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.md, AppSpacing.page, 0),
+              child: Row(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      value: _totalWordsInSession == 0 ? 0 : (_totalWordsInSession - _words.length) / _totalWordsInSession,
-                      minHeight: 8,
-                      backgroundColor: Colors.white.withOpacity(0.1),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.purpleAccent),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: LinearProgressIndicator(value: progress, minHeight: 8),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Text(
-                    "Kalan Kelime: ${_words.length} / $_totalWordsInSession",
-                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.bold, fontSize: 14),
+                    "${_totalWordsInSession - _words.length}/$_totalWordsInSession",
+                    style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w700),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
-              ),
-              child: Column(
-                children: [
-                  const Text('👆 Öğrendim', style: TextStyle(color: Colors.orangeAccent, fontSize: 14, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('👈 Hatırladım', style: TextStyle(color: Colors.greenAccent, fontSize: 14, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 15),
-                      Text('(Dokun: Çevir)', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
-                      const SizedBox(width: 15),
-                      const Text('Unuttum 👉', style: TextStyle(color: Colors.redAccent, fontSize: 14, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 40),
+            const Spacer(),
             AnimatedBuilder(
               animation: Listenable.merge([_swipePosition, _swipeAngle, _isDragging]),
               builder: (context, child) {
@@ -623,7 +536,25 @@ class _TestScreenState extends State<TestScreen> {
                 );
               },
             ),
-            const SizedBox(height: 80),
+            const SizedBox(height: AppSpacing.lg),
+            const Text(
+              "Karta dokun: çevir  ·  Kaydır veya butonları kullan",
+              style: AppText.caption,
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.page, 0, AppSpacing.page, AppSpacing.xxl),
+              child: Row(
+                children: [
+                  _actionButton("Hatırladım", Icons.check_rounded, AppColors.success,
+                      () => _animateAndMove('remembered', const Offset(-500, 0))),
+                  _actionButton("Öğrendim", Icons.school_rounded, AppColors.gold,
+                      () => _animateAndMove('mastered', const Offset(0, -600))),
+                  _actionButton("Unuttum", Icons.close_rounded, AppColors.danger,
+                      () => _animateAndMove('forgot', const Offset(500, 0))),
+                ],
+              ),
+            ),
           ],
         );
       },
@@ -635,57 +566,48 @@ class _TestScreenState extends State<TestScreen> {
     double successRate = _totalWordsInSession > 0 ? (correctAnswers / _totalWordsInSession) * 100 : 0;
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(25.0),
+        padding: const EdgeInsets.all(AppSpacing.page),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(25),
-              decoration: BoxDecoration(
-                color: Colors.orangeAccent.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.workspace_premium_rounded, size: 80, color: Colors.orangeAccent),
-            ),
-            const SizedBox(height: 25),
-            const Text(
-              "Test Tamamlandı!",
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "İşte bu çalışmadaki performans analizin:",
-              style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.6)),
-            ),
-            const SizedBox(height: 35),
-            Container(
-              padding: const EdgeInsets.all(30),
-              decoration: BoxDecoration(
-                gradient: primaryGradient,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(color: Colors.blueAccent.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
-                ],
-              ),
-              child: Column(
+            SizedBox(
+              width: 150,
+              height: 150,
+              child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  const Text("BAŞARI ORANI", style: TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  const SizedBox(height: 10),
-                  Text("%${successRate.toStringAsFixed(0)}", style: const TextStyle(fontSize: 60, fontWeight: FontWeight.w900, color: Colors.white)),
+                  CircularProgressIndicator(
+                    value: successRate / 100,
+                    strokeWidth: 12,
+                    strokeCap: StrokeCap.round,
+                    valueColor: const AlwaysStoppedAnimation(AppColors.success),
+                  ),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text("%${successRate.toStringAsFixed(0)}", style: AppText.display(size: 40)),
+                        const Text("BAŞARI", style: AppText.overline),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: AppSpacing.xxl),
+            Text("Test Tamamlandı!", style: AppText.display(size: 26)),
+            const SizedBox(height: AppSpacing.xs),
+            const Text("İşte bu çalışmadaki performans analizin", style: AppText.body),
+            const SizedBox(height: AppSpacing.xxl),
             Row(
               children: [
-                Expanded(child: _buildResultStatCard("Hatırlanan", correctAnswers.toString(), Icons.check_circle_rounded, Colors.greenAccent)),
-                const SizedBox(width: 15),
-                Expanded(child: _buildResultStatCard("Unutulan", _forgotCount.toString(), Icons.cancel_rounded, Colors.redAccent)),
+                Expanded(child: _buildResultStatCard("Hatırlanan", correctAnswers.toString(), Icons.check_rounded, AppColors.success)),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(child: _buildResultStatCard("Unutulan", _forgotCount.toString(), Icons.close_rounded, AppColors.danger)),
               ],
             ),
-            const SizedBox(height: 15),
-            _buildResultStatCard("Arşive Eklenen (Öğrenildi)", _masteredCount.toString(), Icons.school_rounded, Colors.orangeAccent),
-            const SizedBox(height: 40),
+            const SizedBox(height: AppSpacing.md),
+            _buildResultStatCard("Arşive Eklenen (Öğrenildi)", _masteredCount.toString(), Icons.school_rounded, AppColors.gold),
+            const SizedBox(height: AppSpacing.section),
             Row(
               children: [
                 Expanded(
@@ -698,25 +620,26 @@ class _TestScreenState extends State<TestScreen> {
                       });
                       _checkAvailableWords();
                     },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      side: BorderSide(color: Colors.white.withOpacity(0.2), width: 2),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                    child: const Text("Tekrar Test Et", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: const Text("Tekrar Test Et"),
                   ),
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 5,
-                    ),
-                    child: const Text("Ana Sayfa", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                  // Alt sekmede açıldıysa kapatılacak sayfa yok: yeni teste dön.
+                  child: FilledButton(
+                    onPressed: () {
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        setState(() {
+                          _isLoading = true;
+                          _testCompleted = false;
+                          _isSetupMode = true;
+                        });
+                        _checkAvailableWords();
+                      }
+                    },
+                    child: Text(Navigator.canPop(context) ? "Ana Sayfa" : "Yeni Test"),
                   ),
                 ),
               ],
@@ -728,30 +651,17 @@ class _TestScreenState extends State<TestScreen> {
   }
 
   Widget _buildResultStatCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
-      ),
+    return AppCard(
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 12),
+          IconBadge(icon: icon, color: color, size: 40),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(title, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.bold)),
+                Text(value, style: AppText.heading(size: 20)),
+                Text(title, style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -762,45 +672,56 @@ class _TestScreenState extends State<TestScreen> {
 
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(30),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), shape: BoxShape.circle),
-            child: const Icon(Icons.style, size: 80, color: Colors.white54),
-          ),
-          const SizedBox(height: 25),
-          const Text("Havuzda Kelime Yok!", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-          const SizedBox(height: 10),
-          Text("Lütfen test edilecek yeni kelimeler ekle.", textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.5))),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.section),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const IconBadge(icon: Icons.style_rounded, size: 88, color: AppColors.textMuted),
+            const SizedBox(height: AppSpacing.xxl),
+            Text("Havuzda Kelime Yok!", style: AppText.heading(size: 22)),
+            const SizedBox(height: AppSpacing.sm),
+            const Text(
+              "Lütfen test edilecek yeni kelimeler ekle.",
+              textAlign: TextAlign.center,
+              style: AppText.body,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCard(String text, bool isFront) {
-    double dynamicFontSize = text.length > 30 ? 22 : (text.length > 15 ? 28 : 38);
+    double dynamicFontSize = text.length > 30 ? 22 : (text.length > 15 ? 28 : 36);
     return Container(
       width: 320,
-      height: 250, // Biraz daha uzun yaparak daha şık bir hissiyat verdik
+      height: 250,
       decoration: BoxDecoration(
-        gradient: isFront
-            ? const LinearGradient(colors: [Color(0xFF3B82F6), Color(0xFF6366F1)], begin: Alignment.topLeft, end: Alignment.bottomRight)
-            : const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFFD946EF)], begin: Alignment.bottomLeft, end: Alignment.topRight),
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+        gradient: isFront ? AppColors.primaryGradient : null,
+        color: isFront ? null : AppColors.surfaceHigh,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: isFront ? null : Border.all(color: AppColors.primaryLight.withValues(alpha: 0.5), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: isFront ? Colors.blueAccent.withOpacity(0.5) : Colors.purpleAccent.withOpacity(0.5),
-            blurRadius: 20,
-            spreadRadius: 2,
-            offset: const Offset(0, 10),
+            color: AppColors.primary.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
       child: Stack(
         children: [
+          Positioned(
+            top: 18,
+            left: 20,
+            child: Text(
+              isFront ? "İNGİLİZCE" : "TÜRKÇE",
+              style: AppText.overline.copyWith(
+                color: isFront ? Colors.white.withValues(alpha: 0.75) : AppColors.textMuted,
+              ),
+            ),
+          ),
           Align(
             alignment: Alignment.center,
             child: Padding(
@@ -810,24 +731,26 @@ class _TestScreenState extends State<TestScreen> {
                 child: Text(
                   text,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: dynamicFontSize, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2, height: 1.3),
+                  style: AppText.display(size: dynamicFontSize, color: Colors.white),
                 ),
               ),
             ),
           ),
           if (isFront)
             Positioned(
-              top: 15,
-              right: 15,
-              child: Container(
-                decoration: BoxDecoration(color: Colors.black.withOpacity(0.15), shape: BoxShape.circle),
-                child: IconButton(icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 28), onPressed: () => _speak(text), tooltip: 'Dinle'),
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.volume_up_rounded, color: Colors.white, size: 26),
+                onPressed: () => _speak(text),
+                tooltip: 'Dinle',
               ),
             ),
           Positioned(
-            bottom: 20,
-            left: 25,
-            child: Icon(isFront ? Icons.language : Icons.translate, color: Colors.white.withOpacity(0.3), size: 28),
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Icon(Icons.touch_app_rounded, color: Colors.white.withValues(alpha: 0.35), size: 22),
           ),
         ],
       ),

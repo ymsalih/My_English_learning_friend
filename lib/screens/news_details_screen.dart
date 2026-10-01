@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../theme/app_theme.dart';
 import 'package:flutter/foundation.dart' show kIsWeb; // Web kontrolü için
 import 'package:url_launcher/url_launcher.dart'; // Yeni sekmede açmak için
 
@@ -70,12 +71,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          widget.title,
-          style: const TextStyle(
-            fontSize: 16,
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
-          ),
+          widget.title
         ),
         backgroundColor: Colors.white,
         elevation: 1,
@@ -85,7 +81,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.open_in_browser_rounded, color: Colors.teal),
+            icon: const Icon(Icons.open_in_browser_rounded, color: AppColors.secondary),
             onPressed: _launchInBrowser,
           ),
         ],
@@ -97,7 +93,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
                 WebViewWidget(controller: _controller),
                 if (_isLoading)
                   const Center(
-                    child: CircularProgressIndicator(color: Colors.teal),
+                    child: CircularProgressIndicator(color: AppColors.secondary),
                   ),
                 if (_hasError) _buildWebFallback(),
               ],
@@ -116,7 +112,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
             Icon(
               Icons.language_rounded,
               size: 80,
-              color: Colors.teal.withOpacity(0.2),
+              color: AppColors.secondary.withOpacity(0.2),
             ),
             const SizedBox(height: 20),
             // 🚀 Buradaki 'const' ibaresini de kaldırarak hata riskini sıfırladık.
@@ -140,7 +136,7 @@ class _NewsDetailsScreenState extends State<NewsDetailsScreen> {
               icon: const Icon(Icons.open_in_new_rounded),
               label: const Text("Haberi Oku"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
+                backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 30,

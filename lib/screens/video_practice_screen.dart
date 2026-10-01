@@ -3,13 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart' as native;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart' as web;
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 import 'dart:ui'; // For BackdropFilter
 
 class VideoPracticeScreen extends StatelessWidget {
   const VideoPracticeScreen({super.key});
 
   final LinearGradient primaryGradient = const LinearGradient(
-    colors: [Color(0xFF8B5CF6), Color(0xFF3B82F6)], // Mor ve Mavi Uzay Geçişi
+    colors: [AppColors.primary, AppColors.secondary], // Mor ve Mavi Uzay Geçişi
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
@@ -17,56 +19,17 @@ class VideoPracticeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark Space Background
+      backgroundColor: AppColors.bg, // Dark Space Background
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text(
-          'İngilizce Dinleme & Pratik',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            fontSize: 20,
-            letterSpacing: 0.5,
-          ),
+          'İngilizce Dinleme & Pratik'
         ),
         centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
-          // Background Glows
-          Positioned(
-            top: -100,
-            left: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.purpleAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -50,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [Colors.blueAccent.withOpacity(0.15), Colors.transparent],
-                  stops: const [0.1, 1.0],
-                ),
-              ),
-            ),
-          ),
+          const Positioned.fill(child: AppBackground(child: SizedBox.expand())),
           SafeArea(
             child: StreamBuilder(
               stream: FirebaseFirestore.instance
@@ -75,7 +38,7 @@ class VideoPracticeScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(color: Colors.purpleAccent),
+                    child: CircularProgressIndicator(color: AppColors.primaryLight),
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
@@ -140,16 +103,13 @@ class VideoPracticeScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(25),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: AppColors.surface,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(color: Colors.purpleAccent.withOpacity(0.2), blurRadius: 30),
-              ],
             ),
             child: const Icon(
               Icons.ondemand_video_rounded,
               size: 90,
-              color: Colors.purpleAccent,
+              color: AppColors.primaryLight,
             ),
           ),
           const SizedBox(height: 30),
@@ -165,7 +125,7 @@ class VideoPracticeScreen extends StatelessWidget {
           Text(
             'Çok yakında harika içerikler\nburaya eklenecek!',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.7), height: 1.5),
+            style: TextStyle(fontSize: 16, color: AppColors.textSecondary, height: 1.5),
           ),
         ],
       ),
@@ -176,23 +136,16 @@ class VideoPracticeScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 25),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.7), // Glass panel
+        color: AppColors.surface.withOpacity(0.7), // Glass panel
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        border: Border.all(color: AppColors.border, width: 1.5),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          splashColor: Colors.purpleAccent.withOpacity(0.2),
-          highlightColor: Colors.purpleAccent.withOpacity(0.1),
+          splashColor: AppColors.primaryLight.withOpacity(0.2),
+          highlightColor: AppColors.primaryLight.withOpacity(0.1),
           onTap: () {
             Navigator.push(
               context,
@@ -237,17 +190,12 @@ class VideoPracticeScreen extends StatelessWidget {
         // Neon Play Button (Glassmorphism)
         ClipRRect(
           borderRadius: BorderRadius.circular(50),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
+          child: Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.15),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
-                boxShadow: [
-                  BoxShadow(color: Colors.purpleAccent.withOpacity(0.5), blurRadius: 20),
-                ],
+                border: Border.all(color: AppColors.textMuted, width: 1.5),
               ),
               child: const Icon(
                 Icons.play_arrow_rounded,
@@ -255,7 +203,6 @@ class VideoPracticeScreen extends StatelessWidget {
                 size: 50,
               ),
             ),
-          ),
         ),
       ],
     );
@@ -351,7 +298,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: Text(widget.title, style: const TextStyle(fontSize: 16)),
+        title: Text(widget.title),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
@@ -369,7 +316,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
     return native.YoutubePlayer(
       controller: _nativeController,
       showVideoProgressIndicator: true,
-      progressIndicatorColor: Colors.purpleAccent,
+      progressIndicatorColor: AppColors.primaryLight,
     );
   }
 }

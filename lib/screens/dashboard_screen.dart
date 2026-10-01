@@ -20,6 +20,8 @@ import 'reading_practice_screen.dart';
 import 'paywall_screen.dart';
 import 'profile_screen.dart';
 import '../services/subscription_service.dart';
+import '../theme/app_theme.dart';
+import '../theme/app_widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -111,7 +113,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     }
 
                     _subscriptionPlan = data['subscriptionPlan'] ?? 'basic';
-                    _streak = data['streak'] ?? 0;
+                    // Seri bozulduysa veritabanındaki eski değer değil 0 gösterilir.
+                    _streak = SubscriptionService.effectiveStreak(data);
 
                     // Build real-time limits summary from snapshot
                     final limitsMap =
@@ -227,580 +230,144 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  void _open(Widget screen) {
+    // Alt sekmesi olan ekranlar ayrı sayfa yerine sekmede açılır.
+    if (screen is HomeScreen) return _selectTab(1);
+    if (screen is TestScreen) return _selectTab(2);
+    if (screen is ReadingPracticeScreen) return _selectTab(3);
+    if (screen is ProfileScreen) return _selectTab(4);
+    Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
+  }
+
+  // Alt navigasyon: 0 Ana Sayfa, 1 Kelime Havuzu, 2 Test, 3 Telaffuz, 4 Profil.
+  int _tabIndex = 0;
+  // Sekmeler ilk ziyarette oluşturulur (açılışta gereksiz Firestore sorgusu yok).
+  final Set<int> _visitedTabs = {0};
+  // Test sekmesine her girişte havuz yeniden yüklenir (yeni eklenen kelimeler görünsün).
+  int _testTabGeneration = 0;
+
+  void _selectTab(int index) {
+    setState(() {
+      if (index == 2 && _tabIndex != 2) _testTabGeneration++;
+      _tabIndex = index;
+      _visitedTabs.add(index);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final test = _limitsSummary['test'];
+
+    final home = AppBackground(
+        child: Builder(
+          builder: (context) => DashboardHomeView(
+            userName: _userName,
+            userInitial: _userInitial,
+            streak: _streak,
+            totalLearned: _totalLearned,
+            totalTests: _totalTests,
+            totalCorrect: _totalCorrect,
+            totalWrong: _totalWrong,
+            isPremium: _subscriptionPlan != 'basic',
+            testUsed: test?['current'],
+            testLimit: test?['limit'],
+            onMenu: () => Scaffold.of(context).openDrawer(),
+            onOpen: _open,
+          ),
+        ),
+      );
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      drawer: _buildPremiumDrawer(user),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        centerTitle: true,
-        title: const Text(
-          'Octopus English',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 1.2,
-          ),
-        ),
-        actions: [
-          if (_streak > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 16.0),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.local_fire_department_rounded,
-                    color: Colors.orangeAccent,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '$_streak',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.person, color: Colors.white),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ProfileScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Stack(
+      drawer: _buildDrawer(user),
+      body: IndexedStack(
+        index: _tabIndex,
         children: [
-          // Premium Gradient Background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF0F172A),
-                  Color(0xFF1E1B4B),
-                  Color(0xFF312E81),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          // Animated Aura circles
-          Positioned(
-            top: -50,
-            left: -50,
-            child: _buildAura(Colors.purpleAccent.withOpacity(0.3), 300),
-          ),
-          Positioned(
-            top: 200,
-            right: -100,
-            child: _buildAura(Colors.blueAccent.withOpacity(0.2), 400),
-          ),
-
-          SafeArea(
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24.0,
-                      vertical: 10,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Merhaba, $_userName \ud83d\udc4b",
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          "Öğrenme serüvenine nereden devam edelim?",
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.white.withOpacity(0.7),
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-
-                        _buildPremiumStatCard(context),
-
-                        const SizedBox(height: 40),
-
-                        const Text(
-                          "Ana Modüller",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-
-                        GridView.count(
-                          crossAxisCount: 2,
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.9,
-                          children: [
-                            _buildGlassCard(
-                              context,
-                              'Kelime Havuzu',
-                              'Sözlüğün',
-                              Icons.auto_awesome_motion,
-                              Colors.blueAccent,
-                              const HomeScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Kendini Test Et',
-                              'Bilgini Sına',
-                              Icons.psychology,
-                              Colors.purpleAccent,
-                              const TestScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Hikaye Oku',
-                              'Etkileşimli',
-                              Icons.auto_stories,
-                              Colors.pinkAccent,
-                              const StoryScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Yapay Zeka',
-                              'Sohbet Et',
-                              Icons.forum,
-                              Colors.tealAccent,
-                              const ChatScreen(),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 30),
-                        const Text(
-                          "Pratik & Araçlar",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 15),
-
-                        GridView.count(
-                          crossAxisCount: 2,
-                          shrinkWrap: true,
-                          padding: EdgeInsets.zero,
-                          physics: const NeverScrollableScrollPhysics(),
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 1.1,
-                          children: [
-                            _buildGlassCard(
-                              context,
-                              'Çeviri',
-                              'Akıllı',
-                              Icons.g_translate,
-                              Colors.greenAccent,
-                              const TranslationScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Öğrendiklerim',
-                              'Arşiv',
-                              Icons.workspace_premium,
-                              Colors.amberAccent,
-                              const LearnedWordsScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Paketler',
-                              'Hazır Setler',
-                              Icons.inventory_2,
-                              Colors.orangeAccent,
-                              const WordLearningScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Haberler',
-                              'Güncel Okuma',
-                              Icons.menu_book,
-                              Colors.cyanAccent,
-                              const NewsScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Video',
-                              'İzleyerek Öğren',
-                              Icons.play_circle_fill,
-                              Colors.redAccent,
-                              const VideoPracticeScreen(),
-                            ),
-                            _buildGlassCard(
-                              context,
-                              'Telaffuz',
-                              'Oku & Dinle',
-                              Icons.mic_external_on,
-                              Colors.pinkAccent,
-                              const ReadingPracticeScreen(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 60),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          home,
+          _visitedTabs.contains(1) ? const HomeScreen() : const SizedBox.shrink(),
+          _visitedTabs.contains(2) ? TestScreen(key: ValueKey(_testTabGeneration)) : const SizedBox.shrink(),
+          _visitedTabs.contains(3) ? const ReadingPracticeScreen() : const SizedBox.shrink(),
+          _visitedTabs.contains(4) ? const ProfileScreen(embedded: true) : const SizedBox.shrink(),
         ],
       ),
-    );
-  }
-
-  Widget _buildAura(Color color, double size) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, color.withOpacity(0.0)],
-          stops: const [0.2, 1.0],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPremiumStatCard(BuildContext context) {
-    int totalAnswered = _totalCorrect + _totalWrong;
-    double successRate = totalAnswered > 0
-        ? (_totalCorrect / totalAnswered)
-        : 0.0;
-
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const ProgressReportScreen()),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(
-            0xFF1E293B,
-          ).withOpacity(0.7), // Blur yerine düz hafif saydam renk
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "GENEL DURUM",
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    totalAnswered > 0
-                        ? "Harika İlerliyorsun!"
-                        : "Hemen Başlayalım!",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (totalAnswered > 0)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orangeAccent.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.local_fire_department,
-                            color: Colors.orangeAccent,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '$_totalLearned'
-                            " kelime tamamlandı",
-                            style: const TextStyle(
-                              color: Colors.orangeAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (totalAnswered > 0)
-              SizedBox(
-                width: 70,
-                height: 70,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: successRate,
-                      strokeWidth: 8,
-                      backgroundColor: Colors.white.withOpacity(0.1),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        successRate > 0.7
-                            ? Colors.greenAccent
-                            : Colors.amberAccent,
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        "%"
-                        '${(successRate * 100).toInt()}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              const Icon(Icons.rocket_launch, color: Colors.white, size: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    IconData icon,
-    Color iconColor,
-    Widget destination,
-  ) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => destination),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(
-            0xFF1E293B,
-          ).withOpacity(0.5), // Blur yerine performanslı saydam arka plan
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: iconColor.withOpacity(0.3), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: iconColor.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: Stack(
-            children: [
-              // Arka plan su dalgası efekti (hala var ama bulanık değil)
-              Positioned(
-                right: -20,
-                bottom: -20,
-                child: Icon(icon, size: 100, color: iconColor.withOpacity(0.1)),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(22.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [iconColor.withOpacity(0.8), iconColor],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: iconColor.withOpacity(0.3),
-                            blurRadius: 10,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                      child: Icon(icon, color: Colors.white, size: 30),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPremiumDrawer(User? user) {
-    return Drawer(
-      backgroundColor: const Color(0xFF0F172A), // Performans için düz koyu renk
-      child: Container(
+      bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F172A), Color(0xFF1E1B4B)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          border: Border(top: BorderSide(color: AppColors.border)),
         ),
-        child: ClipRRect(
+        child: NavigationBar(
+          selectedIndex: _tabIndex,
+          onDestinationSelected: _selectTab,
+          backgroundColor: AppColors.bgBottom,
+          indicatorColor: AppColors.primary.withValues(alpha: 0.22),
+          surfaceTintColor: Colors.transparent,
+          height: 66,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          labelTextStyle: WidgetStateProperty.resolveWith(
+            (s) => TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: s.contains(WidgetState.selected) ? AppColors.textPrimary : AppColors.textMuted,
+            ),
+          ),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.home_rounded, color: AppColors.primaryLight),
+              label: 'Ana Sayfa',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.style_outlined, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.style_rounded, color: AppColors.primaryLight),
+              label: 'Kelimeler',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.quiz_outlined, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.quiz_rounded, color: AppColors.primaryLight),
+              label: 'Test',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.mic_none_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.mic_rounded, color: AppColors.primaryLight),
+              label: 'Telaffuz',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded, color: AppColors.textMuted),
+              selectedIcon: Icon(Icons.person_rounded, color: AppColors.primaryLight),
+              label: 'Profil',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawer(User? user) {
+    return Drawer(
+      child: AppBackground(
+        child: SafeArea(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.only(
-                  left: 24,
-                  right: 24,
-                  bottom: 30,
-                  top: 70,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  border: Border(
-                    bottom: BorderSide(
-                      color: Colors.white.withOpacity(0.1),
-                      width: 1,
-                    ),
-                  ),
-                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                 child: Row(
                   children: [
-                    Container(
-                      width: 65,
-                      height: 65,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Colors.purpleAccent, Colors.deepPurple],
-                        ),
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.purpleAccent.withOpacity(0.5),
-                            blurRadius: 20,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          _userInitial,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
+                    _Avatar(initial: _userInitial, size: 56),
+                    const SizedBox(width: AppSpacing.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             _userName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -0.5,
-                            ),
+                            style: AppText.heading(size: 19),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text(
                             user?.email ?? "Kullanıcı",
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -810,84 +377,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
               ),
+              const Divider(),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   children: [
                     _buildDrawerTile(
-                      context,
                       icon: Icons.home_rounded,
                       title: 'Ana Sayfa',
-                      iconColor: Colors.blueAccent,
-                      onTap: () => Navigator.pop(context),
-                    ),
-
-                    _buildDrawerTile(
-                      context,
-                      icon: Icons.trending_up_rounded,
-                      title: 'Gelişim Raporum',
-                      iconColor: Colors.purpleAccent,
                       onTap: () {
                         Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ProgressReportScreen(),
-                          ),
-                        );
+                        _selectTab(0);
                       },
                     ),
                     _buildDrawerTile(
-                      context,
+                      icon: Icons.person_rounded,
+                      title: 'Profilim',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _selectTab(4);
+                      },
+                    ),
+                    _buildDrawerTile(
+                      icon: Icons.forum_rounded,
+                      title: 'Yapay Zeka Sohbet',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _open(const ChatScreen());
+                      },
+                    ),
+                    _buildDrawerTile(
+                      icon: Icons.insights_rounded,
+                      title: 'Gelişim Raporum',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _open(const ProgressReportScreen());
+                      },
+                    ),
+                    _buildDrawerTile(
+                      icon: Icons.workspace_premium_rounded,
+                      title: 'Octopus Premium',
+                      color: AppColors.gold,
+                      onTap: () {
+                        Navigator.pop(context);
+                        _open(const PaywallScreen());
+                      },
+                    ),
+                    _buildDrawerTile(
+                      icon: Icons.settings_rounded,
+                      title: 'Ayarlar',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _open(const SettingsScreen());
+                      },
+                    ),
+                    _buildDrawerTile(
                       icon: Icons.mail_outline_rounded,
                       title: 'Bize Ulaşın',
-                      iconColor: Colors.cyanAccent,
                       onTap: () {
                         Navigator.pop(context);
                         _sendEmail(context);
                       },
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      child: Divider(color: Colors.white.withOpacity(0.1)),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                      child: Divider(),
                     ),
                     _buildDrawerTile(
-                      context,
-                      icon: Icons.auto_awesome,
-                      title: 'Octopus Premium',
-                      iconColor: Colors.amberAccent,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PaywallScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerTile(
-                      context,
-                      icon: Icons.record_voice_over_rounded,
-                      title: 'Ayarlar',
-                      iconColor: Colors.tealAccent,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const SettingsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _buildDrawerTile(
-                      context,
                       icon: Icons.logout_rounded,
                       title: 'Çıkış Yap',
-                      iconColor: Colors.redAccent,
-                      isDestructive: true,
+                      color: AppColors.danger,
                       onTap: () {
                         Navigator.pop(context);
                         _signOut(context);
@@ -897,26 +456,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.verified_rounded,
-                      size: 18,
-                      color: Colors.white.withOpacity(0.3),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      "Sürüm $_appVersion",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.3),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                padding: const EdgeInsets.all(AppSpacing.xl),
+                child: Text("Sürüm $_appVersion", style: AppText.caption),
               ),
             ],
           ),
@@ -925,56 +466,441 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDrawerTile(
-    BuildContext context, {
+  Widget _buildDrawerTile({
     required IconData icon,
     required String title,
-    required Color iconColor,
-    bool isDestructive = false,
     required VoidCallback onTap,
+    Color color = AppColors.textSecondary,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: isDestructive
-            ? Colors.redAccent.withOpacity(0.1)
-            : Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDestructive
-              ? Colors.redAccent.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+      leading: Icon(icon, color: color, size: 22),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: color == AppColors.textSecondary ? AppColors.textPrimary : color,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
       ),
-      child: ListTile(
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(color: iconColor.withOpacity(0.2), blurRadius: 10),
+    );
+  }
+}
+
+/// Ana sayfa görünümü. Yalnızca veri ve geri çağrılar alır; Firebase'e
+/// doğrudan erişmez.
+class DashboardHomeView extends StatelessWidget {
+  const DashboardHomeView({
+    super.key,
+    required this.userName,
+    required this.userInitial,
+    required this.streak,
+    required this.totalLearned,
+    required this.totalTests,
+    required this.totalCorrect,
+    required this.totalWrong,
+    required this.isPremium,
+    required this.testUsed,
+    required this.testLimit,
+    required this.onMenu,
+    required this.onOpen,
+  });
+
+  final String userName;
+  final String userInitial;
+  final int streak;
+  final int totalLearned;
+  final int totalTests;
+  final int totalCorrect;
+  final int totalWrong;
+  final bool isPremium;
+  final int? testUsed;
+  final int? testLimit;
+  final VoidCallback onMenu;
+  final void Function(Widget screen) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.sm, AppSpacing.page, 40),
+        children: [
+          _buildTopBar(),
+          const SizedBox(height: AppSpacing.xxl),
+          Text("Merhaba, $userName 👋", style: AppText.display(size: 28)),
+          const SizedBox(height: AppSpacing.xs),
+          const Text("Bugün ne öğrenmek istersin?", style: AppText.body),
+          const SizedBox(height: AppSpacing.xxl),
+          _buildTutorCard(),
+          const SizedBox(height: AppSpacing.lg),
+          _buildProgressCard(),
+          const SizedBox(height: AppSpacing.section),
+          const SectionHeader("Öğren"),
+          _buildLearnGrid(),
+          const SizedBox(height: AppSpacing.section),
+          const SectionHeader("Pratik Yap"),
+          _buildPracticeList(),
+          if (!isPremium) ...[
+            const SizedBox(height: AppSpacing.section),
+            _buildPremiumBanner(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Row(
+      children: [
+        _RoundIconButton(icon: Icons.menu_rounded, onTap: onMenu, tooltip: 'Menü'),
+        const Spacer(),
+        InfoPill(
+          icon: Icons.local_fire_department_rounded,
+          label: '$streak gün',
+          color: AppColors.gold,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        GestureDetector(
+          onTap: () => onOpen(const ProfileScreen()),
+          child: _Avatar(initial: userInitial, size: 40),
+        ),
+      ],
+    );
+  }
+
+  /// Kahraman kart: rakip uygulamalarda olduğu gibi ana sayfada tek ve net bir
+  /// birincil eylem (günlük kelime tekrarı).
+  Widget _buildTutorCard() {
+    final unlimited = (testLimit ?? 0) >= 999999;
+    final String? usage = testLimit == null
+        ? null
+        : unlimited
+            ? 'Sınırsız tekrar hakkı'
+            : 'Bugün ${(testLimit! - (testUsed ?? 0)).clamp(0, testLimit!)} kelime tekrar hakkın var';
+
+    return AppCard(
+      gradient: AppColors.primaryGradient,
+      borderColor: null,
+      radius: AppRadius.xl,
+      padding: EdgeInsets.zero,
+      onTap: () => onOpen(const TestScreen()),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -18,
+            bottom: -22,
+            child: Image.asset('assets/logo_transparent.png', width: 150, height: 150),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 104, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "GÜNLÜK TEKRAR",
+                  style: AppText.overline.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text("Kelime testi zamanı", style: AppText.display(size: 24, color: Colors.white)),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  "Düzenli tekrarla kelimeleri kalıcı olarak öğren. Günde birkaç dakika yeter.",
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14, height: 1.35),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "Teste başla",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14),
+                        ),
+                      ),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 18),
+                    ],
+                  ),
+                ),
+                if (usage != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    usage,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProgressCard() {
+    final answered = totalCorrect + totalWrong;
+    final rate = answered > 0 ? totalCorrect / answered : 0.0;
+
+    return AppCard(
+      onTap: () => onOpen(const ProgressReportScreen()),
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              SizedBox(
+                width: 64,
+                height: 64,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CircularProgressIndicator(
+                      value: answered > 0 ? rate : 0,
+                      strokeWidth: 7,
+                      strokeCap: StrokeCap.round,
+                      backgroundColor: AppColors.surfaceHigh,
+                      valueColor: const AlwaysStoppedAnimation(AppColors.success),
+                    ),
+                    Center(
+                      child: Text(
+                        answered > 0 ? "%${(rate * 100).round()}" : "–",
+                        style: AppText.heading(size: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.lg),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("GENEL DURUM", style: AppText.overline),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      answered > 0 ? "Harika ilerliyorsun!" : "Hemen başlayalım!",
+                      style: AppText.heading(size: 18),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text("Başarı oranın ve istatistiklerin", style: AppText.caption),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
             ],
           ),
-          child: Icon(icon, color: iconColor, size: 24),
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: isDestructive
-                ? Colors.redAccent
-                : Colors.white.withOpacity(0.9),
-            letterSpacing: -0.3,
+          const SizedBox(height: AppSpacing.lg),
+          const Divider(),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: [
+              _Stat(value: '$totalLearned', label: 'Öğrenilen'),
+              _statDivider(),
+              _Stat(value: '$totalTests', label: 'Test'),
+              _statDivider(),
+              _Stat(value: '$totalCorrect', label: 'Doğru cevap'),
+            ],
           ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          color: Colors.white.withOpacity(0.2),
+        ],
+      ),
+    );
+  }
+
+  Widget _statDivider() => Container(width: 1, height: 32, color: AppColors.border);
+
+  Widget _buildLearnGrid() {
+    final items = [
+      _Module('Kelime Havuzu', 'Kendi sözlüğün', Icons.style_rounded, const HomeScreen()),
+      _Module('Kendini Test Et', 'Bilgini sına', Icons.quiz_rounded, const TestScreen()),
+      _Module('Hikaye Oku', 'Etkileşimli hikayeler', Icons.auto_stories_rounded, const StoryScreen()),
+      _Module('Akıllı Çeviri', 'Metin ve kamera', Icons.translate_rounded, const TranslationScreen()),
+    ];
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: AppSpacing.md,
+      crossAxisSpacing: AppSpacing.md,
+      childAspectRatio: 1.25,
+      children: [
+        for (final m in items)
+          AppCard(
+            onTap: () => onOpen(m.screen),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconBadge(icon: m.icon),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      m.title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(m.subtitle, style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPracticeList() {
+    final items = [
+      _Module('Telaffuz', 'Oku, dinle ve konuş', Icons.mic_rounded, const ReadingPracticeScreen()),
+      _Module('Video ile Öğren', 'İzleyerek pratik yap', Icons.play_circle_rounded, const VideoPracticeScreen()),
+      _Module('Haberler', 'Güncel okuma metinleri', Icons.newspaper_rounded, const NewsScreen()),
+      _Module('Kelime Paketleri', 'Hazır kelime setleri', Icons.inventory_2_rounded, const WordLearningScreen()),
+      _Module('Öğrendiklerim', 'Tamamladığın kelimeler', Icons.emoji_events_rounded, const LearnedWordsScreen()),
+    ];
+    return AppCard(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const Divider(indent: 72),
+            ListTile(
+              onTap: () => onOpen(items[i].screen),
+              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 2),
+              leading: IconBadge(icon: items[i].icon, color: AppColors.secondary, size: 40),
+              title: Text(
+                items[i].title,
+                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(items[i].subtitle, style: AppText.caption),
+              trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumBanner() {
+    return AppCard(
+      onTap: () => onOpen(const PaywallScreen()),
+      borderColor: AppColors.gold.withValues(alpha: 0.45),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: AppColors.goldGradient,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(Icons.workspace_premium_rounded, color: AppColors.bg, size: 24),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Octopus Premium", style: AppText.heading(size: 16, color: AppColors.gold)),
+                const SizedBox(height: 2),
+                const Text("Daha fazla sohbet, hikaye ve çeviri hakkı", style: AppText.caption),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded, color: AppColors.gold),
+        ],
+      ),
+    );
+  }
+}
+
+class _Module {
+  const _Module(this.title, this.subtitle, this.icon, this.screen);
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Widget screen;
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(value, style: AppText.heading(size: 20)),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: AppText.caption,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.initial, required this.size});
+  final String initial;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text(initial, style: AppText.heading(size: size * 0.42, color: Colors.white)),
+    );
+  }
+}
+
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({required this.icon, required this.onTap, required this.tooltip});
+  final IconData icon;
+  final VoidCallback onTap;
+  final String tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppColors.surface,
+        shape: const CircleBorder(side: BorderSide(color: AppColors.border)),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(width: 40, height: 40, child: Icon(icon, color: AppColors.textPrimary, size: 22)),
         ),
       ),
     );

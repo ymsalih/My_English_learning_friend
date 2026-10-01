@@ -7,6 +7,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'dart:io';
 import 'firebase_options.dart';
 import 'screens/splash_screen.dart';
+import 'theme/app_theme.dart';
 import 'services/subscription_service.dart';
 
 // Uygulamanın her yerinden erişebileceğimiz global kamera listesi
@@ -62,10 +63,8 @@ class IngilizceDestekApp extends StatelessWidget {
     return MaterialApp(
       title: 'Octopus English',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.dark,
+      themeMode: ThemeMode.dark,
       home: const SplashScreen(),
     );
   }
