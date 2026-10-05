@@ -10,6 +10,8 @@ import 'screens/splash_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'services/subscription_service.dart';
+import 'dart:async';
+import 'services/splash_sound.dart';
 
 // Uygulamanın her yerinden erişebileceğimiz global kamera listesi
 // 🚀 YENİ: İçini açılışta değil, kullanıcı kameraya tıkladığında dolduracağız!
@@ -18,6 +20,10 @@ List<CameraDescription> cameras = [];
 void main() async {
   // Flutter motorunun doğru başlatıldığından emin oluyoruz
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Açılış sesi arka planda hazırlanır (Firebase vb. ile paralel); açılış
+  // ekranı geldiğinde hazır olur. Hata uygulamanın açılışını etkilemez.
+  unawaited(SplashSound.preload());
 
   // .env (RevenueCat anahtarları) ve Firebase birbirinden bağımsız: paralel yükle.
   await Future.wait([

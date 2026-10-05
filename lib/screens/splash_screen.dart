@@ -8,6 +8,7 @@ import '../services/subscription_service.dart';
 import 'dashboard_screen.dart';
 import 'landing_screen.dart';
 import 'octopus_scene_painter.dart';
+import '../services/splash_sound.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -63,12 +64,11 @@ class _SplashScreenState extends State<SplashScreen>
     if (MediaQuery.disableAnimationsOf(context)) {
       _time.value = _animationEnd;
       _wordProgress.value = 1;
+      // "Animasyonları kaldır" açıkken ses de çalınmaz.
+      unawaited(SplashSound.discard());
       minimumDelay = Future<void>.value();
     } else {
-      _ticker.start();
-      minimumDelay = Future.delayed(
-        Duration(milliseconds: (_animationEnd * 1000).round()),
-      );
+      minimumDelay = _runIntro();
     }
 
     Future.wait([minimumDelay, _networkTask]).then((results) {
@@ -92,6 +92,27 @@ class _SplashScreenState extends State<SplashScreen>
         );
       }
     });
+  }
+
+  /// Animasyonu ve sesi aynı anda başlatır. Ses hazır değilse en fazla 700 ms
+  /// beklenir (bu sürede ekranda yalnızca arka plan vardır, animasyonun ilk
+  /// karesi zaten boştur); gelmezse animasyon sessiz oynar.
+  Future<void> _runIntro() async {
+    final soundReady = await SplashSound.preload().timeout(
+      const Duration(milliseconds: 700),
+      onTimeout: () {
+        // Geç hazırlanırsa kaynak boşa kalmasın.
+        unawaited(SplashSound.preload().then((_) => SplashSound.discard()));
+        return false;
+      },
+    );
+    if (!mounted) {
+      unawaited(SplashSound.discard());
+      return;
+    }
+    if (soundReady) unawaited(SplashSound.play());
+    _ticker.start();
+    await Future.delayed(Duration(milliseconds: (_animationEnd * 1000).round()));
   }
 
   void _onTick(Duration elapsed) {
