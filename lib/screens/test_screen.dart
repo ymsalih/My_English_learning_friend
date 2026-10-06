@@ -12,6 +12,10 @@ import '../theme/app_widgets.dart';
 class TestScreen extends StatefulWidget {
   const TestScreen({super.key});
 
+  /// Şu an yarım kalmış (başlamış ama bitmemiş) bir test var mı? Dashboard,
+  /// kullanıcı testten yanlışlıkla çıkmasın diye bunu okuyup onay ister.
+  static bool inProgress = false;
+
   @override
   State<TestScreen> createState() => _TestScreenState();
 }
@@ -74,6 +78,7 @@ class _TestScreenState extends State<TestScreen> {
   @override
   void dispose() {
     _flushTestCount(); // yarıda bırakılan testin sorularını da say
+    TestScreen.inProgress = false;
     SubscriptionService.changes.removeListener(_loadLimits);
     _swipePosition.dispose();
     _swipeAngle.dispose();
@@ -268,6 +273,7 @@ class _TestScreenState extends State<TestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    TestScreen.inProgress = !_isLoading && !_isSetupMode && !_testCompleted && _words.isNotEmpty;
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(

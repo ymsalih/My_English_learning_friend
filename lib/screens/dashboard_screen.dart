@@ -24,6 +24,7 @@ import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../widgets/app_bottom_bar.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -233,10 +234,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _open(Widget screen) {
     // Alt sekmesi olan ekranlar ayrı sayfa yerine sekmede açılır.
-    if (screen is HomeScreen) return _selectTab(1);
-    if (screen is TestScreen) return _selectTab(2);
-    if (screen is ReadingPracticeScreen) return _selectTab(3);
-    if (screen is ChatScreen) return _selectTab(4);
+    if (screen is HomeScreen) {
+      _selectTab(1);
+      return;
+    }
+    if (screen is TestScreen) {
+      _selectTab(2);
+      return;
+    }
+    if (screen is ReadingPracticeScreen) {
+      _selectTab(3);
+      return;
+    }
+    if (screen is ChatScreen) {
+      _selectTab(4);
+      return;
+    }
     Navigator.push(context, MaterialPageRoute(builder: (context) => screen));
   }
 
@@ -248,7 +261,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Test sekmesine her girişte havuz yeniden yüklenir (yeni eklenen kelimeler görünsün).
   int _testTabGeneration = 0;
 
-  void _selectTab(int index) {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Geri tuşu: Ana Sayfa dışındaki bir sekmedeyken uygulamadan çıkmak yerine
+  /// Ana Sayfa'ya döner; açık yan menü varsa önce onu kapatır. Yalnızca
+  /// Ana Sayfa'dayken (canPop: true) sistem uygulamayı kapatabilir.
+  void _onBack(bool didPop, Object? result) {
+    if (didPop) return;
+    final scaffold = _scaffoldKey.currentState;
+    if (scaffold != null && scaffold.isDrawerOpen) {
+      scaffold.closeDrawer();
+      return;
+    }
+    _selectTab(0);
+  }
+
+  /// Test yarım kalmışken başka sekmeye geçmeden önce onay ister.
+  Future<bool> _confirmLeaveTest() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Testten çıkılsın mı?'),
+        content: const Text(
+          'Cevapladığın kelimeler kaydedildi, ama testi bitirmeden çıkarsan sonuç raporun oluşturulmaz.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Devam et'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Çık', style: TextStyle(color: AppColors.danger)),
+          ),
+        ],
+      ),
+    );
+    if (leave == true) TestScreen.inProgress = false;
+    return leave == true;
+  }
+
+  Future<void> _selectTab(int index) async {
+    if (_tabIndex == 2 && index != 2 && TestScreen.inProgress) {
+      if (!await _confirmLeaveTest() || !mounted) return;
+    }
     setState(() {
       if (index == 2 && _tabIndex != 2) _testTabGeneration++;
       _tabIndex = index;
@@ -262,47 +318,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final test = _limitsSummary['test'];
 
     final home = AppBackground(
-        child: Builder(
-          builder: (context) => DashboardHomeView(
-            userName: _userName,
-            userInitial: _userInitial,
-            streak: _streak,
-            totalLearned: _totalLearned,
-            totalTests: _totalTests,
-            totalCorrect: _totalCorrect,
-            totalWrong: _totalWrong,
-            isPremium: _subscriptionPlan != 'basic',
-            testUsed: test?['current'],
-            testLimit: test?['limit'],
-            onMenu: () => Scaffold.of(context).openDrawer(),
-            onOpen: _open,
-          ),
+      child: Builder(
+        builder: (context) => DashboardHomeView(
+          userName: _userName,
+          userInitial: _userInitial,
+          streak: _streak,
+          totalLearned: _totalLearned,
+          totalTests: _totalTests,
+          totalCorrect: _totalCorrect,
+          totalWrong: _totalWrong,
+          isPremium: _subscriptionPlan != 'basic',
+          testUsed: test?['current'],
+          testLimit: test?['limit'],
+          onMenu: () => Scaffold.of(context).openDrawer(),
+          onOpen: _open,
         ),
-      );
-
-    return Scaffold(
-      drawer: _buildDrawer(user),
-      body: IndexedStack(
-        index: _tabIndex,
-        children: [
-          home,
-          _visitedTabs.contains(1) ? const HomeScreen() : const SizedBox.shrink(),
-          _visitedTabs.contains(2) ? TestScreen(key: ValueKey(_testTabGeneration)) : const SizedBox.shrink(),
-          _visitedTabs.contains(3) ? const ReadingPracticeScreen() : const SizedBox.shrink(),
-          // Sohbet sekmesi geçişlerde konuşmayı korur.
-          _visitedTabs.contains(4) ? const ChatScreen() : const SizedBox.shrink(),
-        ],
       ),
-      bottomNavigationBar: AppBottomBar(
-        selectedIndex: _tabIndex,
-        onSelected: _selectTab,
-        items: const [
-          AppBottomBarItem(icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Ana Sayfa'),
-          AppBottomBarItem(icon: Icons.style_outlined, selectedIcon: Icons.style_rounded, label: 'Kelimeler'),
-          AppBottomBarItem(icon: Icons.quiz_outlined, selectedIcon: Icons.quiz_rounded, label: 'Test'),
-          AppBottomBarItem(icon: Icons.mic_none_rounded, selectedIcon: Icons.mic_rounded, label: 'Telaffuz'),
-          AppBottomBarItem(icon: Icons.forum_outlined, selectedIcon: Icons.forum_rounded, label: 'Sohbet'),
-        ],
+    );
+
+    return PopScope(
+      canPop: _tabIndex == 0,
+      onPopInvokedWithResult: _onBack,
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: _buildDrawer(user),
+        body: IndexedStack(
+          index: _tabIndex,
+          children: [
+            home,
+            _visitedTabs.contains(1)
+                ? const HomeScreen()
+                : const SizedBox.shrink(),
+            _visitedTabs.contains(2)
+                ? TestScreen(key: ValueKey(_testTabGeneration))
+                : const SizedBox.shrink(),
+            _visitedTabs.contains(3)
+                ? const ReadingPracticeScreen()
+                : const SizedBox.shrink(),
+            // Sohbet sekmesi geçişlerde konuşmayı korur.
+            _visitedTabs.contains(4)
+                ? const ChatScreen()
+                : const SizedBox.shrink(),
+          ],
+        ),
+        bottomNavigationBar: AppBottomBar(
+          selectedIndex: _tabIndex,
+          onSelected: _selectTab,
+          items: const [
+            AppBottomBarItem(
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home_rounded,
+              label: 'Ana Sayfa',
+            ),
+            AppBottomBarItem(
+              icon: Icons.style_outlined,
+              selectedIcon: Icons.style_rounded,
+              label: 'Kelimeler',
+            ),
+            AppBottomBarItem(
+              icon: Icons.quiz_outlined,
+              selectedIcon: Icons.quiz_rounded,
+              label: 'Test',
+            ),
+            AppBottomBarItem(
+              icon: Icons.mic_none_rounded,
+              selectedIcon: Icons.mic_rounded,
+              label: 'Telaffuz',
+            ),
+            AppBottomBarItem(
+              icon: Icons.forum_outlined,
+              selectedIcon: Icons.forum_rounded,
+              label: 'Sohbet',
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -322,35 +411,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _open(const ProfileScreen());
                 },
                 child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-                child: Row(
-                  children: [
-                    _Avatar(initial: _userInitial, size: 56),
-                    const SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _userName,
-                            style: AppText.heading(size: 19),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            user?.email ?? "Kullanıcı",
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 13),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                  child: Row(
+                    children: [
+                      _Avatar(initial: _userInitial, size: 56),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _userName,
+                              style: AppText.heading(size: 19),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              user?.email ?? "Kullanıcı",
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
-                  ],
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textMuted,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               ),
               const Divider(),
               Expanded(
@@ -447,7 +542,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       title: Text(
         title,
         style: TextStyle(
-          color: color == AppColors.textSecondary ? AppColors.textPrimary : color,
+          color: color == AppColors.textSecondary
+              ? AppColors.textPrimary
+              : color,
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
@@ -493,7 +590,12 @@ class DashboardHomeView extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.page, AppSpacing.sm, AppSpacing.page, 40),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          AppSpacing.sm,
+          AppSpacing.page,
+          40,
+        ),
         children: [
           _buildTopBar(),
           const SizedBox(height: AppSpacing.xxl),
@@ -522,7 +624,11 @@ class DashboardHomeView extends StatelessWidget {
   Widget _buildTopBar() {
     return Row(
       children: [
-        _RoundIconButton(icon: Icons.menu_rounded, onTap: onMenu, tooltip: 'Menü'),
+        _RoundIconButton(
+          icon: Icons.menu_rounded,
+          onTap: onMenu,
+          tooltip: 'Menü',
+        ),
         const Spacer(),
         InfoPill(
           icon: Icons.local_fire_department_rounded,
@@ -545,8 +651,8 @@ class DashboardHomeView extends StatelessWidget {
     final String? usage = testLimit == null
         ? null
         : unlimited
-            ? 'Sınırsız tekrar hakkı'
-            : 'Bugün ${(testLimit! - (testUsed ?? 0)).clamp(0, testLimit!)} kelime tekrar hakkın var';
+        ? 'Sınırsız tekrar hakkı'
+        : 'Bugün ${(testLimit! - (testUsed ?? 0)).clamp(0, testLimit!)} kelime tekrar hakkın var';
 
     return AppCard(
       gradient: AppColors.primaryGradient,
@@ -559,7 +665,11 @@ class DashboardHomeView extends StatelessWidget {
           Positioned(
             right: -18,
             bottom: -22,
-            child: Image.asset('assets/logo_transparent.png', width: 150, height: 150),
+            child: Image.asset(
+              'assets/logo_transparent.png',
+              width: 150,
+              height: 150,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 104, 20),
@@ -568,18 +678,30 @@ class DashboardHomeView extends StatelessWidget {
               children: [
                 Text(
                   "GÜNLÜK TEKRAR",
-                  style: AppText.overline.copyWith(color: Colors.white.withValues(alpha: 0.8)),
+                  style: AppText.overline.copyWith(
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
-                Text("Kelime testi zamanı", style: AppText.display(size: 24, color: Colors.white)),
+                Text(
+                  "Kelime testi zamanı",
+                  style: AppText.display(size: 24, color: Colors.white),
+                ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   "Düzenli tekrarla kelimeleri kalıcı olarak öğren. Günde birkaç dakika yeter.",
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14, height: 1.35),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    fontSize: 14,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -592,11 +714,19 @@ class DashboardHomeView extends StatelessWidget {
                           "Teste başla",
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 14),
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       SizedBox(width: 6),
-                      Icon(Icons.arrow_forward_rounded, color: AppColors.primary, size: 18),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: AppColors.primary,
+                        size: 18,
+                      ),
                     ],
                   ),
                 ),
@@ -660,11 +790,16 @@ class DashboardHomeView extends StatelessWidget {
                     Text("GENEL DURUM", style: AppText.overline),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      answered > 0 ? "Harika ilerliyorsun!" : "Hemen başlayalım!",
+                      answered > 0
+                          ? "Harika ilerliyorsun!"
+                          : "Hemen başlayalım!",
                       style: AppText.heading(size: 18),
                     ),
                     const SizedBox(height: 2),
-                    Text("Başarı oranın ve istatistiklerin", style: AppText.caption),
+                    Text(
+                      "Başarı oranın ve istatistiklerin",
+                      style: AppText.caption,
+                    ),
                   ],
                 ),
               ),
@@ -688,14 +823,35 @@ class DashboardHomeView extends StatelessWidget {
     );
   }
 
-  Widget _statDivider() => Container(width: 1, height: 32, color: AppColors.border);
+  Widget _statDivider() =>
+      Container(width: 1, height: 32, color: AppColors.border);
 
   Widget _buildLearnGrid() {
     final items = [
-      _Module('Kelime Havuzu', 'Kendi sözlüğün', Icons.style_rounded, const HomeScreen()),
-      _Module('Kendini Test Et', 'Bilgini sına', Icons.quiz_rounded, const TestScreen()),
-      _Module('Hikaye Oku', 'Etkileşimli hikayeler', Icons.auto_stories_rounded, const StoryScreen()),
-      _Module('Akıllı Çeviri', 'Metin ve kamera', Icons.translate_rounded, const TranslationScreen()),
+      _Module(
+        'Kelime Havuzu',
+        'Kendi sözlüğün',
+        Icons.style_rounded,
+        const HomeScreen(),
+      ),
+      _Module(
+        'Kendini Test Et',
+        'Bilgini sına',
+        Icons.quiz_rounded,
+        const TestScreen(),
+      ),
+      _Module(
+        'Hikaye Oku',
+        'Etkileşimli hikayeler',
+        Icons.auto_stories_rounded,
+        const StoryScreen(),
+      ),
+      _Module(
+        'Akıllı Çeviri',
+        'Metin ve kamera',
+        Icons.translate_rounded,
+        const TranslationScreen(),
+      ),
     ];
     return GridView.count(
       crossAxisCount: 2,
@@ -728,7 +884,12 @@ class DashboardHomeView extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
-                    Text(m.subtitle, style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      m.subtitle,
+                      style: AppText.caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ],
@@ -740,11 +901,36 @@ class DashboardHomeView extends StatelessWidget {
 
   Widget _buildPracticeList() {
     final items = [
-      _Module('Telaffuz', 'Oku, dinle ve konuş', Icons.mic_rounded, const ReadingPracticeScreen()),
-      _Module('Video ile Öğren', 'İzleyerek pratik yap', Icons.play_circle_rounded, const VideoPracticeScreen()),
-      _Module('Haberler', 'Güncel okuma metinleri', Icons.newspaper_rounded, const NewsScreen()),
-      _Module('Kelime Paketleri', 'Hazır kelime setleri', Icons.inventory_2_rounded, const WordLearningScreen()),
-      _Module('Öğrendiklerim', 'Tamamladığın kelimeler', Icons.emoji_events_rounded, const LearnedWordsScreen()),
+      _Module(
+        'Telaffuz',
+        'Oku, dinle ve konuş',
+        Icons.mic_rounded,
+        const ReadingPracticeScreen(),
+      ),
+      _Module(
+        'Video ile Öğren',
+        'İzleyerek pratik yap',
+        Icons.play_circle_rounded,
+        const VideoPracticeScreen(),
+      ),
+      _Module(
+        'Haberler',
+        'Güncel okuma metinleri',
+        Icons.newspaper_rounded,
+        const NewsScreen(),
+      ),
+      _Module(
+        'Kelime Paketleri',
+        'Hazır kelime setleri',
+        Icons.inventory_2_rounded,
+        const WordLearningScreen(),
+      ),
+      _Module(
+        'Öğrendiklerim',
+        'Tamamladığın kelimeler',
+        Icons.emoji_events_rounded,
+        const LearnedWordsScreen(),
+      ),
     ];
     return AppCard(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
@@ -754,14 +940,28 @@ class DashboardHomeView extends StatelessWidget {
             if (i > 0) const Divider(indent: 72),
             ListTile(
               onTap: () => onOpen(items[i].screen),
-              contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg, vertical: 2),
-              leading: IconBadge(icon: items[i].icon, color: AppColors.secondary, size: 40),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: 2,
+              ),
+              leading: IconBadge(
+                icon: items[i].icon,
+                color: AppColors.secondary,
+                size: 40,
+              ),
               title: Text(
                 items[i].title,
-                style: TextStyle(color: AppColors.textPrimary, fontSize: 15, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               subtitle: Text(items[i].subtitle, style: AppText.caption),
-              trailing: Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+              trailing: Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textMuted,
+              ),
             ),
           ],
         ],
@@ -782,16 +982,26 @@ class DashboardHomeView extends StatelessWidget {
               gradient: AppColors.goldGradient,
               borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(Icons.workspace_premium_rounded, color: AppColors.bg, size: 24),
+            child: Icon(
+              Icons.workspace_premium_rounded,
+              color: AppColors.bg,
+              size: 24,
+            ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Octopus Premium", style: AppText.heading(size: 16, color: AppColors.gold)),
+                Text(
+                  "Octopus Premium",
+                  style: AppText.heading(size: 16, color: AppColors.gold),
+                ),
                 const SizedBox(height: 2),
-                Text("Daha fazla sohbet, hikaye ve çeviri hakkı", style: AppText.caption),
+                Text(
+                  "Daha fazla sohbet, hikaye ve çeviri hakkı",
+                  style: AppText.caption,
+                ),
               ],
             ),
           ),
@@ -845,15 +1055,25 @@ class _Avatar extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(gradient: AppColors.primaryGradient, shape: BoxShape.circle),
+      decoration: const BoxDecoration(
+        gradient: AppColors.primaryGradient,
+        shape: BoxShape.circle,
+      ),
       alignment: Alignment.center,
-      child: Text(initial, style: AppText.heading(size: size * 0.42, color: Colors.white)),
+      child: Text(
+        initial,
+        style: AppText.heading(size: size * 0.42, color: Colors.white),
+      ),
     );
   }
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.onTap, required this.tooltip});
+  const _RoundIconButton({
+    required this.icon,
+    required this.onTap,
+    required this.tooltip,
+  });
   final IconData icon;
   final VoidCallback onTap;
   final String tooltip;
@@ -869,7 +1089,11 @@ class _RoundIconButton extends StatelessWidget {
           enableFeedback: false,
           customBorder: const CircleBorder(),
           onTap: onTap,
-          child: SizedBox(width: 40, height: 40, child: Icon(icon, color: AppColors.textPrimary, size: 22)),
+          child: SizedBox(
+            width: 40,
+            height: 40,
+            child: Icon(icon, color: AppColors.textPrimary, size: 22),
+          ),
         ),
       ),
     );
