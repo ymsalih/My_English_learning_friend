@@ -23,6 +23,7 @@ import '../services/subscription_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../widgets/app_bottom_bar.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -292,53 +293,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _visitedTabs.contains(4) ? const ChatScreen() : const SizedBox.shrink(),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.border)),
-        ),
-        child: NavigationBar(
-          selectedIndex: _tabIndex,
-          onDestinationSelected: _selectTab,
-          backgroundColor: AppColors.bgBottom,
-          indicatorColor: AppColors.primary.withValues(alpha: 0.22),
-          surfaceTintColor: Colors.transparent,
-          height: 66,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          labelTextStyle: WidgetStateProperty.resolveWith(
-            (s) => TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: s.contains(WidgetState.selected) ? AppColors.textPrimary : AppColors.textMuted,
-            ),
-          ),
-          destinations: [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.home_rounded, color: AppColors.primaryLight),
-              label: 'Ana Sayfa',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.style_outlined, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.style_rounded, color: AppColors.primaryLight),
-              label: 'Kelimeler',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.quiz_outlined, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.quiz_rounded, color: AppColors.primaryLight),
-              label: 'Test',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.mic_none_rounded, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.mic_rounded, color: AppColors.primaryLight),
-              label: 'Telaffuz',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.forum_outlined, color: AppColors.textMuted),
-              selectedIcon: Icon(Icons.forum_rounded, color: AppColors.primaryLight),
-              label: 'Sohbet',
-            ),
-          ],
-        ),
+      bottomNavigationBar: AppBottomBar(
+        selectedIndex: _tabIndex,
+        onSelected: _selectTab,
+        items: const [
+          AppBottomBarItem(icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: 'Ana Sayfa'),
+          AppBottomBarItem(icon: Icons.style_outlined, selectedIcon: Icons.style_rounded, label: 'Kelimeler'),
+          AppBottomBarItem(icon: Icons.quiz_outlined, selectedIcon: Icons.quiz_rounded, label: 'Test'),
+          AppBottomBarItem(icon: Icons.mic_none_rounded, selectedIcon: Icons.mic_rounded, label: 'Telaffuz'),
+          AppBottomBarItem(icon: Icons.forum_outlined, selectedIcon: Icons.forum_rounded, label: 'Sohbet'),
+        ],
       ),
     );
   }
@@ -352,6 +316,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               // Kullanıcı alanına dokununca profil açılır.
               InkWell(
+                enableFeedback: false,
                 onTap: () {
                   Navigator.pop(context);
                   _open(const ProfileScreen());
@@ -901,6 +866,7 @@ class _RoundIconButton extends StatelessWidget {
         color: AppColors.surface,
         shape: CircleBorder(side: BorderSide(color: AppColors.border)),
         child: InkWell(
+          enableFeedback: false,
           customBorder: const CircleBorder(),
           onTap: onTap,
           child: SizedBox(width: 40, height: 40, child: Icon(icon, color: AppColors.textPrimary, size: 22)),

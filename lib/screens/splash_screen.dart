@@ -9,6 +9,7 @@ import 'dashboard_screen.dart';
 import 'landing_screen.dart';
 import 'octopus_scene_painter.dart';
 import '../services/splash_sound.dart';
+import '../services/app_feedback.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -73,6 +74,8 @@ class _SplashScreenState extends State<SplashScreen>
 
     Future.wait([minimumDelay, _networkTask]).then((results) {
       if (!mounted) return;
+      // Tıklama sesi oynatıcısı, ilk ekran gelirken arka planda hazırlanır.
+      AppFeedback.warmUp();
       final isLoggedIn = results[1] as bool;
       if (isLoggedIn) {
         Navigator.of(context).pushReplacement(

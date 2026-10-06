@@ -253,6 +253,7 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
+          enableFeedback: false, // dokunma sesi TapFeedbackScope'tan gelir
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           minimumSize: const Size(64, 52),
@@ -262,6 +263,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          enableFeedback: false,
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -272,6 +274,7 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          enableFeedback: false,
           foregroundColor: AppColors.textPrimary,
           minimumSize: const Size(64, 52),
           side: BorderSide(color: AppColors.border, width: 1.5),
@@ -281,6 +284,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
+          enableFeedback: false,
           foregroundColor: AppColors.primaryLight,
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),
@@ -336,7 +340,14 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: DividerThemeData(color: AppColors.border, thickness: 1, space: 1),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(enableFeedback: false),
+      ),
+      segmentedButtonTheme: const SegmentedButtonThemeData(
+        style: ButtonStyle(enableFeedback: false),
+      ),
       listTileTheme: ListTileThemeData(
+        enableFeedback: false,
         iconColor: AppColors.textSecondary,
         textColor: AppColors.textPrimary,
       ),
@@ -373,6 +384,7 @@ class AppTheme {
         dividerColor: Colors.transparent,
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        enableFeedback: false,
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),

@@ -8,6 +8,7 @@ import 'tts_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme_controller.dart';
+import '../services/app_feedback.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -360,6 +361,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 40),
 
+                  // --- SES VE TİTREŞİM ---
+                  Text("Ses ve Titreşim", style: AppText.heading(size: 18)),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        ValueListenableBuilder<bool>(
+                          valueListenable: AppFeedback.clickSound,
+                          builder: (context, on, _) => SwitchListTile(
+                            enableFeedback: false,
+                            secondary: Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
+                            title: Text('Tıklama sesi', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                            subtitle: Text('Butonlara dokununca kısa bir ses çalar', style: AppText.caption),
+                            value: on,
+                            onChanged: (v) {
+                              AppFeedback.setClickSound(v);
+                              if (v) AppFeedback.preview(haptic: false);
+                            },
+                          ),
+                        ),
+                        const Divider(),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: AppFeedback.haptics,
+                          builder: (context, on, _) => SwitchListTile(
+                            enableFeedback: false,
+                            secondary: Icon(Icons.vibration_rounded, color: AppColors.primaryLight),
+                            title: Text('Titreşim', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                            subtitle: Text('Dokunuşlarda hafif titreşim verir', style: AppText.caption),
+                            value: on,
+                            onChanged: (v) {
+                              AppFeedback.setHaptics(v);
+                              if (v) AppFeedback.preview(sound: false);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Sesler telefonunun sessiz ve titreşim moduna uyar.",
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 40),
+
                   // --- İNGİLİZCE SEVİYESİ ---
                   if (!_isLoadingUser) ...[
                     Row(
@@ -383,6 +430,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
+                              enableFeedback: false,
                               value: _selectedLevel,
                               icon: Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.secondary),
                               dropdownColor: AppColors.surface,

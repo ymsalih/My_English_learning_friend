@@ -12,6 +12,8 @@ import 'theme/theme_controller.dart';
 import 'services/subscription_service.dart';
 import 'dart:async';
 import 'services/splash_sound.dart';
+import 'services/app_feedback.dart';
+import 'widgets/tap_feedback_scope.dart';
 
 // Uygulamanın her yerinden erişebileceğimiz global kamera listesi
 // 🚀 YENİ: İçini açılışta değil, kullanıcı kameraya tıkladığında dolduracağız!
@@ -62,6 +64,9 @@ void main() async {
   // Kayıtlı tema modu (açık / koyu / sistem) ilk kareden önce uygulanır.
   await ThemeController.instance.load();
 
+  // Tıklama sesi ve titreşim ayarları (varsayılan: açık).
+  await AppFeedback.load();
+
   runApp(const IngilizceDestekApp());
 }
 
@@ -80,6 +85,8 @@ class IngilizceDestekApp extends StatelessWidget {
         themeMode: mode,
         // Renkler anında değişsin (tema geçiş animasyonu ile palet uyumsuz kalmasın).
         themeAnimationDuration: Duration.zero,
+        // Tıklanabilir her öğeye dokunuşta ses ve hafif titreşim (tek noktadan).
+        builder: (context, child) => TapFeedbackScope(child: child ?? const SizedBox.shrink()),
         home: const SplashScreen(),
       ),
     );

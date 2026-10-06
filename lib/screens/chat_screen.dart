@@ -381,11 +381,28 @@ class _ChatScreenState extends State<ChatScreen> {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         itemCount: _starters.length,
         separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-        itemBuilder: (context, i) => ActionChip(
-          label: Text(_starters[i]),
-          labelStyle: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
-          avatar: Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primaryLight),
-          onPressed: () => _sendStarter(_starters[i]),
+        itemBuilder: (context, i) => Material(
+          color: AppColors.surface,
+          shape: StadiumBorder(side: BorderSide(color: AppColors.border)),
+          child: InkWell(
+            enableFeedback: false, // ses/titreşim TapFeedbackScope'tan gelir
+            customBorder: const StadiumBorder(),
+            onTap: () => _sendStarter(_starters[i]),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome_rounded, size: 16, color: AppColors.primaryLight),
+                  const SizedBox(width: 8),
+                  Text(
+                    _starters[i],
+                    style: TextStyle(color: AppColors.textPrimary, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -653,6 +670,7 @@ class _BubbleAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      enableFeedback: false,
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Padding(

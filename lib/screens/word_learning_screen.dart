@@ -419,6 +419,7 @@ class _WordLearningScreenState extends State<WordLearningScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          enableFeedback: false,
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           splashColor: iconColor.withOpacity(0.3),

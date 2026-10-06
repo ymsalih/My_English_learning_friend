@@ -318,6 +318,7 @@ class _LearnedWordsScreenState extends State<LearnedWordsScreen> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
+                        enableFeedback: false,
                         borderRadius: BorderRadius.circular(24),
                         onTap: () => _speak(word['eng']),
                         splashColor: AppColors.secondary.withOpacity(0.2),

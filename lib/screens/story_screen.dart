@@ -430,6 +430,7 @@ class _StoryScreenState extends State<StoryScreen> {
                   child: Material(
                     color: Colors.transparent,
                     child: InkWell(
+                      enableFeedback: false,
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       onTap: () => _makeChoice(entry.value['next_id']),
                       onLongPress: () => _showWordTranslation(entry.value['text']),
@@ -609,6 +610,7 @@ class _StoryScreenState extends State<StoryScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
+                enableFeedback: false,
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 onTap: _selectedAnswerIndex != null
                     ? null // Eğer zaten cevap verildiyse butonları kilitle

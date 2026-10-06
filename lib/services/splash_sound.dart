@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+
+import 'app_audio.dart';
 
 /// Açılış ekranının sesi (assets/sounds/splash_intro.wav).
 ///
@@ -24,20 +25,8 @@ class SplashSound {
 
   static Future<bool> _load() async {
     try {
-      // Sessiz moda saygılı ("ambient"), kullanıcının müziğini kesmeyen,
-      // yalnızca kısa süre kısan bir oturum.
-      final session = await AudioSession.instance;
-      await session.configure(
-        const AudioSessionConfiguration(
-          avAudioSessionCategory: AVAudioSessionCategory.ambient,
-          avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.mixWithOthers,
-          androidAudioAttributes: AndroidAudioAttributes(
-            contentType: AndroidAudioContentType.sonification,
-            usage: AndroidAudioUsage.game,
-          ),
-          androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
-        ),
-      );
+      // Ortak arayüz ses oturumu: sessiz/titreşim moduna uyar, müziği kesmez.
+      await AppAudio.configureSession();
 
       final player = AudioPlayer();
       await player.setAsset(_asset, preload: true);

@@ -453,6 +453,7 @@ class _TestScreenState extends State<TestScreen> {
             color: color.withValues(alpha: 0.14),
             shape: CircleBorder(side: BorderSide(color: color.withValues(alpha: 0.4))),
             child: InkWell(
+              enableFeedback: false,
               customBorder: const CircleBorder(),
               onTap: onTap,
               child: SizedBox(width: 60, height: 60, child: Icon(icon, color: color, size: 28)),

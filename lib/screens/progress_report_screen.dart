@@ -141,6 +141,7 @@ class _ProgressReportScreenState extends State<ProgressReportScreen> {
   // --- FİLTRELEME MENÜSÜ ---
   Widget _buildFilterMenu() {
     return PopupMenuButton<String>(
+      enableFeedback: false,
       icon: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
