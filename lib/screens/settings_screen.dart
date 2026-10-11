@@ -14,6 +14,7 @@ import '../services/app_feedback.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../services/apple_auth.dart';
 import '../services/subscription_renewal_check.dart';
+import '../constants/app_links.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -836,14 +837,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           leading: Icon(Icons.privacy_tip_outlined, color: AppColors.secondary),
                           title: Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textPrimary)),
                           trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
-                          onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
+                          onTap: () => _launchURL(AppLinks.privacyPolicy),
                         ),
                         Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(
                           leading: Icon(Icons.description_outlined, color: AppColors.primaryLight),
                           title: Text("Kullanım Şartları", style: TextStyle(color: AppColors.textPrimary)),
                           trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
-                          onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
+                          onTap: () => _launchURL(AppLinks.termsOfUse),
                         ),
                         Divider(color: AppColors.textPrimary.withValues(alpha: 0.1), height: 1),
                         // Videolar YouTube oynatıcısıyla gösterildiği için YouTube
@@ -852,7 +853,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           leading: Icon(Icons.smart_display_outlined, color: AppColors.danger),
                           title: Text("YouTube Hizmet Şartları", style: TextStyle(color: AppColors.textPrimary)),
                           trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
-                          onTap: () => _launchURL('https://www.youtube.com/t/terms'),
+                          onTap: () => _launchURL(AppLinks.youtubeTerms),
                         ),
                         Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(

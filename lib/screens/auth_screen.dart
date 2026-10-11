@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../services/apple_auth.dart';
+import '../constants/app_links.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool initialLoginMode;
@@ -622,13 +623,13 @@ class _AuthScreenState extends State<AuthScreen>
                         children: [
                           Text("Kayıt olarak ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                           GestureDetector(
-                            onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa')),
+                            onTap: () => launchUrl(Uri.parse(AppLinks.termsOfUse)),
                             child: Text("Kullanım Şartları",
                                 style: TextStyle(color: AppColors.primaryLight, fontSize: 11, decoration: TextDecoration.underline)),
                           ),
                           Text(" ve ", style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
                           GestureDetector(
-                            onTap: () => launchUrl(Uri.parse('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa')),
+                            onTap: () => launchUrl(Uri.parse(AppLinks.privacyPolicy)),
                             child: Text("Gizlilik Politikasını",
                                 style: TextStyle(color: AppColors.primaryLight, fontSize: 11, decoration: TextDecoration.underline)),
                           ),

@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../services/subscription_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../constants/app_links.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -787,12 +788,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 spacing: 10,
                 children: [
                   GestureDetector(
-                    onTap: () => _launchURL('https://sites.google.com/view/owlishprivacypolicy/ana-sayfa'),
+                    onTap: () => _launchURL(AppLinks.privacyPolicy),
                     child: Text("Gizlilik Politikası", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   ),
                   Text("|", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   GestureDetector(
-                    onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
+                    onTap: () => _launchURL(AppLinks.termsOfUse),
                     child: Text("Kullanım Şartları", style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   ),
                 ],
