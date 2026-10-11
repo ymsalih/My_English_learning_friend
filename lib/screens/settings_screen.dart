@@ -845,6 +845,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
                           onTap: () => _launchURL('https://sites.google.com/view/owlish-terms-of-use/ana-sayfa'),
                         ),
+                        Divider(color: AppColors.textPrimary.withValues(alpha: 0.1), height: 1),
+                        // Videolar YouTube oynatıcısıyla gösterildiği için YouTube
+                        // API politikası bu bağlantıyı zorunlu tutar.
+                        ListTile(
+                          leading: Icon(Icons.smart_display_outlined, color: AppColors.danger),
+                          title: Text("YouTube Hizmet Şartları", style: TextStyle(color: AppColors.textPrimary)),
+                          trailing: Icon(Icons.open_in_new, color: AppColors.textMuted, size: 18),
+                          onTap: () => _launchURL('https://www.youtube.com/t/terms'),
+                        ),
                         Divider(color: AppColors.textPrimary.withOpacity(0.1), height: 1),
                         ListTile(
                           leading: Icon(Icons.logout_rounded, color: AppColors.textSecondary),

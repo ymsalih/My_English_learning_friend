@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart' as native;
 import 'package:youtube_player_iframe/youtube_player_iframe.dart' as web;
 import '../theme/app_theme.dart';
@@ -219,6 +220,24 @@ class VideoPracticeScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Kaynak: YouTube API politikası, küçük resmi gösterilen içeriğin
+          // YouTube'dan geldiğinin belli olmasını ister.
+          Row(
+            children: [
+              Icon(Icons.smart_display_rounded, size: 16, color: AppColors.danger),
+              const SizedBox(width: 6),
+              Text(
+                'YouTube',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
             title,
             maxLines: 2,
@@ -294,12 +313,17 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
-    if (!kIsWeb) _nativeController.dispose();
+    if (!kIsWeb) {
+      _nativeController.dispose();
+      // Tam ekrandayken çıkılırsa yön kilidi ve gizlenen sistem çubukları
+      // uygulamanın geri kalanında takılı kalmasın.
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: SystemUiOverlay.values);
+    }
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Scaffold _page(Widget player) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -307,7 +331,24 @@ class _PlayerScreenState extends State<PlayerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
-      body: Center(child: kIsWeb ? _buildWebPlayer() : _buildNativePlayer()),
+      body: Center(child: player),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb) return _page(_buildWebPlayer());
+
+    // Telefon yan çevrilince video tam ekrana geçer, dik çevrilince geri döner;
+    // tam ekrandayken geri tuşu önce tam ekrandan çıkarır.
+    return native.YoutubePlayerBuilder(
+      onExitFullScreen: () {
+        // Paket tam ekrandan çıkarken yönü yalnızca dik konuma kilitler. Kilit
+        // kaldırılmazsa telefon tekrar çevrildiğinde ekran dönmez ("takılır").
+        SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+      },
+      player: _buildNativePlayer(),
+      builder: (context, player) => _page(player),
     );
   }
 
@@ -317,7 +358,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   // 📱 MOBİL OYNATICI
-  Widget _buildNativePlayer() {
+  native.YoutubePlayer _buildNativePlayer() {
     return native.YoutubePlayer(
       controller: _nativeController,
       showVideoProgressIndicator: true,
