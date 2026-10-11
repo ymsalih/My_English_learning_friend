@@ -14,6 +14,7 @@ import 'dart:async';
 import 'services/splash_sound.dart';
 import 'services/app_feedback.dart';
 import 'widgets/tap_feedback_scope.dart';
+import 'services/ai_consent.dart';
 
 // Uygulamanın her yerinden erişebileceğimiz global kamera listesi
 // 🚀 YENİ: İçini açılışta değil, kullanıcı kameraya tıkladığında dolduracağız!
@@ -66,6 +67,9 @@ void main() async {
 
   // Tıklama sesi ve titreşim ayarları (varsayılan: açık).
   await AppFeedback.load();
+
+  // Yapay zeka / çeviri veri paylaşımı izni (varsayılan: sorulmadı).
+  await AiConsent.load();
 
   runApp(const IngilizceDestekApp());
 }

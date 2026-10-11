@@ -19,6 +19,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
   bool _isProcessing = false; // Fotoğraf işlenirken loading göstermek için
   String _scannedText = ""; // Okunan metin sonucu
   bool _isFlashOn = false; // Fener durumu
+  String? _cameraError; // Kamera açılamazsa kullanıcıya gösterilecek açıklama
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
   Future<void> _initializeCamera() async {
     if (cameras.isEmpty) {
       debugPrint("Kamera listesi boş!");
+      if (mounted) setState(() => _cameraError = "Bu cihazda kullanılabilir bir kamera bulunamadı.");
       return;
     }
 
@@ -52,6 +54,11 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
       setState(() {});
     } catch (e) {
       debugPrint("Kamera başlatılamadı: $e");
+      if (!mounted) return;
+      final denied = e is CameraException && e.code.startsWith('CameraAccess');
+      setState(() => _cameraError = denied
+          ? "Kelimeleri taramak için kamera izni gerekiyor. Telefonunun Ayarlar bölümünden Octopus English'e kamera izni verebilirsin."
+          : "Kamera açılamadı. Lütfen tekrar deneyin.");
     }
   }
 
@@ -145,6 +152,35 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_cameraError != null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Colors.white),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.no_photography_rounded, color: Colors.white70, size: 56),
+                const SizedBox(height: 16),
+                Text(
+                  _cameraError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  child: const Text('Geri Dön'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return Scaffold(
         backgroundColor: Colors.black,

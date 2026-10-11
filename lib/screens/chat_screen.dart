@@ -7,6 +7,8 @@ import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../services/ai_consent.dart';
+import '../widgets/report_content_sheet.dart';
 
 class ChatMessage {
   final String text;
@@ -123,6 +125,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _isLoading) return;
+
+    if (!await AiConsent.ensure(context)) return;
 
     // Limit kontrolü önbellekten yapılır, ağ beklemesi yok.
     if (!await _subService.canChat()) {
@@ -505,6 +509,16 @@ class _ChatScreenState extends State<ChatScreen> {
                         icon: Icons.translate_rounded,
                         label: 'Çevir',
                         onTap: () => _translateMessage(index),
+                      ),
+                      _BubbleAction(
+                        icon: Icons.flag_outlined,
+                        label: 'Bildir',
+                        onTap: () => showReportContentSheet(
+                          context,
+                          source: 'chat',
+                          content: message.text,
+                          userContext: index > 0 && _messages[index - 1].isUser ? _messages[index - 1].text : null,
+                        ),
                       ),
                     ],
                   ),

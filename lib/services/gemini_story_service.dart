@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'ai_client.dart';
+import 'ai_consent.dart';
 
 class GeminiStoryService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -102,6 +103,8 @@ Generate an interactive "Choose your own adventure" story tree in English.
 Genre: $genre
 English Level: $level
 
+The story must be suitable for all ages (13+): no sexual content, graphic violence, hate, self-harm, drugs or other harmful material, whatever the genre.
+
 Format the response purely as a JSON object matching this exact schema:
 {
   "title": "A catchy title for the story",
@@ -146,6 +149,7 @@ Strict Rules:
         }
         return null;
       } catch (e) {
+        if (e is AiConsentException) rethrow;
         debugPrint("Gemini Üretim Hatası: $e");
         if (!AiClient.isRetryable(e) || attempt + 1 >= AiClient.maxAttempts) {
           return null;

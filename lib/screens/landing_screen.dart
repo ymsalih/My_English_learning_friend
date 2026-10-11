@@ -275,10 +275,10 @@ class LandingScreen extends StatelessWidget {
 
                     const SizedBox(height: 80),
 
-                    // --- KULLANICI YORUMLARI (TESTIMONIALS) ---
+                    // --- ÖZELLİKLER ---
                     Center(
                       child: Text(
-                        "Kullanıcılarımız Ne Diyor?",
+                        "Neler Yapabilirsin?",
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
@@ -289,39 +289,44 @@ class LandingScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 30),
 
-                    _buildTestimonialCard(
-                      name: "Ayşe Yılmaz",
-                      role: "Üniversite Öğrencisi",
-                      comment:
-                          "Özellikle kamera ile çeviri harika! Gördüğüm her şeyi okutup anında kelime hazinemi geliştiriyorum. Gerçek bir asistan.",
+                    _buildFeatureCard(
+                      icon: Icons.camera_alt_rounded,
+                      iconColor: AppColors.secondary,
+                      title: "Kamerayla Kelime Çevirisi",
+                      description:
+                          "Gördüğün yazıyı kameraya tut, kelimeleri oku ve anlamlarını tek dokunuşla kelime havuzuna ekle.",
                     ),
                     const SizedBox(height: 16),
-                    _buildTestimonialCard(
-                      name: "Caner Korkmaz",
-                      role: "Yazılım Geliştirici",
-                      comment:
-                          "AI Chat sayesinde konuşma pratiği yapma korkumu yendim. Karşımda beni yargılamayan, mükemmel bir İngilizce öğretmeni var.",
+                    _buildFeatureCard(
+                      icon: Icons.chat_bubble_rounded,
+                      iconColor: AppColors.primaryLight,
+                      title: "Yapay Zeka ile Sohbet",
+                      description:
+                          "Seviyene uygun bir İngilizce asistanıyla konuş. Hatalarını anında görüp Türkçe açıklamasını oku.",
                     ),
                     const SizedBox(height: 16),
-                    _buildTestimonialCard(
-                      name: "Selin Demir",
-                      role: "Lise Öğrencisi",
-                      comment:
-                          "Hikayeler bölümü mükemmel. Bilmediğim kelimeye basıp çevirisini gördüğüm için artık hikaye okumak hiç sıkıcı değil!",
+                    _buildFeatureCard(
+                      icon: Icons.auto_stories_rounded,
+                      iconColor: AppColors.success,
+                      title: "Etkileşimli Hikayeler",
+                      description:
+                          "Seçimlerinle ilerleyen hikayeler oku, bilmediğin kelimeye dokunup çevirisini gör, sonunda anlama testini çöz.",
                     ),
                     const SizedBox(height: 16),
-                    _buildTestimonialCard(
-                      name: "Mehmet Yıldırım",
-                      role: "İngilizce Öğretmeni",
-                      comment:
-                          "Öğrencilerime tavsiye ettiğim tek uygulama. Kaydırılabilir kelime kartları (Flashcards) ve akıllı tekrar sistemi kelimeleri kalıcı belleğe adeta kazıyor.",
+                    _buildFeatureCard(
+                      icon: Icons.style_rounded,
+                      iconColor: AppColors.gold,
+                      title: "Kelime Kartları ve Testler",
+                      description:
+                          "Kaydırmalı kartlarla kelimeleri çalış, düzenli kelime testleriyle öğrendiklerini pekiştir.",
                     ),
                     const SizedBox(height: 16),
-                    _buildTestimonialCard(
-                      name: "Burcu Kaya",
-                      role: "Banka Yöneticisi",
-                      comment:
-                          "Kelime testleri ve seri (streak) koruma hırsı sayesinde İngilizce çalışmak bağımlılık yapan bir oyun gibi oldu. Artık her gün pratik yapıyorum!",
+                    _buildFeatureCard(
+                      icon: Icons.local_fire_department_rounded,
+                      iconColor: AppColors.danger,
+                      title: "Günlük Seri ve Gelişim",
+                      description:
+                          "Her gün çalışarak serini sürdür, ilerlemeni ve seviyeni raporlardan takip et.",
                     ),
 
                     const SizedBox(height: 80),
@@ -569,10 +574,11 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTestimonialCard({
-    required String name,
-    required String role,
-    required String comment,
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String description,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -580,78 +586,47 @@ class LandingScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.border),
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: AppColors.textPrimary.withOpacity(0.1),
-                      child: Text(
-                        name[0],
-                        style: TextStyle(
-                          color: AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        Text(
-                          role,
-                          style: TextStyle(
-                            color: AppColors.gold.withOpacity(0.8),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Icon(
-                      Icons.format_quote_rounded,
-                      color: AppColors.textPrimary.withValues(alpha: 0.24),
-                      size: 40,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "\"$comment\"",
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
-                    fontStyle: FontStyle.italic,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: List.generate(
-                    5,
-                    (index) => Icon(
-                      Icons.star_rounded,
-                      color: AppColors.gold,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: iconColor, size: 26),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

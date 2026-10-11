@@ -600,6 +600,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
+  /// Abonelik koşulları: otomatik yenileme ve nasıl iptal edileceği.
+  String get _renewalNotice => Platform.isIOS
+      ? 'Abonelik, mevcut dönemin bitiminden en az 24 saat önce iptal edilmediği sürece otomatik olarak yenilenir. '
+          'Ücret, onayında Apple ID hesabından tahsil edilir; yenileme ücreti dönem bitiminden önceki 24 saat içinde alınır. '
+          "Aboneliğini iPhone'daki Ayarlar > Apple Kimliği > Abonelikler bölümünden istediğin zaman yönetebilir veya iptal edebilirsin."
+      : 'Abonelik, mevcut dönemin bitiminden önce iptal edilmediği sürece otomatik olarak yenilenir. '
+          'Ücret, Google Play hesabından tahsil edilir. '
+          'Aboneliğini Google Play > Ödemeler ve abonelikler > Abonelikler bölümünden istediğin zaman yönetebilir veya iptal edebilirsin.';
+
   @override
   Widget build(BuildContext context) {
     final tabData = _getTabData(_selectedTab);
@@ -765,6 +774,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
               ),
               const SizedBox(height: AppSpacing.md),
+              // Otomatik yenileme bilgilendirmesi (mağaza zorunluluğu)
+              Text(
+                _renewalNotice,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11, height: 1.4),
+              ),
+              const SizedBox(height: AppSpacing.md),
               // Yasal bağlantılar (mağaza zorunluluğu)
               Wrap(
                 alignment: WrapAlignment.center,
@@ -839,7 +855,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Google Play / App Store ile güvenli ödeme',
+                Platform.isIOS ? 'Apple ile güvenli ödeme' : 'Google Play ile güvenli ödeme',
                 style: TextStyle(color: AppColors.textMuted, fontSize: 11),
               ),
             ],

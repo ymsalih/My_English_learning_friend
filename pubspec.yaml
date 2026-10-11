@@ -1,8 +1,8 @@
 name: ingilizce_destek_app
-description: "İngilizce Arkadaşım - Mobil Eğitim Uygulaması."
+description: "Octopus English - Mobil İngilizce Öğrenme Uygulaması."
 
 publish_to: 'none'
-version: 1.4.4+19
+version: 1.4.4+20
 
 environment:
   sdk: ^3.11.0
@@ -38,6 +38,8 @@ dependencies:
   google_sign_in: ^6.2.1
   just_audio: ^0.10.6
   audio_session: ^0.2.4
+  sign_in_with_apple: 8.1.0
+  crypto: ^3.0.7
   
 dev_dependencies:
   flutter_test:
@@ -50,6 +52,7 @@ flutter:
   assets:
     - .env
     - assets/logo_transparent.png
+    - assets/google_g_logo.png
     - assets/google_fonts/
     - assets/sounds/
 

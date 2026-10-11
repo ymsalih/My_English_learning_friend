@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:translator/translator.dart';
 import 'ai_client.dart';
+import 'ai_consent.dart';
 
 class ChatService {
   // Mod ve seviyeye göre hazırlanan istek ayarları.
@@ -47,6 +47,10 @@ class ChatService {
 
   String _getSystemPrompt(String mode, String userLevel) {
     String baseInstructions = "You are a friendly AI English tutor. "
+        "Safety rules: never produce sexual, violent, hateful, harassing, self-harm or illegal content, "
+        "and never give medical, legal or financial advice. If the user asks for any of that, politely decline "
+        "in one sentence and steer the conversation back to learning English. "
+        "If the user seems to be in danger or distress, kindly suggest talking to a trusted adult or local emergency services. "
         "The user's English level is $userLevel. Adapt your vocabulary and grammar accordingly. "
         "Keep your reply short and natural like a real chat message: 1-3 sentences, "
         "unless the user explicitly asks for a longer answer. Keep the explanation to one short sentence. "
@@ -189,7 +193,7 @@ class ChatService {
   // Anlık Çeviri Fonksiyonu (Ücretsiz, API maliyeti yaratmaz)
   Future<String> translateText(String text) async {
     try {
-      final translator = GoogleTranslator();
+      final translator = ConsentTranslator();
       final translation = await translator.translate(text, from: 'en', to: 'tr');
       return translation.text;
     } catch (e) {

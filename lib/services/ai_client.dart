@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
+import 'ai_consent.dart';
 
 /// Gemini API'den dönen hata.
 class AiException implements Exception {
@@ -112,7 +113,17 @@ class AiClient {
             ],
           },
         'generationConfig': ?generationConfig,
+        'safetySettings': _safetySettings,
       };
+
+  /// Uygunsuz içerik (taciz, nefret, cinsel, tehlikeli) orta ve üzeri
+  /// olasılıkta engellenir; engellenen cevap `BLOCKED` olarak işlenir.
+  static const List<Map<String, String>> _safetySettings = [
+    {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+    {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+    {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+    {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+  ];
 
   static Never _throwApiError(int statusCode, String body) {
     try {
@@ -156,6 +167,7 @@ class AiClient {
     String? systemInstruction,
     Duration chunkTimeout = const Duration(seconds: 25),
   }) async* {
+    AiConsent.check();
     final request = http.Request(
       'POST',
       Uri.parse('$_baseUrl/$model:streamGenerateContent?alt=sse'),
@@ -196,6 +208,7 @@ class AiClient {
     String? systemInstruction,
     Duration timeout = const Duration(seconds: 60),
   }) async {
+    AiConsent.check();
     final response = await _http
         .post(
           Uri.parse('$_baseUrl/$model:generateContent'),
@@ -263,6 +276,9 @@ class AiClient {
 
   /// Kullanıcıya gösterilecek Türkçe hata mesajı.
   static String userMessage(Object error) {
+    if (error is AiConsentException) {
+      return "Bu özellik için Ayarlar'dan yapay zeka veri paylaşımına izin vermelisin.";
+    }
     if (error is TimeoutException ||
         error is SocketException ||
         error is http.ClientException) {

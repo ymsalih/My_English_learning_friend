@@ -16,6 +16,7 @@ import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../services/ai_consent.dart';
 
 // --- VERİ MODELLERİ ---
 class WordMeaningGroup {
@@ -227,6 +228,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
         setState(() => _isSpeechInitialized = true);
       } else {
         debugPrint("Ses tanıma başlatılamadı.");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Sesli çeviri için mikrofon izni gerekiyor. Telefonunun Ayarlar bölümünden Octopus English'e mikrofon (iPhone'da konuşma tanıma) izni verebilirsin."),
+              duration: Duration(seconds: 6),
+            ),
+          );
+        }
         return;
       }
     }
@@ -307,6 +316,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     final sLang = sourceLang ?? (_isEnToTr ? 'EN' : 'TR');
     final tLang = targetLang ?? (_isEnToTr ? 'TR' : 'EN-US');
     try {
+      AiConsent.check();
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -338,6 +348,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
   ) async {
     Map<String, List<String>> dictionaryResults = {};
     try {
+      AiConsent.check();
       final url = Uri.parse(
         '$_proxyUrl?service=google&sl=en&tl=tr&word=${Uri.encodeComponent(word)}',
       );
@@ -364,6 +375,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _translateAndFetchDictionary() async {
     final textToTranslate = _textController.text.trim().toLowerCase();
     if (textToTranslate.isEmpty) return;
+
+    if (!await AiConsent.ensure(context)) return;
 
     if (!await _subService.canTranslate()) {
       if (mounted) {
@@ -506,6 +519,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     String originalWord,
   ) async {
     try {
+      AiConsent.check();
       if (_isEnToTr) {
         Map<String, List<String>> googleMeanings =
             await _fetchGoogleDictionaryMeanings(englishWord);
@@ -632,6 +646,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
   Future<void> _fetchImage(String word) async {
     try {
+      AiConsent.check();
       final url = Uri.parse(
         '$_proxyUrl?service=pexels&word=${Uri.encodeComponent(word)}',
       );

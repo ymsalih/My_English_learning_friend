@@ -24,6 +24,8 @@ import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../widgets/app_bottom_bar.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import '../services/ai_consent.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -56,6 +58,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _setupUserListener();
     _initPackageInfo();
+    // Üçüncü taraf servislere veri gönderimi için ilk açılışta açık izin iste.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AiConsent.askIfUndecided(context);
+    });
   }
 
   Future<void> _initPackageInfo() async {
@@ -225,6 +231,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _signOut(BuildContext context) async {
     await FirebaseAuth.instance.signOut();
+    try {
+      await Purchases.logOut();
+    } catch (e) {
+      debugPrint('RevenueCat logOut: $e');
+    }
     if (context.mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => const AuthScreen()),

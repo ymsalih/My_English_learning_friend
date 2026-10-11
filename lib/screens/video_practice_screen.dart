@@ -127,7 +127,7 @@ class VideoPracticeScreen extends StatelessWidget {
           ),
           const SizedBox(height: 15),
           Text(
-            'Çok yakında harika içerikler\nburaya eklenecek!',
+            'Yeni videolar eklendiğinde burada görünecek.\nDaha sonra tekrar göz atabilirsin.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 16, color: AppColors.textSecondary, height: 1.5),
           ),

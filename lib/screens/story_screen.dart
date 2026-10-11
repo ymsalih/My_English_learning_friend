@@ -3,11 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/gemini_story_service.dart';
 import 'tts_service.dart';
-import 'package:translator/translator.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../services/ai_consent.dart';
+import '../widgets/report_content_sheet.dart';
 
 class StoryScreen extends StatefulWidget {
   const StoryScreen({super.key});
@@ -19,7 +20,7 @@ class StoryScreen extends StatefulWidget {
 class _StoryScreenState extends State<StoryScreen> {
   final GeminiStoryService _storyService = GeminiStoryService();
   final TtsService _ttsService = TtsService();
-  final _translator = GoogleTranslator();
+  final _translator = ConsentTranslator();
   final SubscriptionService _subService = SubscriptionService();
 
   String _selectedGenre = 'Macera';
@@ -125,6 +126,9 @@ class _StoryScreenState extends State<StoryScreen> {
       }
     }
 
+    if (!mounted) return;
+    if (forceGenerate && !await AiConsent.ensure(context)) return;
+
     setState(() {
       _isLoading = true;
       _storyTree = null;
@@ -164,7 +168,9 @@ class _StoryScreenState extends State<StoryScreen> {
             'Beklenmeyen bir hata oluştu. Lütfen birazdan tekrar deneyin.';
         final errorString = e.toString().toLowerCase();
 
-        if (errorString.contains('socket') ||
+        if (e is AiConsentException) {
+          errorMsg = "Bu özellik için Ayarlar'dan yapay zeka veri paylaşımına izin vermelisin.";
+        } else if (errorString.contains('socket') ||
             errorString.contains('host lookup') ||
             errorString.contains('network') ||
             errorString.contains('clientexception')) {
@@ -226,7 +232,7 @@ class _StoryScreenState extends State<StoryScreen> {
 
   Future<String> _fallbackTranslate(String text) async {
     try {
-      final translator = GoogleTranslator();
+      final translator = ConsentTranslator();
       final res = await translator.translate(text, from: 'en', to: 'tr');
       return res.text;
     } catch (e) {
@@ -407,6 +413,16 @@ class _StoryScreenState extends State<StoryScreen> {
                     icon: Icon(Icons.volume_up_rounded, color: AppColors.primaryLight),
                     tooltip: 'Seslendir (İngilizce)',
                     onPressed: () => _ttsService.speak(text),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.flag_outlined, color: AppColors.textMuted),
+                    tooltip: 'İçeriği bildir',
+                    onPressed: () => showReportContentSheet(
+                      context,
+                      source: 'story',
+                      content: text.toString(),
+                      userContext: '${_storyTree?['title'] ?? ''} | $_selectedGenre | $_selectedLevel',
+                    ),
                   ),
                 ],
               ),

@@ -8,6 +8,8 @@ import 'dashboard_screen.dart';
 import 'landing_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../services/apple_auth.dart';
 
 class AuthScreen extends StatefulWidget {
   final bool initialLoginMode;
@@ -316,6 +318,86 @@ class _AuthScreenState extends State<AuthScreen>
     }
   }
 
+  // --- APPLE İLE GİRİŞ YAP (yalnızca iOS) ---
+  Future<void> _signInWithApple() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await AppleAuth.authorize();
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(result.credential);
+      final user = userCredential.user;
+
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          // Apple adı yalnızca ilk girişte verir; gelmezse varsayılan ad kullanılır.
+          final displayName = result.fullName ?? user.displayName ?? "Kullanıcı";
+          if (result.fullName != null && (user.displayName ?? '').isEmpty) {
+            await user.updateDisplayName(result.fullName);
+          }
+          final now = DateTime.now();
+          final todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'username': displayName,
+            'displayName': displayName,
+            'email': user.email ?? "",
+            'createdAt': FieldValue.serverTimestamp(),
+            'subscriptionPlan': 'basic',
+            'lifetimeWordsAdded': 0,
+            'dailyUsage': {
+              'date': todayStr,
+              'storyGenCount': 0,
+              'storyReadCount': 0,
+              'chatMsgCount': 0,
+              'translateCount': 0,
+              'testCount': 0,
+            },
+            'level': 'A1',
+            'streak': 0,
+            'photoURL': '',
+            'lastActive': FieldValue.serverTimestamp(),
+          });
+        }
+
+        try {
+          await Purchases.logIn(user.uid);
+        } catch (e) {
+          debugPrint("RevenueCat LogIn Error: $e");
+        }
+
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Apple ile giriş başarısız oldu: ${e.message}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            backgroundColor: AppColors.dangerFill,
+          ),
+        );
+      }
+    } catch (e) {
+      // Kullanıcı Apple penceresini kapattıysa sessizce çık.
+      if (mounted && !AppleAuth.isCancelled(e)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Apple ile giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.'),
+            backgroundColor: AppColors.dangerFill,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   // --- GOOGLE İLE GİRİŞ YAP ---
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
@@ -526,6 +608,10 @@ class _AuthScreenState extends State<AuthScreen>
                         ],
                       ),
                       const SizedBox(height: AppSpacing.lg),
+                      if (AppleAuth.isSupported) ...[
+                        _buildAppleSignInButton(),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
                       _buildGoogleSignInButton(),
                     ],
                     if (!_isLogin) ...[
@@ -653,16 +739,22 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
+  Widget _buildAppleSignInButton() {
+    return SignInWithAppleButton(
+      onPressed: _signInWithApple,
+      text: _isLogin ? 'Apple ile Devam Et' : 'Apple ile Kayıt Ol',
+      height: 52,
+      style: AppColors.isDark ? SignInWithAppleButtonStyle.white : SignInWithAppleButtonStyle.black,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+    );
+  }
+
   Widget _buildGoogleSignInButton() {
     return SizedBox(
       height: 52,
       child: ElevatedButton.icon(
         onPressed: _signInWithGoogle,
-        icon: Image.network(
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/120px-Google_%22G%22_logo.svg.png',
-          height: 22,
-          errorBuilder: (_, _, _) => const Icon(Icons.g_mobiledata_rounded, color: Colors.black87),
-        ),
+        icon: Image.asset('assets/google_g_logo.png', height: 22),
         label: Text(_isLogin ? 'Google ile Devam Et' : 'Google ile Kayıt Ol'),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,

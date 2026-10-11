@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 // 🚀 YENİ: Ses servisini içeri aktarıyoruz
 import 'tts_service.dart';
-import 'package:translator/translator.dart';
 import 'dart:async';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import '../widgets/cached_stream_builder.dart';
+import '../services/ai_consent.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -132,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (text.trim().isNotEmpty) {
                   setModalState(() => isTranslating = true);
                   try {
-                    final translator = GoogleTranslator();
+                    final translator = ConsentTranslator();
                     final translation = await translator.translate(text.trim(), from: 'en', to: 'tr');
                     // Kullanıcı zaten manuel bir şey yazmadıysa doldur
                     if (trController.text.isEmpty || isTranslating) {

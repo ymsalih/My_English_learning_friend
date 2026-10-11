@@ -24,6 +24,8 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UIApplicationSceneManifest</key>
@@ -80,7 +82,7 @@
 		<key>NSCameraUsageDescription</key>
 		<string>Görsel çeviri özelliği ile kelimeleri kameranızdan taramak için kameraya erişim gereklidir.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Profil fotoğrafınızı seçmek veya çeviri için galeriden görsel yüklemek amacıyla fotoğraf galerisine erişim gereklidir.</string>
+		<string>Görsel çeviri özelliğinde, içindeki kelimeleri okumak üzere galerinizden bir fotoğraf seçebilmeniz için fotoğraf galerisine erişim gereklidir.</string>
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

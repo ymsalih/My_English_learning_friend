@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
-import 'package:translator/translator.dart';
 import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import 'tts_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../services/ai_consent.dart';
 
 class ReadingPracticeScreen extends StatefulWidget {
   const ReadingPracticeScreen({super.key});
@@ -32,7 +32,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   String _selectedLevel = 'A1';
 
   final stt.SpeechToText _speech = stt.SpeechToText();
-  final translator = GoogleTranslator();
+  final translator = ConsentTranslator();
   final TtsService _ttsService = TtsService();
   final SubscriptionService _subService = SubscriptionService();
 
@@ -54,7 +54,6 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
   @override
   void initState() {
     super.initState();
-    _initSpeech();
     _fetchTexts();
   }
 
@@ -97,7 +96,7 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
     super.dispose();
   }
 
-  void _initSpeech() async {
+  Future<void> _initSpeech() async {
     _speechEnabled = await _speech.initialize(
       onError: (val) => debugPrint('STT Error: ${val.errorMsg}'),
       onStatus: (val) {
@@ -109,13 +108,21 @@ class _ReadingPracticeScreenState extends State<ReadingPracticeScreen> {
         }
       },
     );
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void _startListening() async {
+    // İzin, ilk kez "Okuyacağım" düğmesine basıldığında istenir.
     if (!_speechEnabled) {
+      await _initSpeech();
+    }
+    if (!_speechEnabled) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mikrofon izni alınamadı veya desteklenmiyor.')),
+        const SnackBar(
+          content: Text("Telaffuz testi için mikrofon izni gerekiyor. Telefonunun Ayarlar bölümünden Octopus English'e mikrofon (iPhone'da konuşma tanıma) izni verebilirsin."),
+          duration: Duration(seconds: 6),
+        ),
       );
       return;
     }

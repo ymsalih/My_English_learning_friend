@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -8,7 +9,11 @@ import 'tts_service.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import '../theme/theme_controller.dart';
+import '../services/ai_consent.dart';
 import '../services/app_feedback.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import '../services/apple_auth.dart';
+import '../services/subscription_renewal_check.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _selectedLevel = 'A1';
   bool _isLoadingUser = true;
+  bool _checkingSubscription = false;
   final List<String> _levels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
   final TextEditingController _testTextController = TextEditingController(
@@ -122,6 +128,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _signOut() async {
     await FirebaseAuth.instance.signOut();
+    try {
+      await Purchases.logOut();
+    } catch (e) {
+      debugPrint("RevenueCat logOut: $e");
+    }
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
@@ -131,7 +142,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  /// Hesap silme: önce dönem sonunda yenilenecek bir abonelik var mı bakılır.
+  /// Varsa kullanıcıdan önce aboneliğini iptal etmesi istenir; iptal edildikten
+  /// sonra (süresinin dolması beklenmeden) silme onayına geçilir. Durum
+  /// doğrulanamazsa kullanıcı kilitlenmez; onay penceresindeki uyarıyı görür.
   Future<void> _confirmDeleteAccount() async {
+    if (_checkingSubscription) return;
+    setState(() => _checkingSubscription = true);
+    final check = await SubscriptionRenewalCheck.check();
+    if (!mounted) return;
+    setState(() => _checkingSubscription = false);
+
+    if (check.status == RenewalStatus.renewing) {
+      final canContinue = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _CancelSubscriptionFirstDialog(initial: check),
+      );
+      if (canContinue != true || !mounted) return;
+    }
+    _showDeleteConfirmation();
+  }
+
+  void _showDeleteConfirmation() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -154,7 +187,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 border: Border.all(color: AppColors.danger.withOpacity(0.3)),
               ),
               child: Text(
-                "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini cihazınızın App Store veya Google Play ayarlarından yapmanız gerekmektedir.",
+                Platform.isIOS
+                    ? "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini iPhone'unuzdaki Ayarlar > Apple Kimliği > Abonelikler bölümünden yapmanız gerekmektedir."
+                    : "⚠️ DİKKAT: Eğer aktif bir VIP aboneliğiniz varsa, hesabı silmek aboneliğinizi otomatik iptal etmez. İptal işlemini Google Play > Abonelikler bölümünden yapmanız gerekmektedir.",
                 style: TextStyle(color: AppColors.danger, fontSize: 12, fontWeight: FontWeight.bold),
               ),
             ),
@@ -180,56 +215,120 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _deleteAccount() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    if (user == null) return;
+
+    String? appleAuthCode;
+    try {
+      // 1. Oturum eskiyse (veya Apple hesabıysa: token iptali için yeni yetki
+      //    kodu gerekir) hiçbir şey silmeden ÖNCE kimliği yeniden doğrula.
+      final lastSignIn = user.metadata.lastSignInTime;
+      final stale = lastSignIn == null || DateTime.now().difference(lastSignIn).inMinutes > 4;
+      if (stale || AppleAuth.isAppleUser(user)) {
+        final reauth = await _reauthenticate(user);
+        if (reauth == null) return; // Kullanıcı vazgeçti, hiçbir şey silinmedi.
+        appleAuthCode = reauth.appleAuthCode;
+      }
+
+      // 2. Veritabanındaki kullanıcı verilerini sil
+      final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      // Alt koleksiyonlar toplu silinir (sayfa başına tek istek).
+      for (final sub in const ['words', 'test_history', 'chatHistory']) {
+        await _deleteCollection(userDocRef.collection(sub));
+      }
+      await userDocRef.delete();
+
+      // RevenueCat eklentisinin bu kullanıcı için tuttuğu müşteri kaydı.
       try {
-        // 1. Önce kullanıcının oturumunun taze olup olmadığını kontrol et
-        final lastSignIn = user.metadata.lastSignInTime;
-        if (lastSignIn != null) {
-          final diff = DateTime.now().difference(lastSignIn);
-          if (diff.inMinutes > 5) {
-            // Eğer 5 dakikadan eskiyse, Firebase Auth zaten hata verecektir.
-            // Bu yüzden veritabanını silmeden önce işlemi durduruyoruz.
-            throw FirebaseAuthException(
-              code: 'requires-recent-login',
-              message: 'Güvenlik nedeniyle yeniden giriş yapmalısınız.',
-            );
-          }
-        }
-
-        // 2. Oturum tazeyse önce veritabanındaki verileri siliyoruz
-        final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
-        
-        // Alt koleksiyonlar toplu silinir (sayfa başına tek istek).
-        for (final sub in const ['words', 'test_history', 'chatHistory']) {
-          await _deleteCollection(userDocRef.collection(sub));
-        }
-
-        // Ana dokümanı siliyoruz
-        await userDocRef.delete();
-        
-        // 3. Son olarak Auth (Giriş) hesabını tamamen siliyoruz
-        await user.delete();
-        await GoogleSignIn().signOut();
-        
-        if (mounted) {
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (context) => const AuthScreen()),
-            (route) => false,
-          );
-        }
+        await FirebaseFirestore.instance.collection('revenuecat_customers').doc(user.uid).delete();
       } catch (e) {
-        debugPrint("Hesap silinirken hata: $e");
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Güvenlik nedeniyle hesabınızı silmek için lütfen uygulamadan çıkış yapıp tekrar giriş yapın ve tekrar deneyin."),
-              backgroundColor: AppColors.dangerFill,
-            ),
-          );
+        debugPrint("RevenueCat müşteri kaydı silinemedi: $e");
+      }
+
+      // 3. Apple ile girişte Apple tarafındaki yetkiyi de iptal et (Apple şartı).
+      if (appleAuthCode != null) {
+        try {
+          await FirebaseAuth.instance.revokeTokenWithAuthorizationCode(appleAuthCode);
+        } catch (e) {
+          debugPrint("Apple token iptali başarısız: $e");
         }
       }
+
+      // 4. Auth hesabını sil ve oturumları kapat
+      await user.delete();
+      try {
+        await Purchases.logOut();
+      } catch (e) {
+        debugPrint("RevenueCat logOut: $e");
+      }
+      try {
+        await GoogleSignIn().signOut();
+      } catch (e) {
+        debugPrint("Google signOut: $e");
+      }
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const AuthScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      debugPrint("Hesap silinirken hata: $e");
+      if (mounted) {
+        final wrongPassword = e is FirebaseAuthException &&
+            (e.code == 'wrong-password' || e.code == 'invalid-credential');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(wrongPassword
+                ? "Şifre hatalı. Hesabınız silinmedi."
+                : "Hesap silinemedi. Lütfen internet bağlantınızı kontrol edip tekrar deneyin."),
+            backgroundColor: AppColors.dangerFill,
+          ),
+        );
+      }
     }
+  }
+
+  /// Silmeden önce kimliği, kullanıcının giriş yöntemiyle yeniden doğrular.
+  /// Kullanıcı vazgeçerse null döner. Apple ile girişte token iptali için
+  /// yetkilendirme kodunu da döndürür.
+  Future<({String? appleAuthCode})?> _reauthenticate(User user) async {
+    final providers = user.providerData.map((p) => p.providerId).toSet();
+
+    if (providers.contains('apple.com')) {
+      try {
+        final result = await AppleAuth.authorize();
+        await user.reauthenticateWithCredential(result.credential);
+        return (appleAuthCode: result.authorizationCode);
+      } catch (e) {
+        if (AppleAuth.isCancelled(e)) return null;
+        rethrow;
+      }
+    }
+
+    if (providers.contains('google.com')) {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) return null;
+      final auth = await googleUser.authentication;
+      await user.reauthenticateWithCredential(
+        GoogleAuthProvider.credential(accessToken: auth.accessToken, idToken: auth.idToken),
+      );
+      return (appleAuthCode: null);
+    }
+
+    // E-posta / şifre
+    if (!mounted) return null;
+    final password = await showDialog<String>(
+      context: context,
+      builder: (_) => const _PasswordPrompt(),
+    );
+    if (password == null || password.isEmpty) return null;
+    await user.reauthenticateWithCredential(
+      EmailAuthProvider.credential(email: user.email ?? '', password: password),
+    );
+    return (appleAuthCode: null);
   }
 
   /// Koleksiyonu 400'lük sayfalar hâlinde, her sayfayı tek toplu yazmayla
@@ -403,6 +502,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 8),
                   Text(
                     "Sesler telefonunun sessiz ve titreşim moduna uyar.",
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
+                  ),
+                  const SizedBox(height: 40),
+
+                  // --- GİZLİLİK: ÜÇÜNCÜ TARAF VERİ PAYLAŞIMI ---
+                  Text("Gizlilik", style: AppText.heading(size: 18)),
+                  const SizedBox(height: 12),
+                  AppCard(
+                    padding: EdgeInsets.zero,
+                    child: ValueListenableBuilder<bool?>(
+                      valueListenable: AiConsent.state,
+                      builder: (context, consent, _) => SwitchListTile(
+                        enableFeedback: false,
+                        secondary: Icon(Icons.shield_outlined, color: AppColors.primaryLight),
+                        title: Text('Yapay zeka ve çeviri veri paylaşımı', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          'Sohbet ve hikaye: Google Gemini. Çeviri: DeepL, Google Translate, dictionaryapi.dev.',
+                          style: AppText.caption,
+                        ),
+                        value: consent == true,
+                        onChanged: (v) {
+                          if (v) {
+                            AiConsent.ensure(context);
+                          } else {
+                            AiConsent.set(false);
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Kapalıyken bu özellikler çalışmaz ve hiçbir veri gönderilmez.",
                     style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                   const SizedBox(height: 40),
@@ -723,6 +855,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ListTile(
                           leading: Icon(Icons.delete_forever_rounded, color: AppColors.danger),
                           title: Text("Hesabımı Sil", style: TextStyle(color: AppColors.danger, fontWeight: FontWeight.bold)),
+                          trailing: _checkingSubscription
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              : null,
                           onTap: _confirmDeleteAccount,
                         ),
                       ],
@@ -735,6 +870,202 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Hesap silmeden önce, dönem sonunda yenilenecek aboneliğin iptal edilmesini
+/// ister. Kullanıcı mağazadan dönünce durum kendiliğinden yeniden kontrol
+/// edilir. Abonelik iptal edildiğinde (veya durum doğrulanamazsa, kullanıcıyı
+/// kilitlememek için) `true` ile kapanır ve silme onayına geçilir.
+class _CancelSubscriptionFirstDialog extends StatefulWidget {
+  const _CancelSubscriptionFirstDialog({required this.initial});
+
+  final RenewalCheck initial;
+
+  @override
+  State<_CancelSubscriptionFirstDialog> createState() => _CancelSubscriptionFirstDialogState();
+}
+
+class _CancelSubscriptionFirstDialogState extends State<_CancelSubscriptionFirstDialog>
+    with WidgetsBindingObserver {
+  late RenewalCheck _check = widget.initial;
+  bool _checking = false;
+  bool _openedStore = false;
+  String? _notice;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Mağazadan uygulamaya dönüldüğünde iptal edilip edilmediğine bak.
+    if (state == AppLifecycleState.resumed && _openedStore) {
+      _openedStore = false;
+      _recheck();
+    }
+  }
+
+  Future<void> _openStore() async {
+    _openedStore = true;
+    try {
+      final opened = await launchUrl(Uri.parse(_check.manageUrl), mode: LaunchMode.externalApplication);
+      if (!opened) throw Exception('launchUrl false');
+    } catch (e) {
+      _openedStore = false;
+      if (mounted) {
+        setState(() => _notice = "Mağaza açılamadı. Aboneliğini telefonunun ayarlarından iptal edebilirsin.");
+      }
+    }
+  }
+
+  Future<void> _recheck() async {
+    if (_checking) return;
+    setState(() {
+      _checking = true;
+      _notice = null;
+    });
+    final result = await SubscriptionRenewalCheck.check();
+    if (!mounted) return;
+    if (result.status != RenewalStatus.renewing) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() {
+      _checking = false;
+      _check = result;
+      _notice = "Aboneliğin hâlâ yenilenecek görünüyor. İptal ettiysen değişikliğin mağazadan bize ulaşması birkaç dakika sürebilir; biraz sonra tekrar kontrol et.";
+    });
+  }
+
+  String get _howToCancel {
+    if (_check.isAppleStore) {
+      return "Bu abonelik App Store üzerinden alındı. İptal etmek için iPhone'undaki Ayarlar > Apple Kimliği > Abonelikler bölümüne git.";
+    }
+    return "Bu abonelik Google Play üzerinden alındı. İptal etmek için Google Play > Ödemeler ve abonelikler > Abonelikler bölümüne git.";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final storeName = _check.isAppleStore ? "Apple" : "Google Play";
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text("Önce aboneliğini iptal et", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Aktif bir VIP aboneliğin var. Hesabını silmek aboneliğini iptal etmez; iptal etmezsen ücretlendirme $storeName üzerinden devam eder.",
+                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Aboneliğini iptal ettikten sonra hesabını hemen silebilirsin. İptal ettiğin abonelik, ödediğin dönemin sonuna kadar açık kalır.",
+                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              Text(_howToCancel, style: AppText.caption),
+              if (_notice != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                  ),
+                  child: Text(_notice!, style: TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.35)),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _checking ? null : () => Navigator.pop(context, false),
+            child: Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
+          ),
+          TextButton(
+            onPressed: _checking ? null : _recheck,
+            child: _checking
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text("İptal ettim, kontrol et"),
+          ),
+          if (_check.canManageHere)
+            FilledButton(
+              onPressed: _checking ? null : _openStore,
+              child: const Text("Aboneliği Yönet"),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hesap silmeden önce şifreyi yeniden isteyen küçük pencere.
+class _PasswordPrompt extends StatefulWidget {
+  const _PasswordPrompt();
+
+  @override
+  State<_PasswordPrompt> createState() => _PasswordPromptState();
+}
+
+class _PasswordPromptState extends State<_PasswordPrompt> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text("Kimliğini doğrula", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Hesabını silmek için güvenlik gereği şifreni yeniden girmen gerekiyor.",
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _controller,
+            obscureText: true,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: "Şifre"),
+            onSubmitted: (v) => Navigator.pop(context, v),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: AppColors.dangerFill),
+          onPressed: () => Navigator.pop(context, _controller.text),
+          child: const Text("Doğrula ve Sil", style: TextStyle(color: Colors.white)),
+        ),
+      ],
     );
   }
 }
