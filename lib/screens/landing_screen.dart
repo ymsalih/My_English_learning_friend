@@ -145,7 +145,7 @@ class LandingScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            "Sıradan kelime testlerini unutun. AI sohbet, interaktif hikayeler, kamera çevirisi ve çok daha fazlası ile dil yeteneklerinizi zirveye taşıyın.",
+                            "Yapay zeka ile sohbet, etkileşimli hikayeler, kamerayla çeviri ve kelime testleriyle İngilizcenizi her gün bir adım ileri taşıyın.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 16,
@@ -177,7 +177,7 @@ class LandingScreen extends StatelessWidget {
                       icon: Icons.forum_rounded,
                       iconColor: AppColors.gold,
                       title: "Yapay Zeka Öğretmen",
-                      description: "AI tabanlı chat sistemi ile 7/24 kesintisiz pratik yapın ve hatalarınızı anında görün.",
+                      description: "Yapay zeka ile İngilizce sohbet ederek pratik yapın; hatalarınızı Türkçe açıklamalarıyla anında görün.",
                       gradientColors: [AppColors.gold.withOpacity(0.2), AppColors.gold.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
@@ -186,8 +186,8 @@ class LandingScreen extends StatelessWidget {
                     _buildLargeBentoCard(
                       icon: Icons.mic_external_on_rounded,
                       iconColor: AppColors.primaryLight,
-                      title: "Okuma ve Telaffuz Analizi",
-                      description: "İngilizce metinleri sesli okuyun, AI telaffuzunuzu analiz edip hatalarınızı kırmızı ile göstersin.",
+                      title: "Okuma ve Telaffuz Pratiği",
+                      description: "İngilizce metinleri sesli okuyun; doğru okuduğunuz kelimeler yeşil, tekrar etmeniz gerekenler kırmızı işaretlensin.",
                       gradientColors: [AppColors.primaryLight.withOpacity(0.2), AppColors.primaryLight.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
@@ -220,8 +220,8 @@ class LandingScreen extends StatelessWidget {
                     _buildLargeBentoCard(
                       icon: Icons.document_scanner_rounded,
                       iconColor: AppColors.secondary,
-                      title: "Kamera ile Çeviri (AI Vision)",
-                      description: "Gerçek dünyadaki İngilizce metinleri kameranızla okutun, AI teknolojisi anında çevirsin.",
+                      title: "Kamera ile Çeviri",
+                      description: "Gerçek hayattaki İngilizce yazıları kameranızla tarayın, kelimelerin anlamını anında görün.",
                       gradientColors: [AppColors.secondary.withOpacity(0.2), AppColors.secondary.withOpacity(0.05)],
                     ),
                     const SizedBox(height: 16),
@@ -234,7 +234,7 @@ class LandingScreen extends StatelessWidget {
                             icon: Icons.article_rounded,
                             iconColor: AppColors.secondary,
                             title: "Haberler",
-                            description: "Güncel İngilizce makaleler.",
+                            description: "İngilizce haberlerle okuma pratiği.",
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -243,7 +243,7 @@ class LandingScreen extends StatelessWidget {
                             icon: Icons.inventory_2_rounded,
                             iconColor: AppColors.primary,
                             title: "Havuz",
-                            description: "Öğrendiklerinizi biriktirin.",
+                            description: "Hazır paketler ve kendi kelimeleriniz.",
                           ),
                         ),
                       ],
@@ -258,7 +258,7 @@ class LandingScreen extends StatelessWidget {
                             icon: Icons.quiz_rounded,
                             iconColor: AppColors.gold,
                             title: "Testler",
-                            description: "Kalıcı hafıza için quizler.",
+                            description: "Öğrendiklerinizi quizlerle pekiştirin.",
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -267,7 +267,7 @@ class LandingScreen extends StatelessWidget {
                             icon: Icons.insights_rounded,
                             iconColor: AppColors.success,
                             title: "Gelişim",
-                            description: "Detaylı analiz ve raporlar.",
+                            description: "Test sonuçlarınız ve başarı oranınız.",
                           ),
                         ),
                       ],
@@ -275,10 +275,10 @@ class LandingScreen extends StatelessWidget {
 
                     const SizedBox(height: 80),
 
-                    // --- ÖZELLİKLER ---
+                    // --- NASIL İLERLERSİN? (özellikleri tekrar etmeden öğrenme döngüsü) ---
                     Center(
                       child: Text(
-                        "Neler Yapabilirsin?",
+                        "3 Adımda İlerle",
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.w900,
@@ -287,46 +287,60 @@ class LandingScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        "Öğrendiğin her kelime bir sonraki adımı besler.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 30),
 
-                    _buildFeatureCard(
-                      icon: Icons.camera_alt_rounded,
-                      iconColor: AppColors.secondary,
-                      title: "Kamerayla Kelime Çevirisi",
+                    _buildStep(
+                      number: 1,
+                      icon: Icons.bookmark_add_rounded,
+                      color: AppColors.secondary,
+                      title: "Kelimeni yakala",
                       description:
-                          "Gördüğün yazıyı kameraya tut, kelimeleri oku ve anlamlarını tek dokunuşla kelime havuzuna ekle.",
+                          "Kamerayla taradığın ya da çevirdiğin kelimeleri kendi kelime havuzunda topla. Ne öğreneceğine sen karar ver.",
                     ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      icon: Icons.chat_bubble_rounded,
-                      iconColor: AppColors.primaryLight,
-                      title: "Yapay Zeka ile Sohbet",
+                    _buildStep(
+                      number: 2,
+                      icon: Icons.record_voice_over_rounded,
+                      color: AppColors.primaryLight,
+                      title: "Kullanarak pekiştir",
                       description:
-                          "Seviyene uygun bir İngilizce asistanıyla konuş. Hatalarını anında görüp Türkçe açıklamasını oku.",
+                          "Kartlarla çalış, testlerle kendini dene, yapay zekayla sohbet ederek kelimeleri gerçek cümlelerde kullan.",
                     ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      icon: Icons.auto_stories_rounded,
-                      iconColor: AppColors.success,
-                      title: "Etkileşimli Hikayeler",
+                    _buildStep(
+                      number: 3,
+                      icon: Icons.trending_up_rounded,
+                      color: AppColors.gold,
+                      title: "Her gün biraz daha",
                       description:
-                          "Seçimlerinle ilerleyen hikayeler oku, bilmediğin kelimeye dokunup çevirisini gör, sonunda anlama testini çöz.",
+                          "Kısa günlük tekrarlarla serini büyüt. İlerlemeni raporlardan adım adım izle.",
+                      isLast: true,
                     ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      icon: Icons.style_rounded,
-                      iconColor: AppColors.gold,
-                      title: "Kelime Kartları ve Testler",
-                      description:
-                          "Kaydırmalı kartlarla kelimeleri çalış, düzenli kelime testleriyle öğrendiklerini pekiştir.",
-                    ),
-                    const SizedBox(height: 16),
-                    _buildFeatureCard(
-                      icon: Icons.local_fire_department_rounded,
-                      iconColor: AppColors.danger,
-                      title: "Günlük Seri ve Gelişim",
-                      description:
-                          "Her gün çalışarak serini sürdür, ilerlemeni ve seviyeni raporlardan takip et.",
+
+                    const SizedBox(height: 40),
+
+                    // --- NEDEN OCTOPUS ENGLISH? ---
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _buildPerk(value: "A1–C2", label: "Seviyene göre içerik")),
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildPerk(value: "Türkçe", label: "Hata açıklamaları")),
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildPerk(value: "Ücretsiz", label: "Hemen başla")),
+                        ],
+                      ),
                     ),
 
                     const SizedBox(height: 80),
@@ -372,7 +386,7 @@ class LandingScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            "Binlerce kelime, interaktif hikayeler ve AI öğretmeniniz sizi bekliyor. Ücretsiz hesabınızı saniyeler içinde oluşturun.",
+                            "Seviyenize göre hazır kelime paketleri, etkileşimli hikayeler ve yapay zeka sohbet arkadaşınız sizi bekliyor. Ücretsiz hesabınızı hemen oluşturun.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 15,
@@ -574,59 +588,146 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureCard({
+  /// "3 Adımda İlerle" bölümündeki tek bir adım: numaralı rozet, adımları
+  /// birbirine bağlayan çizgi ve açıklama.
+  Widget _buildStep({
+    required int number,
     required IconData icon,
-    required Color iconColor,
+    required Color color,
     required String title,
     required String description,
+    bool isLast = false,
   }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 44,
+            child: Column(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.18),
+                    border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
+                  ),
+                  child: Text(
+                    "$number",
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(1),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [color.withValues(alpha: 0.5), AppColors.border],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(icon, color: color, size: 22),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// "Neden Octopus English?" şeridindeki kısa artı.
+  Widget _buildPerk({required String value, required String label}) {
     return Container(
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Icon(icon, color: iconColor, size: 26),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              maxLines: 1,
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }

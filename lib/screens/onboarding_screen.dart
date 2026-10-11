@@ -15,13 +15,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, dynamic>> _pages = [
     {
       'title': 'Kendi Sözlüğünüzü Yaratın',
-      'subtitle': 'Bilmediğiniz kelimeleri havuza atın, yapay zeka sizin için anında çevirsin ve hafızanıza kazısın.',
+      'subtitle': 'Bilmediğiniz kelimeleri havuza ekleyin, çevirilerini anında görün ve testlerle pekiştirin.',
       'icon': Icons.auto_awesome_motion_rounded,
       'color': Colors.blueAccent,
     },
     {
-      'title': 'Sınırsız Pratik Yapın',
-      'subtitle': 'Öğrendiğiniz kelimelerle kendinizi test edin, akıllı AI öğretmenimizle birebir İngilizce konuşun.',
+      'title': 'Bol Bol Pratik Yapın',
+      'subtitle': 'Öğrendiğiniz kelimelerle kendinizi test edin, yapay zeka ile İngilizce sohbet edin.',
       'icon': Icons.forum_rounded,
       'color': Colors.indigoAccent,
     },

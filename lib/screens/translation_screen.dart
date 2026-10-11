@@ -179,7 +179,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Günlük çeviri limitiniz doldu. Sınırsız kullanım için paketinizi yükseltin.'),
+              content: Text('Günlük çeviri limitiniz doldu. Daha fazla çeviri hakkı için paketinizi yükseltebilirsiniz.'),
               backgroundColor: AppColors.dangerFill,
             ),
           );
