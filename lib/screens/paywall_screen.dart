@@ -23,6 +23,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
   String _currentPlan = 'basic';
   String? _activeProductId;
   Offerings? _offerings;
+  // Paketler yüklenemediğinde nedeni (hata mesajının altında gösterilir).
+  String? _offeringsError;
   final SubscriptionService _subService = SubscriptionService();
 
   // Tab State
@@ -43,10 +45,57 @@ class _PaywallScreenState extends State<PaywallScreen> {
         setState(() {
           _offerings = offerings;
         });
+      } else {
+        _offeringsError = 'RevenueCat\'te geçerli (current) paket grubu bulunamadı.';
       }
     } catch (e) {
       debugPrint("RevenueCat Error: $e");
+      _offeringsError = await _describeError(e);
     }
+  }
+
+  /// Teşhis için kısa hata ayrıntısı: RevenueCat başlatılmadıysa bunu,
+  /// değilse RevenueCat'in hata kodu ve açıklamasını döndürür.
+  Future<String> _describeError(Object e) async {
+    try {
+      if (!await Purchases.isConfigured) {
+        return 'RevenueCat başlatılmadı: bu platformun API anahtarı bulunamadı.';
+      }
+    } catch (_) {}
+    if (e is PlatformException) {
+      final code = PurchasesErrorHelper.getErrorCode(e).name;
+      final details = e.details;
+      final underlying = details is Map ? details['underlyingErrorMessage'] : null;
+      return [code, e.message, underlying]
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
+          .join(' – ');
+    }
+    return e.toString();
+  }
+
+  void _showError(String message, {String? detail, Color? color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: color ?? AppColors.dangerFill,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message),
+            if (detail != null && detail.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                detail,
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Colors.white.withValues(alpha: 0.75)),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _fetchCurrentPlan() async {
@@ -159,11 +208,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
       if (!kDebugMode) {
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Ödeme sistemi şu an kullanılamıyor. Lütfen internet bağlantını kontrol edip tekrar dene.'),
-              backgroundColor: AppColors.dangerFill,
-            ),
+          _showError(
+            'Ödeme sistemi şu an kullanılamıyor. Lütfen internet bağlantını kontrol edip tekrar dene.',
+            detail: _offeringsError ?? 'Paketler henüz yüklenmedi.',
           );
         }
         return;
@@ -189,6 +236,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         Navigator.pop(context, true);
       }
     } on PlatformException catch (e) {
+      final detail = await _describeError(e);
       if (mounted) {
         setState(() => _isLoading = false);
         final errorCode = PurchasesErrorHelper.getErrorCode(e);
@@ -238,19 +286,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 'Ödeme sırasında bir hata oluştu. Lütfen tekrar deneyin.';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: bgColor),
-        );
+        _showError(errorMessage, detail: detail, color: bgColor);
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Beklenmeyen bir hata oluştu.'),
-            backgroundColor: AppColors.dangerFill,
-          ),
-        );
+        _showError('Beklenmeyen bir hata oluştu.', detail: e.toString());
       }
     }
   }
@@ -286,14 +327,10 @@ class _PaywallScreenState extends State<PaywallScreen> {
         }
       }
     } catch (e) {
+      final detail = await _describeError(e);
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Geri yükleme işlemi başarısız oldu.'),
-            backgroundColor: AppColors.dangerFill,
-          ),
-        );
+        _showError('Geri yükleme işlemi başarısız oldu.', detail: detail);
       }
     }
   }
