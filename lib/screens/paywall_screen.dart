@@ -29,7 +29,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   // Tab State
   String _selectedTab = 'pro'; // 'plus', 'pro', 'max'
-  String _selectedDuration = 'annual'; // 'monthly', 'annual'
+  String _selectedDuration = 'monthly'; // 'monthly', 'annual'
 
   @override
   void initState() {
@@ -783,6 +783,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+              // Aylık üstte ve varsayılan seçili; yıllık altta.
+              _buildDurationCard(
+                durationId: 'monthly',
+                title: '1 Aylık',
+                subtitle: 'Esnek ödeme',
+                priceStr: monthlyPrice,
+                activeColor: themeColor,
+              ),
+              const SizedBox(height: AppSpacing.md),
               _buildDurationCard(
                 durationId: 'annual',
                 title: '12 Aylık',
@@ -790,14 +799,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 priceStr: annualPrice,
                 activeColor: themeColor,
                 isPopular: true,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _buildDurationCard(
-                durationId: 'monthly',
-                title: '1 Aylık',
-                subtitle: 'Esnek ödeme',
-                priceStr: monthlyPrice,
-                activeColor: themeColor,
               ),
               const SizedBox(height: AppSpacing.xl),
               Center(
