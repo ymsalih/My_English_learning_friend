@@ -188,12 +188,35 @@ class _PaywallScreenState extends State<PaywallScreen> {
           await _subService.syncRevenueCatStatus();
           await _fetchCurrentPlan();
 
+          // Apple: aynı seviyede süre değişikliği (ör. Pro aylık → Pro yıllık)
+          // hemen değil, mevcut dönemin sonunda başlar.
+          bool isAnnualId(String id) {
+            final l = id.toLowerCase();
+            return l.contains('annual') || l.contains('yillik');
+          }
+          String? tierOf(String id) {
+            final l = id.toLowerCase();
+            for (final t in const ['max', 'plus', 'pro']) {
+              if (l.contains(t)) return t;
+            }
+            return null;
+          }
+          final newProductId = packageToBuy.storeProduct.identifier;
+          final startsAtRenewal = Platform.isIOS &&
+              oldProductId != null &&
+              tierOf(oldProductId) != null &&
+              tierOf(oldProductId) == tierOf(newProductId) &&
+              isAnnualId(oldProductId) != isAnnualId(newProductId);
+
           if (mounted) {
             setState(() => _isLoading = false);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! 🎉',
+                  startsAtRenewal
+                      ? '${isAnnualId(newProductId) ? '12 Aylık' : '1 Aylık'} ${_getTabData(_selectedTab)['name']} planın, '
+                          'mevcut döneminin sonunda başlayacak. O zamana kadar şimdiki planın devam ediyor. 📅'
+                      : 'Tebrikler! ${_selectedTab.toUpperCase()} paketine yükseltildiniz! 🎉',
                 ),
                 backgroundColor: AppColors.successFill,
               ),
