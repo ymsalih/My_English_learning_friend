@@ -53,9 +53,10 @@ class RenewalCheck {
 /// Hesap silmeden önce, kullanıcının yenilenecek bir aboneliği olup olmadığını
 /// RevenueCat'ten (önbelleği atlayarak) kontrol eder.
 ///
-/// Apple: "ask them to cancel their subscription before continuing", ama
-/// silmeyi gereksiz zorlaştırmamak için yalnızca İPTAL durumuna bakılır;
-/// iptal edilen aboneliğin süresinin dolması beklenmez.
+/// Apple: "notify them that billing will continue through Apple and ask them
+/// to cancel their subscription before continuing". Yalnızca İPTAL durumuna
+/// bakılır (iptal edilmiş abonelik için uyarı gösterilmez); uyarı silmeyi
+/// engellemez, kullanıcı yine de silmeye devam edebilir.
 class SubscriptionRenewalCheck {
   SubscriptionRenewalCheck._();
 

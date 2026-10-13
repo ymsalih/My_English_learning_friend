@@ -144,9 +144,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   /// Hesap silme: önce dönem sonunda yenilenecek bir abonelik var mı bakılır.
-  /// Varsa kullanıcıdan önce aboneliğini iptal etmesi istenir; iptal edildikten
-  /// sonra (süresinin dolması beklenmeden) silme onayına geçilir. Durum
-  /// doğrulanamazsa kullanıcı kilitlenmez; onay penceresindeki uyarıyı görür.
+  /// Varsa ücretlendirmenin mağaza üzerinden süreceği bildirilir ve iptal
+  /// etmesi önerilir; ancak iptal silmenin ön koşulu değildir (Apple 5.1.1(v):
+  /// "ask them to cancel", silme gereksiz yere zorlaştırılmamalı). Kullanıcı
+  /// "Yine de Sil" ile devam edebilir. Durum doğrulanamazsa doğrudan onay
+  /// penceresine geçilir; oradaki uyarıyı görür.
   Future<void> _confirmDeleteAccount() async {
     if (_checkingSubscription) return;
     setState(() => _checkingSubscription = true);
@@ -157,8 +159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (check.status == RenewalStatus.renewing) {
       final canContinue = await showDialog<bool>(
         context: context,
-        barrierDismissible: false,
-        builder: (_) => _CancelSubscriptionFirstDialog(initial: check),
+        builder: (_) => _ActiveSubscriptionDialog(check: check),
       );
       if (canContinue != true || !mounted) return;
     }
@@ -884,143 +885,85 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// Hesap silmeden önce, dönem sonunda yenilenecek aboneliğin iptal edilmesini
-/// ister. Kullanıcı mağazadan dönünce durum kendiliğinden yeniden kontrol
-/// edilir. Abonelik iptal edildiğinde (veya durum doğrulanamazsa, kullanıcıyı
-/// kilitlememek için) `true` ile kapanır ve silme onayına geçilir.
-class _CancelSubscriptionFirstDialog extends StatefulWidget {
-  const _CancelSubscriptionFirstDialog({required this.initial});
+/// Hesap silmeden önce, dönem sonunda yenilenecek bir abonelik varsa
+/// ücretlendirmenin mağaza üzerinden süreceğini bildirir ve aboneliği
+/// yönetme (iptal) sayfasını açmayı önerir. İptal silmenin ön koşulu değildir:
+/// "Yine de Sil" `true` ile kapanır ve silme onayına geçilir. Pencere dışına
+/// dokunmak veya geri tuşu silmeden vazgeçer.
+class _ActiveSubscriptionDialog extends StatefulWidget {
+  const _ActiveSubscriptionDialog({required this.check});
 
-  final RenewalCheck initial;
+  final RenewalCheck check;
 
   @override
-  State<_CancelSubscriptionFirstDialog> createState() => _CancelSubscriptionFirstDialogState();
+  State<_ActiveSubscriptionDialog> createState() => _ActiveSubscriptionDialogState();
 }
 
-class _CancelSubscriptionFirstDialogState extends State<_CancelSubscriptionFirstDialog>
-    with WidgetsBindingObserver {
-  late RenewalCheck _check = widget.initial;
-  bool _checking = false;
-  bool _openedStore = false;
+class _ActiveSubscriptionDialogState extends State<_ActiveSubscriptionDialog> {
   String? _notice;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Mağazadan uygulamaya dönüldüğünde iptal edilip edilmediğine bak.
-    if (state == AppLifecycleState.resumed && _openedStore) {
-      _openedStore = false;
-      _recheck();
-    }
-  }
-
   Future<void> _openStore() async {
-    _openedStore = true;
     try {
-      final opened = await launchUrl(Uri.parse(_check.manageUrl), mode: LaunchMode.externalApplication);
+      final opened = await launchUrl(Uri.parse(widget.check.manageUrl), mode: LaunchMode.externalApplication);
       if (!opened) throw Exception('launchUrl false');
     } catch (e) {
-      _openedStore = false;
       if (mounted) {
         setState(() => _notice = "Mağaza açılamadı. Aboneliğini telefonunun ayarlarından iptal edebilirsin.");
       }
     }
   }
 
-  Future<void> _recheck() async {
-    if (_checking) return;
-    setState(() {
-      _checking = true;
-      _notice = null;
-    });
-    final result = await SubscriptionRenewalCheck.check();
-    if (!mounted) return;
-    if (result.status != RenewalStatus.renewing) {
-      Navigator.of(context).pop(true);
-      return;
-    }
-    setState(() {
-      _checking = false;
-      _check = result;
-      _notice = "Aboneliğin hâlâ yenilenecek görünüyor. İptal ettiysen değişikliğin mağazadan bize ulaşması birkaç dakika sürebilir; biraz sonra tekrar kontrol et.";
-    });
-  }
-
-  String get _howToCancel {
-    if (_check.isAppleStore) {
-      return "Bu abonelik App Store üzerinden alındı. İptal etmek için iPhone'undaki Ayarlar > Apple Kimliği > Abonelikler bölümüne git.";
-    }
-    return "Bu abonelik Google Play üzerinden alındı. İptal etmek için Google Play > Ödemeler ve abonelikler > Abonelikler bölümüne git.";
-  }
-
   @override
   Widget build(BuildContext context) {
-    final storeName = _check.isAppleStore ? "Apple" : "Google Play";
-    return PopScope(
-      canPop: false,
-      child: AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: Text("Önce aboneliğini iptal et", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Aktif bir VIP aboneliğin var. Hesabını silmek aboneliğini iptal etmez; iptal etmezsen ücretlendirme $storeName üzerinden devam eder.",
-                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Aboneliğini iptal ettikten sonra hesabını hemen silebilirsin. İptal ettiğin abonelik, ödediğin dönemin sonuna kadar açık kalır.",
-                style: TextStyle(color: AppColors.textSecondary, height: 1.4),
-              ),
-              const SizedBox(height: 12),
-              Text(_howToCancel, style: AppText.caption),
-              if (_notice != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.gold.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
-                  ),
-                  child: Text(_notice!, style: TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.35)),
-                ),
-              ],
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: _checking ? null : () => Navigator.pop(context, false),
-            child: Text("Vazgeç", style: TextStyle(color: AppColors.textMuted)),
-          ),
-          TextButton(
-            onPressed: _checking ? null : _recheck,
-            child: _checking
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text("İptal ettim, kontrol et"),
-          ),
-          if (_check.canManageHere)
-            FilledButton(
-              onPressed: _checking ? null : _openStore,
-              child: const Text("Aboneliği Yönet"),
+    final check = widget.check;
+    final storeName = check.isAppleStore ? "App Store" : "Google Play";
+    return AlertDialog(
+      backgroundColor: AppColors.surface,
+      title: Text("Aboneliğin devam ediyor", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Aktif bir aboneliğin var. Hesabını silmek aboneliğini iptal etmez; ücretlendirme $storeName üzerinden devam eder. Aboneliğini ayrıca iptal etmelisin.",
+              style: TextStyle(color: AppColors.textSecondary, height: 1.4),
             ),
-        ],
+            // Apple aboneliği Android cihazdan yönetilemez: nereden iptal
+            // edileceği yazılır.
+            if (!check.canManageHere) ...[
+              const SizedBox(height: 12),
+              Text(
+                "Bu abonelik App Store üzerinden alındı. İptal etmek için iPhone'undaki Ayarlar > Apple Kimliği > Abonelikler bölümüne git.",
+                style: AppText.caption,
+              ),
+            ],
+            if (_notice != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                ),
+                child: Text(_notice!, style: TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.35)),
+              ),
+            ],
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: Text("Yine de Sil", style: TextStyle(color: AppColors.danger)),
+        ),
+        if (check.canManageHere)
+          FilledButton(
+            onPressed: _openStore,
+            child: const Text("Aboneliği Yönet"),
+          ),
+      ],
     );
   }
 }
