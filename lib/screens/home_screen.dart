@@ -115,8 +115,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final engController = TextEditingController();
     final trController = TextEditingController();
+    final engFocus = FocusNode();
+    final trFocus = FocusNode();
     Timer? debounce;
     bool isTranslating = false;
+    // false: İngilizce yazılır, Türkçesi gelir. true: Türkçe yazılır,
+    // İngilizcesi gelir. Kayıt her iki yönde de aynı (eng / tr alanları).
+    bool fromTurkish = false;
 
     showModalBottomSheet(
       context: context,
@@ -125,18 +130,23 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
-            
-            void onEngTextChanged(String text) {
+
+            void onSourceTextChanged(String text) {
               if (debounce?.isActive ?? false) debounce!.cancel();
               debounce = Timer(const Duration(milliseconds: 1000), () async {
                 if (text.trim().isNotEmpty) {
                   setModalState(() => isTranslating = true);
+                  final target = fromTurkish ? engController : trController;
                   try {
                     final translator = ConsentTranslator();
-                    final translation = await translator.translate(text.trim(), from: 'en', to: 'tr');
+                    final translation = await translator.translate(
+                      text.trim(),
+                      from: fromTurkish ? 'tr' : 'en',
+                      to: fromTurkish ? 'en' : 'tr',
+                    );
                     // Kullanıcı zaten manuel bir şey yazmadıysa doldur
-                    if (trController.text.isEmpty || isTranslating) {
-                       trController.text = translation.text;
+                    if (target.text.isEmpty || isTranslating) {
+                       target.text = translation.text;
                     }
                   } catch (e) {
                     // Hata olursa sessizce geç
@@ -147,6 +157,50 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               });
             }
+
+            // Ortadaki düğme: yazılan dil ile otomatik gelen dilin yerini
+            // değiştirir; yazılmış metinler korunur.
+            void swapDirection() {
+              debounce?.cancel();
+              setModalState(() {
+                fromTurkish = !fromTurkish;
+                isTranslating = false;
+              });
+              (fromTurkish ? trFocus : engFocus).requestFocus();
+            }
+
+            final spinner = isTranslating
+                ? const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                : null;
+            // Anahtarlar, yer değiştirince her kutunun kendi durumunu korur.
+            final engField = TextField(
+              key: const ValueKey('eng'),
+              controller: engController,
+              focusNode: engFocus,
+              onChanged: fromTurkish ? null : onSourceTextChanged,
+              autofocus: !fromTurkish,
+              style: TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'İngilizce',
+                prefixIcon: const Icon(Icons.language_rounded),
+                suffixIcon: fromTurkish ? null : spinner,
+              ),
+            );
+            final trField = TextField(
+              key: const ValueKey('tr'),
+              controller: trController,
+              focusNode: trFocus,
+              onChanged: fromTurkish ? onSourceTextChanged : null,
+              style: TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                labelText: 'Türkçe',
+                prefixIcon: const Icon(Icons.translate_rounded),
+                suffixIcon: fromTurkish ? spinner : null,
+              ),
+            );
 
             return Padding(
               padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -173,33 +227,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: AppSpacing.xl),
                       Text('Yeni Kelime Ekle', style: AppText.heading(size: 21)),
                       const SizedBox(height: AppSpacing.xs),
-                      Text('İngilizcesini yaz, Türkçesi otomatik gelsin.', style: AppText.caption),
+                      Text(
+                        fromTurkish
+                            ? 'Türkçesini yaz, İngilizcesi otomatik gelsin.'
+                            : 'İngilizcesini yaz, Türkçesi otomatik gelsin.',
+                        style: AppText.caption,
+                      ),
                       const SizedBox(height: AppSpacing.xl),
-                      TextField(
-                        controller: engController,
-                        onChanged: onEngTextChanged,
-                        autofocus: true,
-                        style: TextStyle(color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          labelText: 'İngilizce',
-                          prefixIcon: const Icon(Icons.language_rounded),
-                          suffixIcon: isTranslating
-                              ? const Padding(
-                                  padding: EdgeInsets.all(14),
-                                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-                                )
-                              : null,
+                      fromTurkish ? trField : engField,
+                      Center(
+                        child: IconButton(
+                          icon: Icon(Icons.swap_vert_rounded, color: AppColors.secondary),
+                          tooltip: 'Yönü değiştir',
+                          onPressed: swapDirection,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      TextField(
-                        controller: trController,
-                        style: TextStyle(color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
-                          labelText: 'Türkçe',
-                          prefixIcon: Icon(Icons.translate_rounded),
-                        ),
-                      ),
+                      fromTurkish ? engField : trField,
                       const SizedBox(height: AppSpacing.xl),
                       FilledButton.icon(
                         onPressed: () async {
@@ -231,7 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
           },
         );
       },
-    );
+    // Sayfa kapanınca bekleyen çeviri iptal edilir. (Odak düğümleri burada
+    // dispose edilmez: kapanma animasyonu sırasında kutular hâlâ ekrandadır.)
+    ).whenComplete(() => debounce?.cancel());
   }
 
   @override
