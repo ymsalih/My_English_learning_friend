@@ -818,6 +818,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
               physics: const BouncingScrollPhysics(),
+              // Sayfa kaydırılınca klavye kapanır.
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: Column(
                 children: [
                   _buildLanguageSelector(),
@@ -894,6 +896,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
           TextField(
             focusNode: _focusNode,
             controller: _textController,
+            // Kutunun dışına (ör. Çevir düğmesine) dokununca klavye kapanır.
+            onTapOutside: (_) => _focusNode.unfocus(),
             maxLines: 8,
             minLines: 2,
             keyboardType: TextInputType.multiline,
