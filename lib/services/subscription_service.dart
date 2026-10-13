@@ -22,7 +22,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 300,
       'storyGenCount': 3,
       'storyReadCount': 6,
-      'chatMsgCount': 5,
+      'chatMsgCount': 10,
       'translateCount': 50,
       'testCount': 80,
     },
@@ -30,7 +30,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 700,
       'storyGenCount': 5,
       'storyReadCount': 8,
-      'chatMsgCount': 10,
+      'chatMsgCount': 20,
       'translateCount': 100,
       'testCount': 150,
     },
@@ -38,7 +38,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 999999, // Unlimited
       'storyGenCount': 8,
       'storyReadCount': 11,
-      'chatMsgCount': 20,
+      'chatMsgCount': 40,
       'translateCount': 999999,
       'testCount': 999999,
     },
@@ -55,13 +55,13 @@ class SubscriptionService {
   }
 
   Map<String, dynamic> _emptyDailyUsage(String today) => {
-        'date': today,
-        'storyGenCount': 0,
-        'storyReadCount': 0,
-        'chatMsgCount': 0,
-        'translateCount': 0,
-        'testCount': 0,
-      };
+    'date': today,
+    'storyGenCount': 0,
+    'storyReadCount': 0,
+    'chatMsgCount': 0,
+    'translateCount': 0,
+    'testCount': 0,
+  };
 
   // --- KULLANICI BELGESİ ÖNBELLEĞİ ---
   // Tüm SubscriptionService örnekleri tek bir canlı dinleyiciyi paylaşır.
@@ -88,18 +88,22 @@ class SubscriptionService {
     _stopListening();
     _cachedUid = uid;
     final completer = _firstSnapshot = Completer<void>();
-    _docSub = _firestore.collection('users').doc(uid).snapshots().listen(
-      (snap) {
-        _cachedData = snap.data() ?? {};
-        if (!completer.isCompleted) completer.complete();
-        changes.value++;
-      },
-      onError: (Object e) {
-        debugPrint("Kullanıcı belgesi dinleme hatası: $e");
-        if (!completer.isCompleted) completer.complete();
-        _stopListening();
-      },
-    );
+    _docSub = _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .listen(
+          (snap) {
+            _cachedData = snap.data() ?? {};
+            if (!completer.isCompleted) completer.complete();
+            changes.value++;
+          },
+          onError: (Object e) {
+            debugPrint("Kullanıcı belgesi dinleme hatası: $e");
+            if (!completer.isCompleted) completer.complete();
+            _stopListening();
+          },
+        );
   }
 
   static void _stopListening() {
@@ -364,10 +368,12 @@ class SubscriptionService {
 
       if (dailyUsage['date'] != today) {
         // Yeni gün: sıfırlama ve artırma tek yazmada.
-        _writeInBackground(docRef.update({
-          'dailyUsage': {..._emptyDailyUsage(today), actionKey: by},
-          ...streak,
-        }));
+        _writeInBackground(
+          docRef.update({
+            'dailyUsage': {..._emptyDailyUsage(today), actionKey: by},
+            ...streak,
+          }),
+        );
       } else {
         _writeInBackground(
           docRef.update({
