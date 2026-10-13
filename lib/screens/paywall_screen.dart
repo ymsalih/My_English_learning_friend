@@ -29,7 +29,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   // Tab State
   String _selectedTab = 'pro'; // 'plus', 'pro', 'max'
-  String _selectedDuration = 'monthly'; // 'monthly', 'annual'
+  // 'monthly' veya 'annual'; açılışta hiçbiri seçili değil (null).
+  String? _selectedDuration;
 
   @override
   void initState() {
@@ -127,7 +128,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   Future<void> _purchasePlan() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || _selectedDuration == null) return;
 
     setState(() => _isLoading = true);
     try {
@@ -659,7 +660,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
     bool isExactSame = false;
 
     // Alt ve üst paket süre analizi (Aylık vs Yıllık)
-    if (_activeProductId != null &&
+    final noDuration = _selectedDuration == null;
+    if (!noDuration &&
+        _activeProductId != null &&
         _activeProductId!.contains(_selectedTab.toLowerCase())) {
       final isTargetAnnual = _selectedDuration == 'annual';
       final isActiveAnnual =
@@ -723,7 +726,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
         ? 'Mevcut Planınız (Aktif)'
         : (isDowngrade
             ? 'Aboneliği Yönet / Düşür'
-            : '${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} ${tabData['name']} Al');
+            : noDuration
+                ? 'Bir süre seç'
+                : '${_selectedDuration == 'annual' ? '12 Aylık' : '1 Aylık'} ${tabData['name']} Al');
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -783,7 +788,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
-              // Aylık üstte ve varsayılan seçili; yıllık altta.
+              // Aylık üstte, yıllık altta; açılışta hiçbiri seçili değil.
               _buildDurationCard(
                 durationId: 'monthly',
                 title: '1 Aylık',
@@ -856,7 +861,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: isExactSame || _isLoading
+                  onPressed: isExactSame || _isLoading || (!isDowngrade && noDuration)
                       ? null
                       : () {
                           if (isDowngrade) {
@@ -883,7 +888,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (!isDowngrade && !isExactSame) ...[
+                            if (!isDowngrade && !isExactSame && !noDuration) ...[
                               const Icon(Icons.lock_rounded, size: 16),
                               const SizedBox(width: 8),
                             ],
