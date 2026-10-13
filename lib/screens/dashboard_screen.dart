@@ -287,6 +287,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _selectTab(0);
   }
 
+  // iPhone'da geri tuşu yok: Ana Sayfa dışındaki sekmelerde ekranın sol
+  // kenarından sağa kaydırma, Android'deki geri hareketi gibi Ana Sayfa'ya
+  // döndürür. Yan menü kaydırmayla yalnızca Ana Sayfa'da açılır.
+  bool get _isIOS => defaultTargetPlatform == TargetPlatform.iOS;
+  double _edgeSwipeDx = 0;
+
+  Widget _withIosBackSwipe(Widget child) {
+    // Ağaç yapısı hep aynı kalır (Stack), yoksa sekme geçişinde sekmelerin
+    // durumu (ör. sohbet geçmişi) sıfırlanır.
+    return Stack(
+      children: [
+        child,
+        if (_isIOS && _tabIndex != 0)
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 20,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onHorizontalDragStart: (_) => _edgeSwipeDx = 0,
+              onHorizontalDragUpdate: (d) => _edgeSwipeDx += d.delta.dx,
+              onHorizontalDragEnd: (d) {
+                if (_edgeSwipeDx > 60 || (d.primaryVelocity ?? 0) > 400) {
+                  _selectTab(0);
+                }
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   /// Test yarım kalmışken başka sekmeye geçmeden önce onay ister.
   Future<bool> _confirmLeaveTest() async {
     final leave = await showDialog<bool>(
@@ -353,7 +386,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         key: _scaffoldKey,
         drawer: _buildDrawer(user),
-        body: IndexedStack(
+        drawerEnableOpenDragGesture: !_isIOS || _tabIndex == 0,
+        body: _withIosBackSwipe(IndexedStack(
           index: _tabIndex,
           children: [
             home,
@@ -371,7 +405,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? const ChatScreen()
                 : const SizedBox.shrink(),
           ],
-        ),
+        )),
         bottomNavigationBar: AppBottomBar(
           selectedIndex: _tabIndex,
           onSelected: _selectTab,
