@@ -497,14 +497,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ListView(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                   children: [
-                    _buildDrawerTile(
-                      icon: Icons.person_rounded,
-                      title: 'Profilim',
-                      onTap: () {
-                        Navigator.pop(context);
-                        _open(const ProfileScreen());
-                      },
-                    ),
+                    // Profil, üstteki ad/avatar alanına dokununca açılır.
                     _buildDrawerTile(
                       icon: Icons.home_rounded,
                       title: 'Ana Sayfa',
