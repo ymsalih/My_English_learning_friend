@@ -2,7 +2,7 @@ name: ingilizce_destek_app
 description: "Octopus English - Mobil İngilizce Öğrenme Uygulaması."
 
 publish_to: 'none'
-version: 1.4.4+23
+version: 1.4.4+24
 
 environment:
   sdk: ^3.11.0
