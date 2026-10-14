@@ -132,6 +132,11 @@ class _TranslationScreenState extends State<TranslationScreen> {
   bool _isUnlimited = false;
 
   static final List<TranslationCacheItem> _cachePool = []; // 🚀 O(1) Global RAM Cache
+
+  /// Her yeni çeviride artar: arka planda süren önceki bir çevirinin
+  /// sonuçları (anlamlar, görsel) yeni çevirinin ekranına yazılmaz.
+  int _requestId = 0;
+  bool _isCurrent(int requestId) => mounted && requestId == _requestId;
   final int _maxCacheSize = 50;
 
   final LinearGradient primaryGradient = LinearGradient(
@@ -319,7 +324,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     try {
       AiConsent.check();
       final response = await TranslateApi.deepl(
-        text: text,
+        texts: [text],
         sourceLang: sLang,
         targetLang: tLang,
       );
@@ -337,6 +342,23 @@ class _TranslationScreenState extends State<TranslationScreen> {
       }
     } catch (e) {
       return "Bağlantı Hatası (Sunucu engeli veya internet sorunu)";
+    }
+  }
+
+  /// Birden fazla İngilizce cümleyi (örnek cümleler) tek istekte Türkçeye
+  /// çevirir; sıra korunur. Başarısız olursa boş liste döner.
+  Future<List<String>> _translateExamplesWithDeepL(List<String> texts) async {
+    if (texts.isEmpty) return [];
+    try {
+      AiConsent.check();
+      final response = await TranslateApi.deepl(texts: texts, sourceLang: 'EN', targetLang: 'TR');
+      if (response.statusCode != 200) return [];
+      final translations = jsonDecode(utf8.decode(response.bodyBytes))['translations'] as List?;
+      if (translations == null || translations.length != texts.length) return [];
+      return [for (final t in translations) t['text'].toString()];
+    } catch (e) {
+      debugPrint("Örnek cümle çevirisi hatası: $e");
+      return [];
     }
   }
 
@@ -380,6 +402,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
     await _subService.incrementTranslate();
     await _loadLimits();
+    final requestId = ++_requestId;
 
     if (_isListening) {
       setState(() => _isListening = false);
@@ -453,31 +476,39 @@ class _TranslationScreenState extends State<TranslationScreen> {
           deepLResult = contextResult;
       }
 
-      if (deepLResult.isNotEmpty && !deepLResult.contains("Hata")) {
-        _mainTranslation =
-            deepLResult[0].toUpperCase() + deepLResult.substring(1);
-      } else {
-        _mainTranslation = deepLResult;
-      }
+      final mainTranslation = deepLResult.isNotEmpty && !deepLResult.contains("Hata")
+          ? deepLResult[0].toUpperCase() + deepLResult.substring(1)
+          : deepLResult;
+      final enToTr = _isEnToTr;
+      final englishWordToSearch = enToTr ? textToTranslate : deepLResult.toLowerCase();
+      if (!_isCurrent(requestId)) return;
 
-      String englishWordToSearch = _isEnToTr
-          ? textToTranslate
-          : deepLResult.toLowerCase();
-      _searchedEnglishWord = englishWordToSearch;
+      // Ana çeviri hemen gösterilir; anlamlar, örnek cümleler ve görsel arka
+      // planda aynı anda istenir ve hazır oldukça ekrana gelir.
+      setState(() {
+        _mainTranslation = mainTranslation;
+        _searchedEnglishWord = englishWordToSearch;
+        _isLoading = false;
+      });
+
       if (!englishWordToSearch.contains(' ')) {
-        await _fetchDictionaryData(englishWordToSearch, textToTranslate);
-        if (_wordType == 'İsim' ||
-            _wordType == 'Sıfat' ||
-            _wordType == 'Fiil' ||
-            _wordType.isEmpty) {
-          await _fetchImage(englishWordToSearch);
+        await Future.wait([
+          _fetchDictionaryData(englishWordToSearch, textToTranslate, enToTr, requestId),
+          _fetchImage(englishWordToSearch, requestId),
+        ]);
+        if (!_isCurrent(requestId)) return;
+        // Görsel yalnızca isim, sıfat ve fiillerde (veya türü bilinmeyen
+        // kelimelerde) gösterilir.
+        const imageWordTypes = {'İsim', 'Sıfat', 'Fiil', ''};
+        if (!imageWordTypes.contains(_wordType) && _imageUrl.isNotEmpty) {
+          setState(() => _imageUrl = "");
         }
       }
 
       if (_mainTranslation.isNotEmpty && !_mainTranslation.contains("Hata")) {
         final cacheItem = TranslationCacheItem(
           originalText: textToTranslate,
-          isEnToTr: _isEnToTr,
+          isEnToTr: enToTr,
           mainTranslation: _mainTranslation,
           imageUrl: _imageUrl,
           searchedEnglishWord: _searchedEnglishWord,
@@ -491,7 +522,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
 
         // 🚀 GLOBAL CACHE'E KAYDET
         if (!textToTranslate.contains(' ')) {
-           String cacheDocId = "${_isEnToTr ? 'en' : 'tr'}_$textToTranslate";
+           String cacheDocId = "${enToTr ? 'en' : 'tr'}_$textToTranslate";
            // Arka planda ve hatası çeviriyi etkilemeden: kayıt başka bir
            // kullanıcı tarafından zaten eklenmişse kurallar yazmayı reddeder.
            FirebaseFirestore.instance
@@ -502,132 +533,126 @@ class _TranslationScreenState extends State<TranslationScreen> {
         }
       }
     } catch (e) {
-      setState(() => _mainTranslation = "Sistemsel bir hata oluştu.");
+      if (_isCurrent(requestId)) {
+        setState(() => _mainTranslation = "Sistemsel bir hata oluştu.");
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (_isCurrent(requestId)) setState(() => _isLoading = false);
     }
   }
 
+  /// Sözlük anlamlarını ve örnek cümleleri getirir. Google anlamları ile
+  /// İngilizce sözlük aynı anda istenir; örnek cümlelerin hepsi tek istekte
+  /// çevrilir. Sonuç tek seferde ekrana yazılır.
   Future<void> _fetchDictionaryData(
     String englishWord,
     String originalWord,
+    bool enToTr,
+    int requestId,
   ) async {
     try {
       AiConsent.check();
-      if (_isEnToTr) {
-        Map<String, List<String>> googleMeanings =
-            await _fetchGoogleDictionaryMeanings(englishWord);
-        final url = Uri.parse(
-          'https://api.dictionaryapi.dev/api/v2/entries/en/$englishWord',
-        );
-        final response = await http.get(url);
+      if (enToTr) {
+        final results = await Future.wait<Object>([
+          _fetchGoogleDictionaryMeanings(englishWord),
+          http.get(Uri.parse('https://api.dictionaryapi.dev/api/v2/entries/en/$englishWord')),
+        ]);
+        final googleMeanings = results[0] as Map<String, List<String>>;
+        final response = results[1] as http.Response;
+        if (!_isCurrent(requestId)) return;
 
+        // Anlam türü başına en fazla 3 örnek cümle.
+        final parts = <(String, List<String>)>[];
         if (response.statusCode == 200) {
           final List<dynamic> data = jsonDecode(response.body);
           if (data.isNotEmpty) {
             final meanings = data[0]['meanings'] as List<dynamic>;
             if (meanings.isNotEmpty) {
               _wordType = _translateWordType(meanings[0]['partOfSpeech'] ?? "");
-              for (var meaning in meanings) {
-                final partOfSpeech = _translateWordType(
-                  meaning['partOfSpeech'] ?? "",
-                );
-                final definitions = meaning['definitions'] as List<dynamic>;
-
-                List<String> shortTrMeanings =
-                    googleMeanings[partOfSpeech] ?? [];
-
-                List<Map<String, String>> examples = [];
-                int defCount = 0;
-                for (var def in definitions) {
-                  if (defCount >= 3) break;
-                  final engEx = def['example']?.toString() ?? "";
-                  if (engEx.isNotEmpty) {
-                    final trEx = await _translateWithDeepL(
-                      engEx,
-                      sourceLang: 'EN',
-                      targetLang: 'TR',
-                    );
-                    if (!trEx.contains("Hata")) {
-                      examples.add({'eng': engEx, 'tr': trEx});
-                    }
-                    defCount++;
-                  }
-                }
-
-                if (mounted &&
-                    (shortTrMeanings.isNotEmpty || examples.isNotEmpty)) {
-                  setState(() {
-                    int existingIndex = _groupedMeanings.indexWhere(
-                      (g) => g.partOfSpeech == partOfSpeech,
-                    );
-                    if (existingIndex != -1) {
-                      _groupedMeanings[existingIndex].contextualExamples.addAll(
-                        examples,
-                      );
-                    } else {
-                      _groupedMeanings.add(
-                        WordMeaningGroup(
-                          partOfSpeech: partOfSpeech,
-                          shortMeanings: shortTrMeanings,
-                          contextualExamples: examples,
-                        ),
-                      );
-                    }
-                  });
-                }
+              for (final meaning in meanings) {
+                final examples = (meaning['definitions'] as List<dynamic>)
+                    .map((def) => def['example']?.toString() ?? "")
+                    .where((example) => example.isNotEmpty)
+                    .take(3)
+                    .toList();
+                parts.add((_translateWordType(meaning['partOfSpeech'] ?? ""), examples));
               }
             }
           }
         }
 
-        if (_groupedMeanings.isEmpty && googleMeanings.isNotEmpty && mounted) {
-          setState(() {
-            googleMeanings.forEach((type, meanings) {
-              _groupedMeanings.add(
-                WordMeaningGroup(
-                  partOfSpeech: type,
-                  shortMeanings: meanings,
-                  contextualExamples: [],
-                ),
-              );
-            });
+        final allExamples = [for (final (_, examples) in parts) ...examples];
+        final translated = await _translateExamplesWithDeepL(allExamples);
+        if (!_isCurrent(requestId)) return;
+
+        final groups = <WordMeaningGroup>[];
+        var index = 0;
+        for (final (partOfSpeech, examples) in parts) {
+          final contextual = <Map<String, String>>[];
+          for (final example in examples) {
+            if (index < translated.length) {
+              contextual.add({'eng': example, 'tr': translated[index]});
+            }
+            index++;
+          }
+          final shortTrMeanings = googleMeanings[partOfSpeech] ?? [];
+          if (shortTrMeanings.isEmpty && contextual.isEmpty) continue;
+          final existing = groups.indexWhere((g) => g.partOfSpeech == partOfSpeech);
+          if (existing != -1) {
+            groups[existing].contextualExamples.addAll(contextual);
+          } else {
+            groups.add(WordMeaningGroup(
+              partOfSpeech: partOfSpeech,
+              shortMeanings: shortTrMeanings,
+              contextualExamples: contextual,
+            ));
+          }
+        }
+        if (groups.isEmpty) {
+          googleMeanings.forEach((type, meanings) {
+            groups.add(WordMeaningGroup(
+              partOfSpeech: type,
+              shortMeanings: meanings,
+              contextualExamples: [],
+            ));
           });
+        }
+        if (groups.isNotEmpty && _isCurrent(requestId)) {
+          setState(() => _groupedMeanings.addAll(groups));
         }
       } else {
         final response = await TranslateApi.dictionary(word: originalWord, sl: 'tr', tl: 'en');
+        if (!_isCurrent(requestId) || response.statusCode != 200) return;
 
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data != null && data.length > 1 && data[1] != null) {
-            for (var item in data[1]) {
-              String type = item[0].toString();
-              List<Map<String, List<String>>> reverseList = [];
+        final groups = <WordMeaningGroup>[];
+        final data = jsonDecode(response.body);
+        if (data != null && data.length > 1 && data[1] != null) {
+          for (var item in data[1]) {
+            String type = item[0].toString();
+            List<Map<String, List<String>>> reverseList = [];
 
-              if (item.length > 2 && item[2] != null) {
-                for (var revItem in item[2]) {
-                  String engWord = revItem[0].toString();
-                  List<String> trWords = (revItem[1] as List)
-                      .map((e) => e.toString())
-                      .toList();
-                  reverseList.add({engWord: trWords});
-                }
-              }
-
-              if (reverseList.isNotEmpty && mounted) {
-                setState(() {
-                  _groupedMeanings.add(
-                    WordMeaningGroup(
-                      partOfSpeech: _translateWordType(type),
-                      shortMeanings: [],
-                      contextualExamples: [],
-                      reverseMeanings: reverseList,
-                    ),
-                  );
-                });
+            if (item.length > 2 && item[2] != null) {
+              for (var revItem in item[2]) {
+                String engWord = revItem[0].toString();
+                List<String> trWords = (revItem[1] as List)
+                    .map((e) => e.toString())
+                    .toList();
+                reverseList.add({engWord: trWords});
               }
             }
+
+            if (reverseList.isNotEmpty) {
+              groups.add(WordMeaningGroup(
+                partOfSpeech: _translateWordType(type),
+                shortMeanings: [],
+                contextualExamples: [],
+                reverseMeanings: reverseList,
+              ));
+            }
           }
+        }
+        if (groups.isNotEmpty && _isCurrent(requestId)) {
+          setState(() => _groupedMeanings.addAll(groups));
         }
       }
     } catch (e) {
@@ -635,17 +660,16 @@ class _TranslationScreenState extends State<TranslationScreen> {
     }
   }
 
-  Future<void> _fetchImage(String word) async {
+  /// Kelime görselini getirir ve hazır olduğu anda gösterir.
+  Future<void> _fetchImage(String word, int requestId) async {
     try {
       AiConsent.check();
       final response = await TranslateApi.image(word);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        if (data['photos'] != null && data['photos'].isNotEmpty) {
-          if (mounted) {
-            setState(() => _imageUrl = data['photos'][0]['src']['medium']);
-          }
+        if (data['photos'] != null && data['photos'].isNotEmpty && _isCurrent(requestId)) {
+          setState(() => _imageUrl = data['photos'][0]['src']['medium']);
         }
       }
     } catch (e) {

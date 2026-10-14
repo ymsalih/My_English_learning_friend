@@ -105,3 +105,16 @@ test('ping giriş istemeden 204 döner, servis çağrılmaz', async () => {
   assert.equal(res.statusCode, 204);
   assert.equal(fetchFn.calls.length, 0);
 });
+
+test('DeepL: örnek cümleler tek istekte toplu çevrilebilir (en fazla 20)', async () => {
+  const fetchFn = fakeFetch(() => jsonResponse({ translations: [] }));
+  const { run, db } = handler(fetchFn);
+  const ok = fakeRes();
+  await run(fakeReq({ token: 'free', path: '/deepl', body: { text: Array(20).fill('a'), source_lang: 'EN', target_lang: 'TR' } }), ok);
+  assert.equal(ok.statusCode, 200);
+  assert.equal(db.docs.get('server_usage/u1').counts.translateCalls, 1); // tek istek sayılır
+
+  const tooMany = fakeRes();
+  await run(fakeReq({ token: 'free', path: '/deepl', body: { text: Array(21).fill('a'), source_lang: 'EN', target_lang: 'TR' } }), tooMany);
+  assert.equal(tooMany.statusCode, 400);
+});

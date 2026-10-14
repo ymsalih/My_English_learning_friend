@@ -31,7 +31,8 @@ export const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 export const MAX_CHAT_MESSAGE_CHARS = 1000;
 export const MAX_HISTORY_ITEMS = 20;
 export const MAX_HISTORY_TEXT_CHARS = 2000;
-export const MAX_TRANSLATE_TEXTS = 5;
+// Örnek cümleler tek istekte toplu çevrilir (anlam türü başına en fazla 3).
+export const MAX_TRANSLATE_TEXTS = 20;
 export const MAX_TRANSLATE_TEXT_CHARS = 1000;
 export const MAX_WORD_CHARS = 100;
 

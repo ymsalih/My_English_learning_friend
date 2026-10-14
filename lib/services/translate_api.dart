@@ -25,9 +25,11 @@ class TranslateApi {
     };
   }
 
-  /// DeepL çevirisi. Gövde DeepL'in biçiminde: `{"translations": [{"text": ...}]}`.
+  /// DeepL çevirisi. [texts] tek istekte çevrilir (en fazla 20; ör. örnek
+  /// cümleler). Gövde DeepL'in biçiminde: `{"translations": [{"text": ...}]}`,
+  /// sıra [texts] ile aynı.
   static Future<http.Response> deepl({
-    required String text,
+    required List<String> texts,
     required String sourceLang,
     required String targetLang,
   }) async =>
@@ -35,7 +37,7 @@ class TranslateApi {
         Uri.parse('$_baseUrl/deepl'),
         headers: await _headers(),
         body: jsonEncode({
-          'text': [text],
+          'text': texts,
           'source_lang': sourceLang,
           'target_lang': targetLang,
           'date': _today,
