@@ -23,10 +23,10 @@ void main() {
     expect(play.isAppleStore, isFalse);
   });
 
-  test('Google Play aboneliği her cihazda yönetilebilir, Apple yalnızca iPhone\'da', () {
+  test('abonelik yalnızca alındığı platformda "bu cihazın mağazası" sayılır', () {
     const play = RenewalCheck(RenewalStatus.renewing, store: Store.playStore);
     const apple = RenewalCheck(RenewalStatus.renewing, store: Store.appStore);
-    expect(play.canManageHere, isTrue);
-    expect(apple.canManageHere, Platform.isIOS);
+    expect(apple.isFromThisPlatform, Platform.isIOS);
+    expect(play.isFromThisPlatform, !Platform.isIOS);
   });
 }

@@ -916,7 +916,11 @@ class _ActiveSubscriptionDialogState extends State<_ActiveSubscriptionDialog> {
   @override
   Widget build(BuildContext context) {
     final check = widget.check;
-    final storeName = check.isAppleStore ? "App Store" : "Google Play";
+    // Abonelik bu cihazın mağazasından alındıysa mağaza adı ve "Aboneliği
+    // Yönet" gösterilir. Başka platformdan alındıysa diğer platformun adı
+    // geçmez (Apple 2.3.10) ve oraya bağlantı verilmez.
+    final sameStore = check.isFromThisPlatform;
+    final storeName = Platform.isIOS ? "App Store" : "Google Play";
     return AlertDialog(
       backgroundColor: AppColors.surface,
       title: Text("Aboneliğin devam ediyor", style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
@@ -926,18 +930,11 @@ class _ActiveSubscriptionDialogState extends State<_ActiveSubscriptionDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Aktif bir aboneliğin var. Hesabını silmek aboneliğini iptal etmez; ücretlendirme $storeName üzerinden devam eder. Aboneliğini ayrıca iptal etmelisin.",
+              sameStore
+                  ? "Aktif bir aboneliğin var. Hesabını silmek aboneliğini iptal etmez; ücretlendirme $storeName üzerinden devam eder. Aboneliğini ayrıca iptal etmelisin."
+                  : "Aktif bir aboneliğin var. Hesabını silmek aboneliğini iptal etmez; ücretlendirme aboneliği satın aldığın mağaza üzerinden devam eder. Aboneliğini, satın aldığın cihazdan veya mağazadan ayrıca iptal etmelisin.",
               style: TextStyle(color: AppColors.textSecondary, height: 1.4),
             ),
-            // Apple aboneliği Android cihazdan yönetilemez: nereden iptal
-            // edileceği yazılır.
-            if (!check.canManageHere) ...[
-              const SizedBox(height: 12),
-              Text(
-                "Bu abonelik App Store üzerinden alındı. İptal etmek için iPhone'undaki Ayarlar > Apple Kimliği > Abonelikler bölümüne git.",
-                style: AppText.caption,
-              ),
-            ],
             if (_notice != null) ...[
               const SizedBox(height: 12),
               Container(
@@ -958,7 +955,7 @@ class _ActiveSubscriptionDialogState extends State<_ActiveSubscriptionDialog> {
           onPressed: () => Navigator.pop(context, true),
           child: Text("Yine de Sil", style: TextStyle(color: AppColors.danger)),
         ),
-        if (check.canManageHere)
+        if (sameStore)
           FilledButton(
             onPressed: _openStore,
             child: const Text("Aboneliği Yönet"),

@@ -29,6 +29,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
   String _selectedTab = 'pro'; // 'plus', 'pro', 'max'
   // 'monthly' veya 'annual'; açılışta hiçbiri seçili değil (null).
   String? _selectedDuration;
+  // Aktif abonelik başka platformun mağazasından alındıysa bu cihazda
+  // satın alma/değiştirme kapatılır (çift ödemeyi önler).
+  bool _subscribedElsewhere = false;
 
   @override
   void initState() {
@@ -68,13 +71,36 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
     try {
       final customerInfo = await Purchases.getCustomerInfo();
-      if (customerInfo.activeSubscriptions.isNotEmpty && mounted) {
+      final elsewhere = customerInfo.entitlements.active.values
+          .any((e) => _isOtherPlatformStore(e.store));
+      if (mounted) {
         setState(() {
-          _activeProductId = customerInfo.activeSubscriptions.first
-              .toLowerCase();
+          _subscribedElsewhere = elsewhere;
+          if (customerInfo.activeSubscriptions.isNotEmpty) {
+            _activeProductId = customerInfo.activeSubscriptions.first
+                .toLowerCase();
+          }
         });
       }
     } catch (e) {}
+  }
+
+  /// Abonelik başka bir platformun mağazasından mı alınmış? (Ör. Android'de
+  /// alınıp iPhone'da açılmış.) O mağazanın aboneliği bu cihazdan
+  /// değiştirilemez; burada yeni satın alma ikinci bir abonelik açar.
+  static bool _isOtherPlatformStore(Store store) {
+    switch (store) {
+      case Store.appStore:
+      case Store.macAppStore:
+        return !Platform.isIOS;
+      case Store.playStore:
+        return Platform.isIOS;
+      case Store.amazon:
+        return true;
+      default:
+        // Promosyon, web vb.: değiştirilecek bir mağaza aboneliği yok.
+        return false;
+    }
   }
 
   Future<void> _purchasePlan() async {
@@ -708,7 +734,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
       } catch (_) {}
     }
 
-    final String ctaText = isExactSame
+    final String ctaText = _subscribedElsewhere
+        ? 'Aboneliğin başka bir platformda'
+        : isExactSame
         ? 'Mevcut Planınız (Aktif)'
         : (isDowngrade
             ? 'Aboneliği Yönet / Düşür'
@@ -774,6 +802,31 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.xl),
+              // Başka platformda alınmış abonelik: o platformun adı geçmez
+              // (Apple 2.3.10) ve oraya bağlantı verilmez.
+              if (_subscribedElsewhere) ...[
+                Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.gold.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline_rounded, color: AppColors.gold),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          'Aboneliğin başka bir platform üzerinden alındı. Paket değişikliklerini, aboneliği satın aldığın cihazdan veya mağazadan yapabilirsin.',
+                          style: TextStyle(color: AppColors.textPrimary, fontSize: 13, height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
               // Aylık üstte, yıllık altta; açılışta hiçbiri seçili değil.
               _buildDurationCard(
                 durationId: 'monthly',
@@ -847,7 +900,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 width: double.infinity,
                 height: 54,
                 child: FilledButton(
-                  onPressed: isExactSame || _isLoading || (!isDowngrade && noDuration)
+                  onPressed: _subscribedElsewhere || isExactSame || _isLoading || (!isDowngrade && noDuration)
                       ? null
                       : () {
                           if (isDowngrade) {
@@ -874,7 +927,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (!isDowngrade && !isExactSame && !noDuration) ...[
+                            if (!_subscribedElsewhere && !isDowngrade && !isExactSame && !noDuration) ...[
                               const Icon(Icons.lock_rounded, size: 16),
                               const SizedBox(width: 8),
                             ],

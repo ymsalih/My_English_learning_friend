@@ -44,10 +44,6 @@ class RenewalCheck {
     if (isAppleStore) return _appleUrl;
     return Platform.isIOS ? _appleUrl : _playUrl;
   }
-
-  /// Yönetim sayfası bu cihazda açılabilir mi? (Google Play sayfası her
-  /// tarayıcıda açılır; Apple abonelikleri yalnızca Apple cihazında yönetilir.)
-  bool get canManageHere => isFromThisPlatform || store == Store.playStore;
 }
 
 /// Hesap silmeden önce, kullanıcının yenilenecek bir aboneliği olup olmadığını
