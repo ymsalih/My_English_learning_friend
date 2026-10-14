@@ -14,7 +14,7 @@ class SubscriptionService {
       'lifetimeWordsAdded': 50,
       'storyGenCount': 1,
       'storyReadCount': 4,
-      'chatMsgCount': 3,
+      'chatMsgCount': 6,
       'translateCount': 20,
       'testCount': 40,
     },
