@@ -59,7 +59,10 @@ class ChatService {
         '"correction": {"original": "The user\'s original sentence with mistakes", '
         '"corrected": "The grammatically correct version", '
         '"explanation": "Explanation of the correction in Turkish"}} '
-        "If there are no grammar mistakes in the user's message, set original, corrected, and explanation fields inside correction to empty strings.";
+        "If there are no grammar mistakes in the user's message, set original, corrected, and explanation fields inside correction to empty strings. "
+        "Ignore punctuation completely: never correct or mention commas, periods, question marks, exclamation marks or other punctuation. "
+        "If punctuation is the only issue, treat the message as correct (empty correction fields). "
+        "In the corrected sentence keep the user's own punctuation and fix only grammar, vocabulary or spelling.";
 
     switch (mode) {
       case 'Gramer':
@@ -128,13 +131,15 @@ class ChatService {
 
         final raw = buffer.toString();
         if (raw.isEmpty) throw Exception("Yapay zekadan boş yanıt geldi.");
+        Map<String, dynamic> result;
         try {
-          return jsonDecode(raw) as Map<String, dynamic>;
+          result = jsonDecode(raw) as Map<String, dynamic>;
         } catch (_) {
           // Şema kullanıldığı için nadirdir; yine de Markdown sarmalını temizle.
           final cleanText = raw.replaceAll('```json', '').replaceAll('```', '').trim();
-          return jsonDecode(cleanText) as Map<String, dynamic>;
+          result = jsonDecode(cleanText) as Map<String, dynamic>;
         }
+        return dropPunctuationOnlyCorrection(result);
       } catch (e) {
         // Kullanıcı cevabın bir kısmını gördüyse sessizce baştan başlatmayız.
         final canRetry = !receivedText &&
@@ -147,6 +152,30 @@ class ChatService {
         await Future.delayed(AiClient.backoff(attempt));
       }
     }
+  }
+
+  // Kesme işareti (it's / its gibi gramer farkları) korunur; diğer noktalama
+  // işaretleri karşılaştırmada yok sayılır.
+  static final RegExp _punctuation = RegExp(r"[^\p{L}\p{N}\s'’]", unicode: true);
+
+  static String _withoutPunctuation(String text) =>
+      text.replaceAll(_punctuation, '').replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  /// Model talimata rağmen yalnızca noktalama (virgül, nokta vb.) için
+  /// düzeltme önerirse düzeltme gösterilmez.
+  @visibleForTesting
+  static Map<String, dynamic> dropPunctuationOnlyCorrection(Map<String, dynamic> response) {
+    final correction = response['correction'];
+    if (correction is! Map) return response;
+    final original = (correction['original'] ?? '').toString();
+    final corrected = (correction['corrected'] ?? '').toString();
+    if (original.isEmpty || _withoutPunctuation(original) != _withoutPunctuation(corrected)) {
+      return response;
+    }
+    return {
+      ...response,
+      'correction': {'original': '', 'corrected': '', 'explanation': ''},
+    };
   }
 
   /// Akmakta olan JSON içinden "reply" alanının o ana kadarki değerini çözer.
