@@ -1,0 +1,34 @@
+{
+  "basic": {
+    "lifetimeWordsAdded": 50,
+    "storyGenCount": 1,
+    "storyReadCount": 4,
+    "chatMsgCount": 6,
+    "translateCount": 20,
+    "testCount": 40
+  },
+  "plus": {
+    "lifetimeWordsAdded": 300,
+    "storyGenCount": 3,
+    "storyReadCount": 6,
+    "chatMsgCount": 10,
+    "translateCount": 50,
+    "testCount": 80
+  },
+  "pro": {
+    "lifetimeWordsAdded": 700,
+    "storyGenCount": 5,
+    "storyReadCount": 8,
+    "chatMsgCount": 20,
+    "translateCount": 100,
+    "testCount": 150
+  },
+  "max": {
+    "lifetimeWordsAdded": 999999,
+    "storyGenCount": 8,
+    "storyReadCount": 11,
+    "chatMsgCount": 40,
+    "translateCount": 999999,
+    "testCount": 999999
+  }
+}

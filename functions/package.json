@@ -1,0 +1,17 @@
+{
+  "name": "octopus-functions",
+  "description": "Octopus English sunucu işlevleri: yapay zeka (Gemini) ve çeviri vekil sunucusu",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "dependencies": {
+    "firebase-admin": "14.5.0",
+    "firebase-functions": "7.4.0"
+  }
+}

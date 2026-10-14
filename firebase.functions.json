@@ -1,0 +1,10 @@
+{
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "octopus",
+      "runtime": "nodejs22",
+      "ignore": ["node_modules", ".git", "test", "*.local", ".secret.local"]
+    }
+  ]
+}

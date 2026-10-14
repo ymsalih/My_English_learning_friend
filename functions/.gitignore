@@ -1,0 +1,5 @@
+node_modules/
+# Yerel deneme için gizli anahtarlar (asla commit edilmez)
+.secret.local
+.env*
+*.local
