@@ -31,17 +31,40 @@ test('hatalı değerler (metin, negatif, ondalık, bilinmeyen alan) yok sayılı
   assert.deepEqual(merged, LIMITS);
 });
 
-test('limitler birkaç dakika önbellekte tutulur', async () => {
+const flush = () => new Promise((resolve) => setImmediate(resolve));
+
+test('limitler bir dakika önbellekte tutulur', async () => {
   let clock = 0;
   const db = fakeDb({ [LIMITS_DOC]: { basic: { chatMsgCount: 9 } } });
   const getLimits = createLimitsProvider(db, { now: () => clock, logger: silentLogger });
   await getLimits();
+  clock += 59 * 1000;
   await getLimits();
   assert.equal(db.reads, 1);
-  clock += 6 * 60 * 1000;
+});
+
+test('süre dolunca eski değer beklemeden döner, yenisi arka planda okunur', async () => {
+  let clock = 0;
+  const db = fakeDb({ [LIMITS_DOC]: { basic: { chatMsgCount: 9 } } });
+  const getLimits = createLimitsProvider(db, { now: () => clock, logger: silentLogger });
+  await getLimits();
+
+  clock += 61 * 1000;
   db.docs.set(LIMITS_DOC, { basic: { chatMsgCount: 3 } });
-  assert.equal((await getLimits()).basic.chatMsgCount, 3);
+  const first = getLimits();
+  const second = getLimits(); // aynı anda gelen istek ikinci okuma başlatmaz
+  assert.equal((await first).basic.chatMsgCount, 9); // beklemeden eski değer
+  await second;
+  await flush();
+  assert.equal((await getLimits()).basic.chatMsgCount, 3); // arka planda güncellendi
   assert.equal(db.reads, 2);
+});
+
+test('aynı anda gelen ilk istekler tek okuma paylaşır', async () => {
+  const db = fakeDb();
+  const getLimits = createLimitsProvider(db, { logger: silentLogger });
+  await Promise.all([getLimits(), getLimits(), getLimits()]);
+  assert.equal(db.reads, 1);
 });
 
 test('Firestore okunamazsa varsayılanlarla devam edilir', async () => {

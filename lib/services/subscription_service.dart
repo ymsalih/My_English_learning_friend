@@ -72,21 +72,24 @@ class SubscriptionService {
     };
   }
 
-  static bool _remoteLimitsRequested = false;
+  static StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _limitsSub;
 
-  /// `config/limits` belgesini oturum başına bir kez okur. Okunamazsa
-  /// varsayılanlar geçerli kalır ve sonraki fırsatta tekrar denenir.
-  void _loadRemoteLimits() {
-    if (_remoteLimitsRequested) return;
-    _remoteLimitsRequested = true;
-    _firestore.doc('config/limits').get().then(
+  /// `config/limits` belgesini canlı dinler: Console'da yapılan değişiklik
+  /// açık uygulamalara birkaç saniye içinde yansır. Uygulama belgeyi
+  /// beklemez; o ana kadar varsayılanlar veya cihazdaki son bilinen değerler
+  /// geçerlidir. Okunamazsa (ör. oturum kapanınca) sonraki fırsatta yeniden
+  /// dinlenir. Sunucu işlevlerine uğramaz; doğrudan Firestore'dan okunur.
+  void _listenRemoteLimits() {
+    if (_limitsSub != null) return;
+    _limitsSub = _firestore.doc('config/limits').snapshots().listen(
       (snap) {
         limits = mergeLimits(defaultLimits, snap.data());
         changes.value++;
       },
       onError: (Object e) {
-        _remoteLimitsRequested = false;
-        debugPrint("Limitler okunamadı, varsayılanlar kullanılıyor: $e");
+        debugPrint("Limitler okunamadı, son bilinen değerler kullanılıyor: $e");
+        _limitsSub?.cancel();
+        _limitsSub = null;
       },
     );
   }
@@ -127,8 +130,8 @@ class SubscriptionService {
   static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
   void _ensureListening(String uid) {
-    // Belgeyi okumak için oturum gerekir; ilk kullanıcı işleminde yüklenir.
-    _loadRemoteLimits();
+    // Belgeyi okumak için oturum gerekir; ilk kullanıcı işleminde dinlenir.
+    _listenRemoteLimits();
     _authSub ??= _auth.authStateChanges().listen((user) {
       if (user?.uid != _cachedUid) _stopListening();
     });

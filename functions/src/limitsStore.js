@@ -7,7 +7,7 @@ import { LIMITS } from './config.js';
  */
 export const LIMITS_DOC = 'config/limits';
 
-const CACHE_MS = 5 * 60 * 1000;
+const CACHE_MS = 60 * 1000;
 
 /**
  * Varsayılanların üzerine belgedeki geçerli değerleri (0 veya pozitif tam
@@ -29,16 +29,18 @@ export function mergeLimits(defaults, data) {
 }
 
 /**
- * Limitleri döndüren fonksiyon üretir. Sonuç birkaç dakika bellekte tutulur
+ * Limitleri döndüren fonksiyon üretir. Sonuç bir dakika bellekte tutulur
  * (her istekte Firestore okunmaz); Console'daki değişiklik en geç bu sürede
- * sunucuya yansır.
+ * sunucuya yansır. Süre dolunca eldeki değer hemen döner ve yenisi arka
+ * planda okunur: hiçbir istek limit okumasını beklemez (yalnızca sunucu
+ * örneğinin ilk isteği bekler).
  */
 export function createLimitsProvider(db, { now = () => Date.now(), logger = console } = {}) {
   let cached;
   let fetchedAt = 0;
+  let inFlight = null;
 
-  return async function getLimits() {
-    if (cached && now() - fetchedAt < CACHE_MS) return cached;
+  async function refresh() {
     try {
       const ref = db.doc(LIMITS_DOC);
       const snap = await ref.get();
@@ -52,8 +54,22 @@ export function createLimitsProvider(db, { now = () => Date.now(), logger = cons
     } catch (error) {
       logger.error('Limitler okunamadı, varsayılanlar kullanılıyor', error);
       cached ??= LIMITS;
+    } finally {
+      fetchedAt = now();
     }
-    fetchedAt = now();
+    return cached;
+  }
+
+  function startRefresh() {
+    inFlight ??= refresh().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  }
+
+  return async function getLimits() {
+    if (!cached) return startRefresh();
+    if (now() - fetchedAt >= CACHE_MS) startRefresh();
     return cached;
   };
 }
