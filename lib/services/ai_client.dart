@@ -3,13 +3,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 import 'ai_consent.dart';
 
-/// Gemini API'den dönen hata.
+/// Yapay zeka sunucusundan dönen hata.
 class AiException implements Exception {
   AiException(this.message, {this.statusCode, this.status});
 
@@ -21,23 +21,16 @@ class AiException implements Exception {
   String toString() => 'AiException($statusCode $status): $message';
 }
 
-/// Uygulamadaki tüm Gemini çağrılarının tek giriş noktası (doğrudan REST API).
+/// Uygulamadaki tüm yapay zeka çağrılarının tek giriş noktası.
+///
+/// İstekler doğrudan Gemini'ye değil, Firebase'deki `ai` sunucu işlevine
+/// gider: anahtar uygulamada değil sunucuda durur, her istek kullanıcının
+/// Firebase oturumuyla doğrulanır ve paket limitine göre sunucuda sayılır.
+/// Talimatlar (sohbet öğretmeni, hikaye kuralları) da sunucudadır.
 class AiClient {
   AiClient._();
 
-  static const String _baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
-
-  /// Sohbet: en hızlı model. Google'ın "en hızlı" olarak tanımladığı model ve
-  /// düşünmeyi "minimal"e indirebilen tek seçenek.
-  static const String chatModel = 'gemini-3.5-flash-lite';
-
-  /// Hikaye üretimi: sonuç havuza kaydedildiği için nadiren çalışır; kalite
-  /// için daha güçlü model.
-  static const String storyModel = 'gemini-3.7-flash';
-
-  /// Cevaptan önceki "düşünme" süresi gecikmenin en büyük kaynağı.
-  static const Map<String, Object?> chatThinking = {'thinkingLevel': 'MINIMAL'};
-  static const Map<String, Object?> storyThinking = {'thinkingLevel': 'LOW'};
+  static const String _baseUrl = 'https://europe-west1-ingilizce-destek-app.cloudfunctions.net/ai';
 
   /// Tüm isteklerin paylaştığı HTTP bağlantısı: her mesajda yeniden DNS + TCP +
   /// TLS kurulmaz. Mesajlar arasında kullanıcı yazarken bağlantı açık kalsın
@@ -46,84 +39,46 @@ class AiClient {
     HttpClient()..idleTimeout = const Duration(seconds: 90),
   );
 
-  static String get _apiKey {
-    final key = dotenv.env['GEMINI_API_KEY'];
-    if (key == null || key.isEmpty) {
-      throw AiException('GEMINI_API_KEY bulunamadı. Lütfen .env dosyasını kontrol edin.');
+  /// Kullanıcının oturum kimliği (Firebase ID token). Firebase bunu bir saat
+  /// önbellekte tutar ve süresi dolunca kendiliğinden yeniler.
+  static Future<Map<String, String>> _headers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw AiException('Giriş yapılmamış.', statusCode: 401, status: 'UNAUTHENTICATED');
     }
-    return key;
+    final token = await user.getIdToken();
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
   }
 
-  static Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': _apiKey,
-      };
+  /// Günlük hakların sıfırlandığı gün (uygulamadaki sayaçlarla aynı).
+  static String get _today => DateTime.now().toIso8601String().substring(0, 10);
 
-  // --- İçerik ve şema yardımcıları (Gemini REST formatı) ---
+  // --- Sohbet geçmişi öğeleri (sunucunun beklediği biçim) ---
 
-  static Map<String, Object?> userContent(String text) => {
-        'role': 'user',
-        'parts': [
-          {'text': text},
-        ],
-      };
+  static Map<String, Object?> userContent(String text) => {'role': 'user', 'text': text};
 
-  static Map<String, Object?> modelContent(String text) => {
-        'role': 'model',
-        'parts': [
-          {'text': text},
-        ],
-      };
+  static Map<String, Object?> modelContent(String text) => {'role': 'model', 'text': text};
 
-  static Map<String, Object?> stringSchema({String? description}) => {
-        'type': 'STRING',
-        'description': ?description,
-      };
-
-  static Map<String, Object?> integerSchema() => {'type': 'INTEGER'};
-
-  static Map<String, Object?> booleanSchema() => {'type': 'BOOLEAN'};
-
-  static Map<String, Object?> arraySchema(Map<String, Object?> items) => {
-        'type': 'ARRAY',
-        'items': items,
-      };
-
-  /// Tüm alanlar zorunlu; alanlar yazıldığı sırayla üretilir.
-  static Map<String, Object?> objectSchema(Map<String, Map<String, Object?>> properties) => {
-        'type': 'OBJECT',
-        'properties': properties,
-        'required': properties.keys.toList(),
-        'propertyOrdering': properties.keys.toList(),
-      };
-
-  // --- İstekler ---
-
-  static Map<String, Object?> _body(
-    List<Map<String, Object?>> contents,
-    Map<String, Object?>? generationConfig,
-    String? systemInstruction,
-  ) =>
+  @visibleForTesting
+  static Map<String, Object?> chatRequest({
+    required String mode,
+    required String level,
+    required List<Map<String, Object?>> history,
+    required String message,
+    required String date,
+  }) =>
       {
-        'contents': contents,
-        if (systemInstruction != null)
-          'systemInstruction': {
-            'parts': [
-              {'text': systemInstruction},
-            ],
-          },
-        'generationConfig': ?generationConfig,
-        'safetySettings': _safetySettings,
+        'mode': mode,
+        'level': level,
+        'history': history,
+        'message': message,
+        'date': date,
       };
 
-  /// Uygunsuz içerik (taciz, nefret, cinsel, tehlikeli) orta ve üzeri
-  /// olasılıkta engellenir; engellenen cevap `BLOCKED` olarak işlenir.
-  static const List<Map<String, String>> _safetySettings = [
-    {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-    {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-    {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-    {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-  ];
+  // --- Cevap okuma (sunucu Gemini'nin biçimini aynen iletir) ---
 
   static Never _throwApiError(int statusCode, String body) {
     try {
@@ -141,7 +96,8 @@ class AiClient {
   }
 
   /// Bir cevap parçasındaki metni döndürür ("düşünce" parçaları hariç).
-  static String _textOf(Map<String, dynamic> response) {
+  @visibleForTesting
+  static String textOf(Map<String, dynamic> response) {
     final blockReason = response['promptFeedback']?['blockReason'];
     if (blockReason != null) {
       throw AiException('İstek engellendi: $blockReason', status: 'BLOCKED');
@@ -159,21 +115,27 @@ class AiClient {
     return out.toString();
   }
 
-  /// Cevabı parça parça (akış) döndürür.
-  static Stream<String> streamText({
-    required String model,
-    required List<Map<String, Object?>> contents,
-    Map<String, Object?>? generationConfig,
-    String? systemInstruction,
+  // --- İstekler ---
+
+  /// Sohbet cevabını parça parça (akış) döndürür. [history]: [userContent] /
+  /// [modelContent] öğeleri.
+  static Stream<String> streamChat({
+    required String mode,
+    required String level,
+    required List<Map<String, Object?>> history,
+    required String message,
     Duration chunkTimeout = const Duration(seconds: 25),
   }) async* {
     AiConsent.check();
-    final request = http.Request(
-      'POST',
-      Uri.parse('$_baseUrl/$model:streamGenerateContent?alt=sse'),
-    )
-      ..headers.addAll(_headers)
-      ..body = jsonEncode(_body(contents, generationConfig, systemInstruction));
+    final request = http.Request('POST', Uri.parse('$_baseUrl/chat'))
+      ..headers.addAll(await _headers())
+      ..body = jsonEncode(chatRequest(
+        mode: mode,
+        level: level,
+        history: history,
+        message: message,
+        date: _today,
+      ));
 
     final response = await _http.send(request).timeout(chunkTimeout);
     if (response.statusCode != 200) {
@@ -195,37 +157,36 @@ class AiClient {
           status: error['status']?.toString(),
         );
       }
-      final text = _textOf(chunk);
+      final text = textOf(chunk);
       if (text.isNotEmpty) yield text;
     }
   }
 
-  /// Cevabın tamamını tek seferde döndürür.
-  static Future<String> generateText({
-    required String model,
-    required List<Map<String, Object?>> contents,
-    Map<String, Object?>? generationConfig,
-    String? systemInstruction,
-    Duration timeout = const Duration(seconds: 60),
+  /// Etkileşimli hikayenin JSON metnini döndürür.
+  static Future<String> generateStory({
+    required String genre,
+    required String level,
+    Duration timeout = const Duration(seconds: 90),
   }) async {
     AiConsent.check();
     final response = await _http
         .post(
-          Uri.parse('$_baseUrl/$model:generateContent'),
-          headers: _headers,
-          body: jsonEncode(_body(contents, generationConfig, systemInstruction)),
+          Uri.parse('$_baseUrl/story'),
+          headers: await _headers(),
+          body: jsonEncode({'genre': genre, 'level': level, 'date': _today}),
         )
         .timeout(timeout);
     final body = utf8.decode(response.bodyBytes);
     if (response.statusCode != 200) _throwApiError(response.statusCode, body);
-    return _textOf(jsonDecode(body) as Map<String, dynamic>);
+    return textOf(jsonDecode(body) as Map<String, dynamic>);
   }
 
   static DateTime? _lastWarmUp;
 
-  /// İlk mesajdan önce bağlantıyı (DNS + TCP + TLS) hazırlar. countTokens
-  /// ücretsiz ve hafif bir istektir; ilk mesaj hazır bağlantıdan gider.
-  static void warmUp(String model) {
+  /// Sunucuyu önceden uyandırır: sohbet/hikaye ekranı açılırken çağrılır.
+  /// Sunucu bir süre kullanılmayınca uyur; ilk mesaj gelene kadar uyanmış ve
+  /// bağlantı (DNS + TCP + TLS) hazır olur. Ücretsiz ve hafif bir istektir.
+  static void warmUp() {
     final now = DateTime.now();
     if (_lastWarmUp != null && now.difference(_lastWarmUp!) < const Duration(seconds: 60)) {
       return;
@@ -233,15 +194,7 @@ class AiClient {
     _lastWarmUp = now;
     unawaited(() async {
       try {
-        await _http
-            .post(
-              Uri.parse('$_baseUrl/$model:countTokens'),
-              headers: _headers,
-              body: jsonEncode({
-                'contents': [userContent('hi')],
-              }),
-            )
-            .timeout(const Duration(seconds: 10));
+        await _http.get(Uri.parse('$_baseUrl/ping')).timeout(const Duration(seconds: 15));
       } catch (e) {
         debugPrint("AI ısınma isteği başarısız: $e");
       }
@@ -285,6 +238,12 @@ class AiClient {
       return 'Bağlantı sorunu. İnternetinizi kontrol edip tekrar deneyin.';
     }
     if (error is AiException) {
+      if (error.status == 'LIMIT_REACHED') {
+        return 'Bugünkü hakkın doldu. Daha fazla hak için paketini yükseltebilirsin.';
+      }
+      if (error.statusCode == 401 || error.status == 'UNAUTHENTICATED') {
+        return 'Oturumun doğrulanamadı. Lütfen çıkış yapıp tekrar giriş yap.';
+      }
       if (error.statusCode == 429 || error.status == 'RESOURCE_EXHAUSTED') {
         return 'Yapay zeka şu an çok yoğun. Lütfen birkaç saniye sonra tekrar deneyin.';
       }

@@ -7,6 +7,7 @@ import '../services/subscription_service.dart';
 import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
+import '../services/ai_client.dart';
 import '../services/ai_consent.dart';
 import '../widgets/report_content_sheet.dart';
 
@@ -63,6 +64,8 @@ class _StoryScreenState extends State<StoryScreen> {
     _loadLimits();
     // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
     SubscriptionService.changes.addListener(_loadLimits);
+    // Kullanıcı tür/seviye seçerken yapay zeka sunucusu uyanır.
+    AiClient.warmUp();
   }
 
   Future<void> _loadLimits() async {
@@ -170,6 +173,10 @@ class _StoryScreenState extends State<StoryScreen> {
 
         if (e is AiConsentException) {
           errorMsg = "Bu özellik için Ayarlar'dan yapay zeka veri paylaşımına izin vermelisin.";
+        } else if (errorString.contains('limit_reached')) {
+          errorMsg = 'Bugünkü hikaye üretme hakkın doldu. Daha fazla hak için paketini yükseltebilirsin.';
+        } else if (errorString.contains('unauthenticated')) {
+          errorMsg = 'Oturumun doğrulanamadı. Lütfen çıkış yapıp tekrar giriş yap.';
         } else if (errorString.contains('socket') ||
             errorString.contains('host lookup') ||
             errorString.contains('network') ||

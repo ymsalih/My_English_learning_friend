@@ -614,7 +614,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
                 minLines: 1,
                 maxLines: 4,
+                // Sunucu en fazla 1000 karakterlik mesaj kabul eder.
+                maxLength: 1000,
                 decoration: InputDecoration(
+                  counterText: '',
                   hintText: "İngilizce bir şeyler yazın...",
                   contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                   border: OutlineInputBorder(

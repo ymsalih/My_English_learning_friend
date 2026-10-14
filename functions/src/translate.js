@@ -43,15 +43,23 @@ export function deeplUrl(key) {
  * - `POST /deepl`       — DeepL çevirisi (gövde DeepL'in biçiminde).
  * - `GET  /dictionary`  — Google sözlük anlamları (`sl`, `tl`, `word`).
  * - `GET  /image`       — Pexels kelime görseli (`word`).
+ * - `GET  /ping`        — bağlantıyı ısıtır (çeviri ekranı açılırken).
  * Cevaplar servislerin kendi biçiminde aynen iletilir. Her istek Firebase
  * oturumuyla doğrulanır; kullanıcı başına günlük istek tavanı vardır.
  */
-export function createTranslateHandler({ auth, db, fetchFn = fetch, deeplKey, pexelsKey, now = () => new Date(), logger = console }) {
+export function createTranslateHandler({
+  auth, db, getLimits, fetchFn = fetch, deeplKey, pexelsKey, now = () => new Date(), logger = console,
+}) {
   return async (req, res) => {
     try {
+      if (req.method === 'GET' && req.path === '/ping') {
+        await getLimits().catch(() => {});
+        res.status(204).end();
+        return;
+      }
       const user = await authenticate(req, auth);
       const day = resolveDay(req.method === 'GET' ? req.query?.date : req.body?.date, now());
-      const cap = translateCallCap(user.plan);
+      const cap = translateCallCap(user.plan, await getLimits());
 
       let request;
       if (req.method === 'POST' && req.path === '/deepl') {

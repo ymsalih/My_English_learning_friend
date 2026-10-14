@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { createAiHandler } from '../src/ai.js';
+import { createLimitsProvider } from '../src/limitsStore.js';
 import { CHAT_MODEL, LIMITS, STORY_MODEL } from '../src/config.js';
 import {
   fakeAuth, fakeDb, fakeFetch, fakeReq, fakeRes, jsonResponse, silentLogger, sseResponse,
@@ -16,7 +17,9 @@ const auth = fakeAuth({
 function handler(fetchFn, db = fakeDb()) {
   return {
     db,
-    run: createAiHandler({ auth, db, fetchFn, geminiKey: () => 'TEST_KEY', now: NOW, logger: silentLogger }),
+    run: createAiHandler({
+      auth, db, getLimits: createLimitsProvider(db, { logger: silentLogger }), fetchFn, geminiKey: () => 'TEST_KEY', now: NOW, logger: silentLogger,
+    }),
   };
 }
 

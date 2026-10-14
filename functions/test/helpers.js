@@ -1,11 +1,28 @@
 // Testler için sahte Firestore, Auth, istek/cevap ve yukarı akış nesneleri.
 
-export function fakeDb(initial = {}) {
+export function fakeDb(initial = {}, { failReads = false } = {}) {
   const docs = new Map(Object.entries(initial));
-  const ref = (collection, id) => ({ path: `${collection}/${id}` });
+  let reads = 0;
+  const ref = (path) => ({
+    path,
+    async get() {
+      reads++;
+      if (failReads) throw new Error('firestore unavailable');
+      const data = docs.get(path);
+      return { exists: data !== undefined, data: () => structuredClone(data) };
+    },
+    async create(data) {
+      if (docs.has(path)) throw new Error('already exists');
+      docs.set(path, structuredClone(data));
+    },
+  });
   return {
     docs,
-    collection: (name) => ({ doc: (id) => ref(name, id) }),
+    get reads() {
+      return reads;
+    },
+    doc: (path) => ref(path),
+    collection: (name) => ({ doc: (id) => ref(`${name}/${id}`) }),
     async runTransaction(fn) {
       const tx = {
         async get(r) {

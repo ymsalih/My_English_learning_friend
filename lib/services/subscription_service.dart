@@ -8,8 +8,11 @@ class SubscriptionService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Limits Definition
-  static const Map<String, Map<String, int>> limits = {
+  /// Varsayılan paket limitleri. Asıl değerler Firestore'daki `config/limits`
+  /// belgesinden gelir (Firebase Console'dan değiştirilebilir; uygulama
+  /// güncellemesi gerekmez). Belge okunamazsa bunlar geçerlidir. Sunucudaki
+  /// `functions/src/limits.json` ile aynı olmalı (test/limits_sync_test.dart).
+  static const Map<String, Map<String, int>> defaultLimits = {
     'basic': {
       'lifetimeWordsAdded': 50,
       'storyGenCount': 1,
@@ -43,6 +46,50 @@ class SubscriptionService {
       'testCount': 999999,
     },
   };
+
+  /// Geçerli limitler: açılışta varsayılanlar, `config/limits` okununca o.
+  static Map<String, Map<String, int>> limits = defaultLimits;
+
+  /// Varsayılanların üzerine belgedeki geçerli değerleri (0 veya pozitif tam
+  /// sayı) yazar; yanlış türdeki, negatif veya bilinmeyen alanlar yok sayılır.
+  /// Sunucudaki `mergeLimits` ile aynı kural.
+  @visibleForTesting
+  static Map<String, Map<String, int>> mergeLimits(
+    Map<String, Map<String, int>> defaults,
+    Map<String, dynamic>? data,
+  ) {
+    int pick(Object? value, int fallback) =>
+        value is num && value >= 0 && value == value.roundToDouble() ? value.toInt() : fallback;
+    return {
+      for (final plan in defaults.entries)
+        plan.key: {
+          for (final item in plan.value.entries)
+            item.key: pick(
+              (data?[plan.key] is Map) ? (data![plan.key] as Map)[item.key] : null,
+              item.value,
+            ),
+        },
+    };
+  }
+
+  static bool _remoteLimitsRequested = false;
+
+  /// `config/limits` belgesini oturum başına bir kez okur. Okunamazsa
+  /// varsayılanlar geçerli kalır ve sonraki fırsatta tekrar denenir.
+  void _loadRemoteLimits() {
+    if (_remoteLimitsRequested) return;
+    _remoteLimitsRequested = true;
+    _firestore.doc('config/limits').get().then(
+      (snap) {
+        limits = mergeLimits(defaultLimits, snap.data());
+        changes.value++;
+      },
+      onError: (Object e) {
+        _remoteLimitsRequested = false;
+        debugPrint("Limitler okunamadı, varsayılanlar kullanılıyor: $e");
+      },
+    );
+  }
 
   Future<DocumentReference?> _getUserDocRef() async {
     final user = _auth.currentUser;
@@ -80,6 +127,8 @@ class SubscriptionService {
   static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
   void _ensureListening(String uid) {
+    // Belgeyi okumak için oturum gerekir; ilk kullanıcı işleminde yüklenir.
+    _loadRemoteLimits();
     _authSub ??= _auth.authStateChanges().listen((user) {
       if (user?.uid != _cachedUid) _stopListening();
     });

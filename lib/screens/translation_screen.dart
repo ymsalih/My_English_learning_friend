@@ -17,6 +17,7 @@ import 'paywall_screen.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_widgets.dart';
 import '../services/ai_consent.dart';
+import '../services/translate_api.dart';
 
 // --- VERİ MODELLERİ ---
 class WordMeaningGroup {
@@ -138,7 +139,6 @@ class _TranslationScreenState extends State<TranslationScreen> {
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  final String _proxyUrl = "https://ceviri-api.vercel.app/api/proxy";
 
   @override
   void initState() {
@@ -147,6 +147,8 @@ class _TranslationScreenState extends State<TranslationScreen> {
     _loadLimits();
     // Plan veya kullanım değişince (ör. paket yükseltme) limitler canlı güncellenir.
     SubscriptionService.changes.addListener(_loadLimits);
+    // Kullanıcı yazarken çeviri sunucusu uyanır.
+    TranslateApi.warmUp();
   }
 
   Future<void> _loadLimits() async {
@@ -312,19 +314,14 @@ class _TranslationScreenState extends State<TranslationScreen> {
     String? sourceLang,
     String? targetLang,
   }) async {
-    final url = Uri.parse('$_proxyUrl?service=deepl');
     final sLang = sourceLang ?? (_isEnToTr ? 'EN' : 'TR');
     final tLang = targetLang ?? (_isEnToTr ? 'TR' : 'EN-US');
     try {
       AiConsent.check();
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'text': [text],
-          'source_lang': sLang,
-          'target_lang': tLang,
-        }),
+      final response = await TranslateApi.deepl(
+        text: text,
+        sourceLang: sLang,
+        targetLang: tLang,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -349,10 +346,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
     Map<String, List<String>> dictionaryResults = {};
     try {
       AiConsent.check();
-      final url = Uri.parse(
-        '$_proxyUrl?service=google&sl=en&tl=tr&word=${Uri.encodeComponent(word)}',
-      );
-      final response = await http.get(url);
+      final response = await TranslateApi.dictionary(word: word, sl: 'en', tl: 'tr');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -601,10 +595,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
           });
         }
       } else {
-        final url = Uri.parse(
-          '$_proxyUrl?service=google&sl=tr&tl=en&word=${Uri.encodeComponent(originalWord)}',
-        );
-        final response = await http.get(url);
+        final response = await TranslateApi.dictionary(word: originalWord, sl: 'tr', tl: 'en');
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -647,10 +638,7 @@ class _TranslationScreenState extends State<TranslationScreen> {
   Future<void> _fetchImage(String word) async {
     try {
       AiConsent.check();
-      final url = Uri.parse(
-        '$_proxyUrl?service=pexels&word=${Uri.encodeComponent(word)}',
-      );
-      final response = await http.get(url);
+      final response = await TranslateApi.image(word);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

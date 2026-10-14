@@ -3,9 +3,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 /**
- * Paket limitleri. Uygulamadaki `SubscriptionService.limits` ile birebir
- * aynı olmalı; Flutter tarafındaki `test/limits_sync_test.dart` iki tabloyu
- * karşılaştırır.
+ * Varsayılan paket limitleri (Firestore'daki `config/limits` belgesi yoksa
+ * veya okunamazsa). Uygulamadaki `SubscriptionService.defaultLimits` ile
+ * birebir aynı olmalı; `test/limits_sync_test.dart` iki tabloyu karşılaştırır.
  */
 export const LIMITS = require('./limits.json');
 
@@ -43,7 +43,7 @@ export const MAX_WORD_CHARS = 100;
 export const TRANSLATE_CALLS_PER_TRANSLATION = 15;
 export const MAX_TRANSLATE_CALLS_PER_DAY = 5000;
 
-export function translateCallCap(plan) {
-  const perDay = (LIMITS[plan] ?? LIMITS.basic).translateCount;
+export function translateCallCap(plan, limits = LIMITS) {
+  const perDay = (limits[plan] ?? limits.basic).translateCount;
   return Math.min(perDay * TRANSLATE_CALLS_PER_TRANSLATION, MAX_TRANSLATE_CALLS_PER_DAY);
 }

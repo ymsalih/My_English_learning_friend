@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { translateCallCap } from '../src/config.js';
+import { createLimitsProvider } from '../src/limitsStore.js';
 import { createTranslateHandler, deeplUrl } from '../src/translate.js';
 import {
   fakeAuth, fakeDb, fakeFetch, fakeReq, fakeRes, jsonResponse, silentLogger,
@@ -14,7 +15,7 @@ function handler(fetchFn, { db = fakeDb(), deeplKey = 'abc:fx' } = {}) {
   return {
     db,
     run: createTranslateHandler({
-      auth, db, fetchFn, deeplKey: () => deeplKey, pexelsKey: () => 'PEXELS', now: NOW, logger: silentLogger,
+      auth, db, getLimits: createLimitsProvider(db, { logger: silentLogger }), fetchFn, deeplKey: () => deeplKey, pexelsKey: () => 'PEXELS', now: NOW, logger: silentLogger,
     }),
   };
 }
@@ -112,4 +113,13 @@ test('bilinmeyen yol 404', async () => {
   const res = fakeRes();
   await run(fakeReq({ method: 'GET', token: 'free', path: '/nope' }), res);
   assert.equal(res.statusCode, 404);
+});
+
+test('ping giriş istemeden 204 döner, servis çağrılmaz', async () => {
+  const fetchFn = fakeFetch(() => assert.fail('çağrılmamalı'));
+  const { run } = handler(fetchFn);
+  const res = fakeRes();
+  await run(fakeReq({ method: 'GET', path: '/ping' }), res);
+  assert.equal(res.statusCode, 204);
+  assert.equal(fetchFn.calls.length, 0);
 });

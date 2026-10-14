@@ -3,7 +3,6 @@ import {
   CHAT_MODES,
   GEMINI_BASE_URL,
   LEVELS,
-  LIMITS,
   MAX_CHAT_MESSAGE_CHARS,
   MAX_HISTORY_ITEMS,
   MAX_HISTORY_TEXT_CHARS,
@@ -58,11 +57,16 @@ export function validateStoryRequest(body) {
  * - `POST /chat`  — sohbet cevabı; Gemini'nin akış (SSE) cevabını aynen iletir.
  * - `POST /story` — hikaye üretimi; Gemini'nin JSON cevabını aynen iletir.
  * Her istek Firebase oturumuyla doğrulanır ve paket limitine göre sayılır.
+ * Limitler [getLimits] ile Firestore'daki `config/limits` belgesinden gelir.
  */
-export function createAiHandler({ auth, db, fetchFn = fetch, geminiKey, now = () => new Date(), logger = console }) {
+export function createAiHandler({
+  auth, db, getLimits, fetchFn = fetch, geminiKey, now = () => new Date(), logger = console,
+}) {
   return async (req, res) => {
     try {
       if (req.method === 'GET' && req.path === '/ping') {
+        // Uyanırken limitleri de önbelleğe alır; ilk mesaj daha hızlı olur.
+        await getLimits().catch(() => {});
         res.status(204).end();
         return;
       }
@@ -70,7 +74,8 @@ export function createAiHandler({ auth, db, fetchFn = fetch, geminiKey, now = ()
 
       const user = await authenticate(req, auth);
       const day = resolveDay(req.body?.date, now());
-      const limits = LIMITS[user.plan] ?? LIMITS.basic;
+      const table = await getLimits();
+      const limits = table[user.plan] ?? table.basic;
 
       if (req.path === '/chat') {
         const input = validateChatRequest(req.body);
