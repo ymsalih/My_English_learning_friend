@@ -112,6 +112,7 @@ export function createAiHandler({
       throw error;
     }
     if (!upstream.ok) {
+      logger.warn(`ai /chat: Gemini ${upstream.status} döndü`);
       await refund(db, user.uid, 'chat', limit);
       await forwardJson(res, upstream);
       return;
@@ -145,7 +146,10 @@ export function createAiHandler({
       await refund(db, user.uid, 'storyGen', limit);
       throw error;
     }
-    if (!upstream.ok) await refund(db, user.uid, 'storyGen', limit);
+    if (!upstream.ok) {
+      logger.warn(`ai /story: Gemini ${upstream.status} döndü`);
+      await refund(db, user.uid, 'storyGen', limit);
+    }
     await forwardJson(res, upstream);
   }
 }

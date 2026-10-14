@@ -10,7 +10,6 @@ import { refund, reserve, resolveDay } from './usage.js';
 
 const SOURCE_LANGS = ['EN', 'TR'];
 const TARGET_LANGS = ['TR', 'EN', 'EN-US', 'EN-GB'];
-const DICTIONARY_LANGS = ['en', 'tr'];
 
 export function validateDeeplRequest(body) {
   const { text, source_lang: sourceLang, target_lang: targetLang } = body ?? {};
@@ -39,10 +38,12 @@ export function deeplUrl(key) {
 }
 
 /**
- * Çeviri işlevi (eski Vercel vekil sunucusunun yerine):
+ * Çeviri işlevi (eski Vercel vekil sunucusunun yerine; anahtar gerektiren
+ * servisler):
  * - `POST /deepl`       — DeepL çevirisi (gövde DeepL'in biçiminde).
- * - `GET  /dictionary`  — Google sözlük anlamları (`sl`, `tl`, `word`).
  * - `GET  /image`       — Pexels kelime görseli (`word`).
+ * (Google sözlük anlamları anahtarsızdır ve uygulamadan doğrudan alınır:
+ * Google bulut sunucularından gelen bu istekleri 429 ile reddediyor.)
  * - `GET  /ping`        — bağlantıyı ısıtır (çeviri ekranı açılırken).
  * Cevaplar servislerin kendi biçiminde aynen iletilir. Her istek Firebase
  * oturumuyla doğrulanır; kullanıcı başına günlük istek tavanı vardır.
@@ -70,15 +71,6 @@ export function createTranslateHandler({
           headers: { 'Content-Type': 'application/json', Authorization: `DeepL-Auth-Key ${key}` },
           body: JSON.stringify(body),
         });
-      } else if (req.method === 'GET' && req.path === '/dictionary') {
-        const { sl, tl } = req.query ?? {};
-        if (!DICTIONARY_LANGS.includes(sl) || !DICTIONARY_LANGS.includes(tl)) {
-          throw new HttpError(400, 'INVALID_ARGUMENT', 'Dil geçersiz.');
-        }
-        const word = validateWord(req.query?.word);
-        const url = 'https://translate.googleapis.com/translate_a/single?client=gtx'
-          + `&sl=${sl}&tl=${tl}&dt=t&dt=bd&q=${encodeURIComponent(word)}`;
-        request = () => fetchFn(url);
       } else if (req.method === 'GET' && req.path === '/image') {
         const word = validateWord(req.query?.word);
         const url = `https://api.pexels.com/v1/search?per_page=1&query=${encodeURIComponent(word)}`;
@@ -96,6 +88,10 @@ export function createTranslateHandler({
       } catch (error) {
         await refund(db, user.uid, 'translateCalls', cap);
         throw error;
+      }
+      if (!upstream.ok) {
+        // Teşhis için yalnızca servis ve durum kodu kaydedilir (anahtar değil).
+        logger.warn(`translate ${req.path}: servis ${upstream.status} döndü`);
       }
       await forwardJson(res, upstream);
     } catch (error) {

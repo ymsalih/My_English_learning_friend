@@ -33,7 +33,8 @@ export const ai = onRequest(
     auth: getAuth(),
     db,
     getLimits,
-    geminiKey: () => GEMINI_API_KEY.value(),
+    // trim: kopyalanırken anahtarın başına/sonuna karışan boşlukları temizler.
+    geminiKey: () => GEMINI_API_KEY.value().trim(),
     logger,
   }),
 );
@@ -44,8 +45,8 @@ export const translate = onRequest(
     auth: getAuth(),
     db,
     getLimits,
-    deeplKey: () => DEEPL_API_KEY.value(),
-    pexelsKey: () => PEXELS_API_KEY.value(),
+    deeplKey: () => DEEPL_API_KEY.value().trim(),
+    pexelsKey: () => PEXELS_API_KEY.value().trim(),
     logger,
   }),
 );

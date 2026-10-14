@@ -5,10 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-/// Akıllı Çeviri'nin sunucu bağlantısı (DeepL, sözlük anlamları, kelime
-/// görseli). İstekler Firebase'deki `translate` işlevine kullanıcının oturum
-/// kimliğiyle gider; anahtarlar sunucudadır. Cevaplar servislerin kendi
-/// biçimindedir (eski vekil sunucuyla aynı).
+/// Akıllı Çeviri'nin servis bağlantısı. DeepL ve kelime görseli Firebase'deki
+/// `translate` işlevine kullanıcının oturum kimliğiyle gider (anahtarlar
+/// sunucudadır). Sözlük anlamları anahtarsız ücretsiz Google uç noktasından
+/// doğrudan telefondan alınır. Cevaplar servislerin kendi biçimindedir.
 class TranslateApi {
   TranslateApi._();
 
@@ -43,16 +43,24 @@ class TranslateApi {
       );
 
   /// Google sözlük anlamları ([sl] → [tl], `en` / `tr`).
+  ///
+  /// Anahtar gerektirmeyen ücretsiz uç nokta; sunucudan değil doğrudan
+  /// telefondan çağrılır: Google, bulut sunucularından gelen bu istekleri
+  /// reddediyor (429), kullanıcıların kendi bağlantısından gelenleri değil.
+  /// Uygulamadaki diğer Google çevirileri (`translator` paketi) de böyle çalışır.
   static Future<http.Response> dictionary({
     required String word,
     required String sl,
     required String tl,
-  }) async =>
+  }) =>
       http.get(
-        Uri.parse('$_baseUrl/dictionary').replace(
-          queryParameters: {'sl': sl, 'tl': tl, 'word': word, 'date': _today},
-        ),
-        headers: await _headers(),
+        Uri.https('translate.googleapis.com', '/translate_a/single', {
+          'client': 'gtx',
+          'sl': sl,
+          'tl': tl,
+          'dt': ['t', 'bd'],
+          'q': word,
+        }),
       );
 
   /// Kelime görseli (Pexels arama sonucu).

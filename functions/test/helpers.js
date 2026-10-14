@@ -128,4 +128,4 @@ export function sseResponse(lines) {
   return new Response(stream, { status: 200, headers: { 'content-type': 'text/event-stream' } });
 }
 
-export const silentLogger = { error() {} };
+export const silentLogger = { error() {}, warn() {} };

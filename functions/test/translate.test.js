@@ -70,24 +70,6 @@ test('DeepL: geçersiz gövde 400 alır', async () => {
   }
 });
 
-test('sözlük: Google sözlük adresi kurulur, cevap aynen döner', async () => {
-  const fetchFn = fakeFetch(() => jsonResponse([[['elma', 'apple']], [['noun', ['elma']]]]));
-  const { run } = handler(fetchFn);
-  const res = fakeRes();
-  await run(fakeReq({ method: 'GET', token: 'free', path: '/dictionary', query: { sl: 'en', tl: 'tr', word: 'apple pie' } }), res);
-  assert.equal(res.statusCode, 200);
-  assert.equal(fetchFn.calls[0].url,
-    'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=tr&dt=t&dt=bd&q=apple%20pie');
-  assert.deepEqual(JSON.parse(res.body)[1], [['noun', ['elma']]]);
-});
-
-test('sözlük: geçersiz dil 400', async () => {
-  const { run } = handler(fakeFetch(() => assert.fail('çağrılmamalı')));
-  const res = fakeRes();
-  await run(fakeReq({ method: 'GET', token: 'free', path: '/dictionary', query: { sl: 'de', tl: 'tr', word: 'a' } }), res);
-  assert.equal(res.statusCode, 400);
-});
-
 test('görsel: Pexels anahtarı başlıkta gider', async () => {
   const fetchFn = fakeFetch(() => jsonResponse({ photos: [{ src: { medium: 'https://img' } }] }));
   const { run } = handler(fetchFn);
